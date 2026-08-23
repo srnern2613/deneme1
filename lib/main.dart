@@ -12,7 +12,8 @@ import 'dart:math';
 import 'database_helper.dart';
 import 'dictionary_screen.dart';
 import 'flashcards_screen.dart';
-import 'library_screen.dart'; // Kitaplık modülü bağlandı
+import 'library_screen.dart';
+import 'habit_tracker_screen.dart'; // Habit Tracker modülü bağlandı
 
 void main() {
   runApp(const MyApp());
@@ -109,10 +110,10 @@ class _RootScreenState extends State<RootScreen> {
       // 0) Ana Sayfa (Dashboard)
       DashboardScreen(key: _dashboardKey, onToggleTheme: widget.onToggleTheme),
 
-      // 1) Kitaplık: GERÇEK LibraryScreen bağlandı
+      // 1) Kitaplık
       const LibraryScreen(),
 
-      // 2) Flashcards: GERÇEK FlashcardsScreen
+      // 2) Flashcards
       const FlashcardsScreen(),
 
       // 3) Profil: Placeholder
@@ -411,7 +412,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         subtitle: 'Telifsiz ve eklenen kitaplar',
         icon: Icons.menu_book_rounded,
         color: colors.primary,
-        // Grid'den tıklandığında da doğrudan GERÇEK LibraryScreen açılır
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (context) => const LibraryScreen()),
         ),
@@ -431,12 +431,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         subtitle: 'Günlük tracker',
         icon: Icons.local_fire_department_rounded,
         color: colors.tertiary,
-        onTap: () => _openPlaceholder(
-          context,
-          title: 'Hobi & Okuma Takibi',
-          icon: Icons.local_fire_department_rounded,
-          description:
-              'Günlük okuma/hobi alışkanlıklarınızı işaretleyip\nseri (streak) takibi yapabileceğiniz ekran burada olacak.',
+        // GERÇEK HabitTrackerScreen bağlandı
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
         ),
       ),
       _QuickAccessItemData(
@@ -484,24 +481,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (!mounted) return;
     refreshFlashcardCount();
-  }
-
-  void _openPlaceholder(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required String description,
-  }) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => PlaceholderScreen(
-          title: title,
-          icon: icon,
-          description: description,
-          showAppBar: true,
-        ),
-      ),
-    );
   }
 }
 
