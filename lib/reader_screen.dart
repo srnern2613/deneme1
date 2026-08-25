@@ -1,12 +1,18 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
 // AÇIKLAMA: Apple Books & Kindle Seviyesi Akıllı E-Kitap Okuma Motoru
-// 
-// Temel Yetenekler:
-// 1. Dokunsal Geri Bildirim (Haptic Engine): Sayfa çevirmede ve kelimeye dokunmada mikro titreşimler.
-// 2. Optik Renk Paletleri: Göz yormayan Aydınlık, Sıcak Sepya ve Derin OLED Gece temaları.
-// 3. Immersive Focus Mode: Ekrana tek dokunuşla tüm barları gizleyip sadece kitaba odaklanma.
-// 4. Seans Takipçisi: Kitaptan çıkış anında okuma süresi ve kelime analizini hesaplayıp döndürme.
+//
+// MİMARİ VE ÇALIŞMA MANTIĞI:
+// 1. Sayfalama ve Gezinme: PageView widget'ı kullanılarak yatay sayfa geçişi sağlanır.
+//    Metin taşmalarını önlemek için sayfa içi hafif kaydırma (SingleChildScrollView)
+//    emniyet supabı olarak devrededir.
+// 2. Sayfa İlerlemesi Tespiti: Kullanıcının kitaba başladığı ilk sayfa (_initialStartPage)
+//    ile ayrıldığı son sayfa (_currentPage) karşılaştırılarak seansta okunan net sayfa
+//    sayısı hesaplanır ve ReadingSessionResult nesnesiyle geri döndürülür.
+// 3. Optik Renk Paletleri: Göz yorgunluğunu önleyen yumuşak Keten Beyazı, Doğal Sıcak
+//    Sepya ve Derin OLED Gece temaları arasında anlık geçiş imkanı sunar.
+// 4. Haptik Geri Bildirim: Sayfa çevirme, kelime seçme ve menü açma eylemlerinde
+//    cihaz donanımının titreşim motorunu (HapticFeedback) tetikler.
 // ============================================================================
 
 import 'dart:ui';
@@ -14,27 +20,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'book_model.dart';
 
-// Okuma esnasında seçilebilecek temalar
+// Okuma esnasında seçilebilecek görsel renk temaları
 enum ReaderTheme { light, sepia, dark }
 
-// Yazı tipi türleri (Kitap fontu veya Modern font)
+// Yazı tipi türleri (Klasik Serif Kitap Fontu veya Modern Sans-Serif Font)
 enum ReaderFont { serif, sans }
 
 // ----------------------------------------------------------------------------
 // SEANS SONUÇ MODELİ
-// Okuyucu ekranından çıkıldığında ana kitaplık ekranına aktarılacak istatistik paketi
+// Okuyucudan çıkış yapıldığında ana ekrandaki "Bugün Okunan" kartını ve
+// kitaplıktaki okuma karnesini beslemek üzere geriye fırlatılan veri paketidir.
 // ----------------------------------------------------------------------------
 class ReadingSessionResult {
-  final int durationSeconds;  // Kullanıcının bu seans boyunca okuduğu toplam süre (saniye)
-  final int wordsExamined;    // Sözlükten anlamına baktığı toplam kelime sayısı
-  final int wordsAdded;       // Kelime havuzuna / kartlarına eklediği kelime sayısı
-  final int lastPage;         // Okumayı bıraktığı son sayfa numarası
+  final int durationSeconds;  // Bu seans boyunca kitapta geçirilen toplam süre (saniye)
+  final int wordsExamined;    // Sözlük penceresi açılarak incelenen kelime sayısı
+  final int wordsAdded;       // Kelime kartlarına (Flashcards) eklenen kelime sayısı
+  final int lastPage;         // Kullanıcının okumayı bıraktığı son sayfa indeksi
+  final int pagesRead;        // Bu okuma seansında tamamlanan net sayfa adedi
 
   ReadingSessionResult({
     required this.durationSeconds,
     required this.wordsExamined,
     required this.wordsAdded,
     required this.lastPage,
+    required this.pagesRead,
   });
 }
 
@@ -53,31 +62,35 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
-  // Sayfa kaydırma kontrolcüsü ve kalınan sayfa indeksi
+  // Sayfalar arası geçişi denetleyen PageView kontrolcüsü
   late PageController _pageController;
+  
+  // Aktif sayfa ve oturumun başladığı ilk sayfa değişkenleri
   late int _currentPage;
+  late int _initialStartPage;
 
-  // Görünüm Durumları (Varsayılan olarak en çok tercih edilen Sepya + Serif başlar)
+  // Görünüm ve tipografi durumları (Varsayılan olarak sıcak sepya ve serif başlar)
   double _fontSize = 17.5;
   ReaderTheme _currentTheme = ReaderTheme.sepia;
   ReaderFont _currentFont = ReaderFont.serif;
   
-  // Arayüz Görünürlük Kontrolleri
-  bool _showControls = true;     // Üst ve alt barların ekranda olup olmadığı
-  bool _showSettings = false;     // Üstteki "Aa" ayar panelinin açık olup olmadığı
-  String? _selectedWord;         // O an dokunulan kelimenin vurgulanması için tutulan değişken
+  // Arayüz kontrol elemanlarının görünürlük bayrakları
+  bool _showControls = true;   // Üst ve alt barların ekranda olup olmadığı
+  bool _showSettings = false;   // "Aa" biçimlendirme panelinin açık olup olmadığı
+  String? _selectedWord;       // Dokunulan kelimenin vurgulanması için tutulan metin
 
-  // Seans İstatistik Sayıcıları
-  DateTime _sessionStartTime = DateTime.now(); // Okuma başladığı an kaydedilir
-  int _wordsExaminedCount = 0;                 // İncelenen kelime sayacı
-  int _wordsAddedCount = 0;                    // Kartlara eklenen kelime sayacı
+  // Seans ölçüm sayaçları
+  DateTime _sessionStartTime = DateTime.now(); // Okuma başladığı anda mühürlenen zaman
+  int _wordsExaminedCount = 0;                 // İncelenen kelimelerin toplam sayısı
+  int _wordsAddedCount = 0;                    // Kartlara eklenen kelimelerin toplam sayısı
 
   @override
   void initState() {
     super.initState();
     _sessionStartTime = DateTime.now();
-    // Kitabın son kalınan sayfasını yükle (Aralık dışına taşmayı clamp ile engelle)
+    // Kitabın son kalınan sayfasını güvenli aralıkta (clamp) başlatıyoruz
     _currentPage = widget.book.currentPage.clamp(0, widget.book.totalPages - 1);
+    _initialStartPage = _currentPage;
     _pageController = PageController(initialPage: _currentPage);
   }
 
@@ -88,53 +101,60 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   // --------------------------------------------------------------------------
-  // KİTAPTAN ÇIKIŞ VE SEANS PAKETLEME FONKSİYONU
-  // Geri tuşuna basıldığında süreyi hesaplar, haptik titreşim verir ve sonucu geri fırlatır.
+  // KİTAPTAN ÇIKIŞ VE SEANS VERİSİNİ PAKETLEME FONKSİYONU
+  // Geri butonuna basıldığında süreyi ve okunan net sayfayı hesaplayıp ana ekrana iletir.
   // --------------------------------------------------------------------------
   void _handleExit() {
-    HapticFeedback.lightImpact(); // Çıkış yapıldığında parmakta hafif bir dokunsal his
+    HapticFeedback.lightImpact(); // Çıkış esnasında hafif dokunsal onay
     final duration = DateTime.now().difference(_sessionStartTime);
     final totalSeconds = duration.inSeconds;
+
+    // Okunan net sayfa sayısını tespit ediyoruz:
+    // Eğer ileri doğru sayfa çevrildiyse fark alınır.
+    // Eğer aynı sayfada en az 20 saniye okuma yapıldıysa o sayfa da okundu (1) kabul edilir.
+    int pagesDelta = _currentPage - _initialStartPage;
+    int pagesRead = pagesDelta > 0 ? pagesDelta : (totalSeconds >= 20 ? 1 : 0);
 
     final result = ReadingSessionResult(
       durationSeconds: totalSeconds,
       wordsExamined: _wordsExaminedCount,
       wordsAdded: _wordsAddedCount,
       lastPage: _currentPage,
+      pagesRead: pagesRead,
     );
 
-    Navigator.pop(context, result); // Sonucu bir önceki sayfaya teslim et
+    Navigator.pop(context, result); // Seans paketini teslim ederek sayfayı kapat
   }
 
   // --------------------------------------------------------------------------
-  // OPTİK RENK VE TİPOGRAFİ HESAPLAYICILARI
+  // OPTİK RENK VE TİPOGRAFİ HESAPLAYICILARI (COLOR SCIENCE)
   // --------------------------------------------------------------------------
   
-  // Sayfanın ana arka plan rengi
+  // Kitap sayfasının ana arka plan rengi
   Color get _backgroundColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFFF4ECE0); // Sıcak e-kitap kağıdı tonu
+        return const Color(0xFFF4ECE0); // Göz dinlendirici sarımtırak kitap kağıdı
       case ReaderTheme.dark:
-        return const Color(0xFF141416); // Parlamayan mat OLED siyahı
+        return const Color(0xFF141416); // Parlama yapmayan mat OLED gece siyahı
       case ReaderTheme.light:
-        return const Color(0xFFFAF9F6); // Göz yormayan soft kırık beyaz
+        return const Color(0xFFFAF9F6); // Yumuşak kırık keten beyazı
     }
   }
 
-  // Metinlerin mürekkep rengi
+  // Metinlerin baskı mürekkebi rengi
   Color get _textColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
         return const Color(0xFF382E25); // Tok espresso kahvesi
       case ReaderTheme.dark:
-        return const Color(0xFFDCDCDA); // Kamaşma yapmayan mat gümüş ton
+        return const Color(0xFFDCDCDA); // Göz kamaştırmayan mat perlit grisi
       case ReaderTheme.light:
-        return const Color(0xFF212124); // Karbon gri
+        return const Color(0xFF212124); // Karbon gri tonu
     }
   }
 
-  // Üst menü ve açılır panellerin yükseltilmiş (surface) katman rengi
+  // Üst menü, alt çubuk ve açılır kutuların yükseltilmiş yüzey rengi
   Color get _surfacePanelColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
@@ -146,7 +166,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  // Panellerin kenarlık çizgisi rengi
+  // Panellerin ince sınır çizgisi rengi
   Color get _panelBorderColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
@@ -158,19 +178,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  // Vurgu ve buton rengi
+  // Vurgu ve odaklanma rengi
   Color get _accentColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFF9E6532); // Kehribar tonu
+        return const Color(0xFF9E6532); // Sıcak kehribar kahvesi
       case ReaderTheme.dark:
         return const Color(0xFFE5A93C); // Gece modunda parlayan altın sarısı
       case ReaderTheme.light:
-        return const Color(0xFF3B5998); // Klasik mavi
+        return const Color(0xFF3B5998); // Klasik kurşuni mavi
     }
   }
 
-  // Gece modunda kaybolmayan slider ray rengi
+  // Karanlık modda da kaybolmayan slider arka plan çizgisi rengi
   Color get _sliderInactiveColor {
     switch (_currentTheme) {
       case ReaderTheme.dark:
@@ -182,7 +202,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  // Metnin genel tipografi stili
+  // Kitap sayfasının satır aralığı ve font stili
   TextStyle get _readerTextStyle {
     return TextStyle(
       fontSize: _fontSize,
@@ -194,15 +214,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   // --------------------------------------------------------------------------
-  // SÖZLÜK VE KELİME KARTI POP-UP FONKSİYONU
-  // Bir kelimeye tıklandığında alttan açılan şık detay penceresi
+  // SÖZLÜK VE KELİME KARTI POP-UP MODÜLÜ
+  // Bir kelimeye tıklandığında açılan anlam ve kelime kartı ekleme penceresi
   // --------------------------------------------------------------------------
   void _showWordDetails(String word) {
-    // Kelimenin başındaki/sonundaki noktalama işaretlerini temizler
+    // Kelimenin etrafındaki noktalama işaretlerini temizliyoruz
     final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '');
     if (cleanWord.isEmpty) return;
 
-    // Dokunma anında haptik tıklama ver ve sayacı 1 artır
+    // Dokunma anında haptik tıklama ver ve inceleme sayacını artır
     HapticFeedback.lightImpact();
     setState(() {
       _selectedWord = cleanWord;
@@ -222,7 +242,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Üstteki tutma çizgisi (Handle)
+            // Üst tutamaç çizgisi
             Center(
               child: Container(
                 width: 38,
@@ -246,7 +266,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     color: _textColor,
                   ),
                 ),
-                // Sesli Telaffuz Butonu
+                // Sesli Telaffuz Butonu (TTS Hazırlığı)
                 IconButton.filledTonal(
                   style: IconButton.styleFrom(
                     backgroundColor: _textColor.withValues(alpha: 0.08),
@@ -267,7 +287,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
             const SizedBox(height: 22),
-            // Kelime Kartlarına Ekleme Butonu
+            // Kelime Kartına Ekleme Butonu
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -278,8 +298,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () {
-                  // Başarılı ekleme haptik onayı
-                  HapticFeedback.mediumImpact();
+                  HapticFeedback.mediumImpact(); // Başarılı ekleme haptik onayı
                   setState(() => _wordsAddedCount++);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -298,25 +317,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ),
       ),
     ).whenComplete(() {
-      // Pop-up kapandığında kelimedeki seçili arka plan rengini sıfırla
+      // Pencere kapandığında kelime üzerindeki sarı seçim vurgusunu kaldırıyoruz
       setState(() => _selectedWord = null);
     });
   }
 
   // --------------------------------------------------------------------------
-  // METİN AYRIŞTIRMA VE AKICI PARAGRAF DÜZENLEYİCİSİ
-  // PDF'lerdeki yapay satır sonu (\n) bozulmalarını temizleyip akıcı paragraflar kurar.
+  // AKILLI PARAGRAF VE METİN BİRLEŞTİRME ALGORİTMASI
+  // PDF dosyalarındaki yapay satır sonlarını (\n) temizleyip akıcı paragraflar üretir.
   // --------------------------------------------------------------------------
   String _normalizePdfText(String rawText) {
     String text = rawText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    // Çift satır sonlarını gerçek paragraf olarak işaretle
     text = text.replaceAll(RegExp(r'\n\s*\n+'), '{{PARAGRAPH}}');
+    // Satır içi yapay tek satır sonlarını boşluğa çevir
     text = text.replaceAll('\n', ' ');
+    // Çoklu boşlukları teke indir
     text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
+    // Paragrafları geri yükle
     text = text.replaceAll('{{PARAGRAPH}}', '\n\n');
     return text.trim();
   }
 
-  // Metindeki tüm kelimeleri tek tek tıklanabilir WidgetSpan öğelerine böler
+  // Sayfadaki tüm kelimeleri tek tek dokunulabilir WidgetSpan elemanlarına dönüştürür
   List<InlineSpan> _buildInteractiveSpans(String text) {
     final cleanText = _normalizePdfText(text);
     final paragraphs = cleanText.split('\n\n');
@@ -342,7 +365,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
-                  // Kelimeye dokunulduğunda hafifçe arkasını aydınlat
+                  // Dokunulan kelimenin arkasını hafifçe renklendir
                   color: isSelected ? _accentColor.withValues(alpha: 0.25) : Colors.transparent,
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -361,7 +384,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   // --------------------------------------------------------------------------
-  // ÜSTTEN AÇILAN GÖRÜNÜM VE TEMA AYARLARI PANELİ ("Aa")
+  // ÜSTTEN AÇILAN GÖRÜNÜM VE TEMA AYAR KUTUSU ("Aa")
   // --------------------------------------------------------------------------
   Widget _buildSettingsSheet() {
     return Container(
@@ -384,7 +407,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 1. Satır: Yazı Boyutu Ayar Kaydırıcısı
+          // 1. Satır: Yazı Boyutu Kademeli Kaydırıcısı
           Row(
             children: [
               Text('A', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _textColor)),
@@ -419,7 +442,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          // 2. Satır: Renk Temaları ve Yazı Tipi Seçici
+          // 2. Satır: Renk Temaları ve Font Tipi
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -453,7 +476,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  // Renk Teması Seçim Hapı
   Widget _buildColorPill(ReaderTheme theme, Color bg, String label) {
     final isSelected = _currentTheme == theme;
     return GestureDetector(
@@ -492,7 +514,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  // Yazı Tipi Seçim Sekmesi
   Widget _buildFontTab(String label, ReaderFont font) {
     final isSelected = _currentFont == font;
     return GestureDetector(
@@ -523,21 +544,21 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false, // Fiziksel geri tuşuna basıldığında doğrudan çıkışı engeller
+      canPop: false, // Donanımsal geri tuşunu yakalayıp seans verisiyle çıkışı tetikler
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        _handleExit(); // Güvenli şekilde seans verisiyle çıkış yap
+        _handleExit();
       },
       child: Scaffold(
         backgroundColor: _backgroundColor,
         body: Stack(
           children: [
             // ----------------------------------------------------------------
-            // 1. KATMAN: Sayfa Okuma Alanı & Immersive Dokunma Dinleyicisi
+            // 1. KATMAN: Kitap Sayfası ve Immersive Mod Dokunma Alanı
             // ----------------------------------------------------------------
             GestureDetector(
               onTap: () {
-                // Ekrana dokunulduğunda barları gizle veya göster
+                // Ekrana dokunulduğunda barları aç veya kapat
                 HapticFeedback.selectionClick();
                 setState(() {
                   _showControls = !_showControls;
@@ -549,7 +570,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 controller: _pageController,
                 itemCount: widget.book.totalPages,
                 onPageChanged: (pageIndex) {
-                  // Sayfa her çevrildiğinde minik bir tıklama hissi ver
+                  // Sayfa çevrilme haptik efekti
                   HapticFeedback.selectionClick();
                   setState(() {
                     _currentPage = pageIndex;
@@ -579,7 +600,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ),
 
             // ----------------------------------------------------------------
-            // 2. KATMAN: Üst Bar ve "Aa" Ayarları (Animasyonlu Açılır / Kapanır)
+            // 2. KATMAN: Üst Bar ve "Aa" Ayarları (Animasyonlu Açılır / Gizlenir)
             // ----------------------------------------------------------------
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
@@ -618,7 +639,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _textColor),
                           ),
                         ),
-                        // "Aa" Ayar Butonu
                         IconButton(
                           icon: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -653,7 +673,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ),
 
             // ----------------------------------------------------------------
-            // 3. KATMAN: Alt Sayfa Numarası ve Hızlı Atlama Çubuğu (Scrubber)
+            // 3. KATMAN: Alt İlerleme ve Hızlı Sayfa Atlama Barı (Scrubber)
             // ----------------------------------------------------------------
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),

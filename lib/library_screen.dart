@@ -1,11 +1,14 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
 // AÇIKLAMA: Ana Kitaplık, PDF Yükleyici ve Okuma İstatistik Merkezi (Dashboard)
-// 
-// Temel Yetenekler:
-// 1. Okuma Karnesi: 🔥 Streak, toplam süre, incelenen ve kartlara eklenen kelimeler.
-// 2. Akıllı PDF Ayrıştırma: Yüklenen dokümanı sayfa sayfa böler ve telefona kalıcı yazar.
-// 3. İlerleme Takibi: Her kitabın altında son okunma tarihi ve tamamlanma barı sunar.
+//
+// MİMARİ VE ÇALIŞMA MANTIĞI:
+// 1. Dinamik Seans Kaydı: Okuyucu ekranı kapandığında dönen ReadingSessionResult
+//    içeriği alınır; bugünün tarihine ait günlük sayfa ve dakika sayaçları güncellenir.
+// 2. Günlük Seri (Streak) Motoru: Kullanıcının son giriş yaptığı gün ile bugünü
+//    kıyaslayarak seri devamlılığını hesaplar ve 🔥 rozetinde gösterir.
+// 3. Dosya Ayrıştırıcı: TXT ve PDF dosyalarını bloklara/sayfalara ayırarak doğrudan
+//    uygulama içi taranabilir kitap nesnelerine dönüştürür.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -27,7 +30,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<Book> _books = [];
   bool _isLoading = false;
 
-  // Dashboard İstatistik Değişkenleri
+  // İstatistik Merkezi (Dashboard) Değişkenleri
   int _streakDays = 1;
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
@@ -39,8 +42,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _loadAllData();
   }
 
+  // Bugünün tarihini standart YYYY-MM-DD formatında anahtar olarak üretir
+  String _getTodayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
   // --------------------------------------------------------------------------
-  // TÜM VERİLERİ (İSTATİSTİKLER VE KİTAPLAR) CİHAZ HAFIZASINDAN ÇEKME
+  // CİHAZ HAFIZASINDAN TÜM KİTAP VE İSTATİSTİK VERİLERİNİ YÜKLEME
   // --------------------------------------------------------------------------
   Future<void> _loadAllData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -53,7 +62,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _streakDays = _calculateStreak(prefs.getString('stats_last_active_date'));
     });
 
-    // 2. Kayıtlı Kitapları Yükle (Yoksa başlangıç klasiklerini ekle)
+    // 2. Kayıtlı Kitapları Yükle (Yoksa varsayılan klasikleri oluştur)
     final bookDataList = prefs.getStringList('saved_books');
     if (bookDataList != null && bookDataList.isNotEmpty) {
       setState(() {
@@ -94,7 +103,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   // --------------------------------------------------------------------------
-  // GÜNLÜK SERİ (STREAK) HESAPLAMA MANTIĞI
+  // GÜNLÜK SERİ (STREAK) DOĞRULAMA VE HESAPLAMA MANTIĞI
   // --------------------------------------------------------------------------
   int _calculateStreak(String? lastActiveStr) {
     if (lastActiveStr == null) return 1;
@@ -106,19 +115,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
         .difference(DateTime(lastActive.year, lastActive.month, lastActive.day))
         .inDays;
 
-    if (difference == 0) return _streakDays; // Bugün zaten giriş yapılmış
-    if (difference == 1) return _streakDays + 1; // Dün girilmiş, bugün de girildi: seri arttı
-    return 1; // 1 günden fazla ara verildi, seri sıfırlandı
+    if (difference == 0) return _streakDays;     // Bugün zaten okuma yapılmış
+    if (difference == 1) return _streakDays + 1; // Dün de okunmuştu, seri 1 arttı
+    return 1; // 1 günden fazla ara verildi, seri baştan başladı
   }
 
-  // Kitap listesini cihaza kalıcı JSON dizisi olarak kaydeder
+  // Kitap listesini SharedPreferences hafızasına yazar
   Future<void> _saveBooksToStorage() async {
     final prefs = await SharedPreferences.getInstance();
     final List<String> bookDataList = _books.map((b) => b.toJson()).toList();
     await prefs.setStringList('saved_books', bookDataList);
   }
 
-  // Dashboard istatistiklerini cihaza kalıcı yazar
+  // Dashboard toplam istatistiklerini SharedPreferences hafızasına yazar
   Future<void> _saveStatsToStorage() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('stats_total_read_minutes', _totalReadMinutes);
@@ -128,7 +137,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   // --------------------------------------------------------------------------
-  // DOSYA SEÇİCİ VE PDF AYRIŞTIRICI FONKSİYON
+  // HARİCİ DOSYA SEÇİCİ VE PDF AYRIŞTIRICI
   // --------------------------------------------------------------------------
   Future<void> _pickAndProcessFile() async {
     try {
@@ -155,7 +164,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
         final PdfDocument document = PdfDocument(inputBytes: bytes);
         final PdfTextExtractor extractor = PdfTextExtractor(document);
 
-        // PDF sayfalarını tek tek ayıklayıp diziye ekler
         for (int i = 0; i < document.pages.count; i++) {
           final pageText = extractor.extractText(startPageIndex: i, endPageIndex: i);
           if (pageText.trim().isNotEmpty) {
@@ -180,7 +188,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       );
 
       setState(() {
-        _books.insert(0, newBook); // Yeni kitabı en başa ekle
+        _books.insert(0, newBook);
         _isLoading = false;
       });
 
@@ -198,12 +206,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   // --------------------------------------------------------------------------
-  // OKUMA EKRANINI AÇMA VE SEANS VERİSİNİ KARŞILAMA
+  // OKUMA EKRANINI AÇMA VE SEANS ÇIKTISINI GÜNLÜK ANALİZE İŞLEME
   // --------------------------------------------------------------------------
   Future<void> _openReader(Book book) async {
     HapticFeedback.selectionClick();
     
-    // Okuma ekranına git ve kullanıcı geri çıktığında dönen `ReadingSessionResult` verisini bekle
+    // Okuma ekranını aç ve kullanıcının döndüreceği seans sonucunu bekle
     final result = await Navigator.push<ReadingSessionResult>(
       context,
       MaterialPageRoute(
@@ -218,10 +226,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
       ),
     );
 
-    // Seans tamamlandıysa dönen süre ve kelime sayılarını doğrudan istatistiklere ekle
+    // Okuma tamamlanıp sonuç döndüyse ana sayfayı ve veritabanını güncelle
     if (result != null) {
       final addedMinutes = (result.durationSeconds / 60).ceil();
+      final addedPages = result.pagesRead;
+      final todayKey = _getTodayKey();
+
+      final prefs = await SharedPreferences.getInstance();
       
+      // Bugünün özel günlük sayfa ve dakika anahtarlarını hafızadan alıp üstüne ekliyoruz
+      int currentDailyPages = prefs.getInt('daily_pages_$todayKey') ?? 0;
+      int currentDailyMinutes = prefs.getInt('daily_minutes_$todayKey') ?? 0;
+
+      await prefs.setInt('daily_pages_$todayKey', currentDailyPages + addedPages);
+      await prefs.setInt('daily_minutes_$todayKey', currentDailyMinutes + (addedMinutes > 0 ? addedMinutes : 1));
+
       setState(() {
         book.currentPage = result.lastPage;
         book.lastReadDate = DateTime.now();
@@ -237,7 +256,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
       if (!mounted) return;
       
-      // Seans başarı kartı
+      // Mikro Başarı Bildirimi
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
@@ -278,7 +297,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
   }
 
-  // Son okunma zamanını kullanıcı dostu metne dönüştürür (Örn: "Dün", "15 dk önce")
+  // Tarihi anlaşılır göreceli metne çevirir (Örn: "Dün", "10 dk önce")
   String _formatLastRead(DateTime? date) {
     if (date == null) return 'Henüz okunmadı';
     final diff = DateTime.now().difference(date);
@@ -327,7 +346,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   ),
                 ],
               ),
-              // Günlük Seri (Streak Rozeti)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -348,7 +366,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // 3'lü İstatistik Metrik Kartları
           Row(
             children: [
               _buildStatMetric(
@@ -378,7 +395,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  // Tekil İstatistik Kart Parçası
   Widget _buildStatMetric({
     required IconData icon,
     required String label,
@@ -442,11 +458,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            // 1. Alan: Okuma Karnesi
             _buildReadingDashboard(colors),
             
             const SizedBox(height: 16),
-            // 2. Alan: Dosya Yükleme Butonu
             InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: _isLoading ? null : _pickAndProcessFile,
@@ -489,7 +503,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
             const SizedBox(height: 10),
             
-            // 3. Alan: Detaylı Kitap Listesi
             Expanded(
               child: ListView.separated(
                 itemCount: _books.length,
@@ -508,7 +521,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       padding: const EdgeInsets.all(14.0),
                       child: Row(
                         children: [
-                          // Kitap Simgesi
                           Container(
                             width: 52,
                             height: 68,
@@ -520,7 +532,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             child: Text(book.icon, style: const TextStyle(fontSize: 26)),
                           ),
                           const SizedBox(width: 14),
-                          // Kitap Bilgileri ve İlerleme
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -551,7 +562,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          // Oku / Devam Et Butonu
                           FilledButton.tonal(
                             style: FilledButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

@@ -1,19 +1,25 @@
-// ==============================================================
-// main.dart
-// --------------------------------------------------------------
-// KİŞİSEL GELİŞİM / E-KİTAP OKUYUCU / SÖZLÜK / ALIŞKANLIK TAKİP
-// UYGULAMASI - ANA SAYFA (HOME) + GERÇEK MODÜL ENTEGRASYONU
-// ==============================================================
+// ============================================================================
+// DOSYA ADI: lib/main.dart
+// AÇIKLAMA: Uygulama Giriş Noktası, Tema Yönetimi ve Ana Dashboard Ekranı
+//
+// MİMARİ VE ÇALIŞMA MANTIĞI:
+// 1. Canlı Dashboard İstatistikleri: `refreshReadingStats()` fonksiyonu, SharedPreferences
+//    üzerindeki bugüne ait okunan sayfa ve dakikayı çekip "Bugün Okunan" kartında gösterir.
+// 2. Sekmeler Arası Senkronizasyon: RootScreen üzerindeki IndexedStack mimarisinde
+//    kullanıcı diğer sekmelerden (örneğin Kitaplık) Ana Sayfa'ya döndüğünde
+//    GlobalKey aracılığıyla Dashboard verilerini anında yeniler.
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// PROJEDEKİ MODÜLLER
+// PROJEDEKİ DİĞER MODÜLLER
 import 'database_helper.dart';
 import 'dictionary_screen.dart';
 import 'flashcards_screen.dart';
 import 'library_screen.dart';
-import 'habit_tracker_screen.dart'; // Habit Tracker modülü bağlandı
+import 'habit_tracker_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,6 +35,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
 
+  // Açık / Koyu tema geçişini tetikleyen fonksiyon
   void _toggleTheme() {
     setState(() {
       _themeMode =
@@ -87,6 +94,9 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
+// ----------------------------------------------------------------------------
+// ROOT SCREEN: Alt Navigasyon Barı ve Sekme Yöneticisi
+// ----------------------------------------------------------------------------
 class RootScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
 
@@ -98,6 +108,8 @@ class RootScreen extends StatefulWidget {
 
 class _RootScreenState extends State<RootScreen> {
   int _currentIndex = 0;
+  
+  // DashboardState içindeki yenileme fonksiyonlarına erişmek için GlobalKey
   final GlobalKey<_DashboardScreenState> _dashboardKey =
       GlobalKey<_DashboardScreenState>();
 
@@ -110,13 +122,13 @@ class _RootScreenState extends State<RootScreen> {
       // 0) Ana Sayfa (Dashboard)
       DashboardScreen(key: _dashboardKey, onToggleTheme: widget.onToggleTheme),
 
-      // 1) Kitaplık
+      // 1) Kitaplık Modülü
       const LibraryScreen(),
 
-      // 2) Flashcards
+      // 2) Kelime Kartları (Flashcards) Modülü
       const FlashcardsScreen(),
 
-      // 3) Profil: Placeholder
+      // 3) Profil Sekmesi
       const PlaceholderScreen(
         title: 'Profil',
         icon: Icons.person_rounded,
@@ -130,8 +142,10 @@ class _RootScreenState extends State<RootScreen> {
       _currentIndex = index;
     });
 
+    // Kullanıcı Ana Sayfa sekmesine her bastığında verileri hafızadan yeniden okut
     if (index == 0) {
       _dashboardKey.currentState?.refreshFlashcardCount();
+      _dashboardKey.currentState?.refreshReadingStats();
     }
   }
 
@@ -173,6 +187,9 @@ class _RootScreenState extends State<RootScreen> {
   }
 }
 
+// ----------------------------------------------------------------------------
+// DASHBOARD SCREEN: Ana Sayfa Gösterge Paneli
+// ----------------------------------------------------------------------------
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
 
@@ -194,14 +211,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   late int _quoteIndex;
+  
+  // Flashcard istatistikleri
   int _flashcardCount = 0;
   bool _isLoadingCards = true;
+
+  // Bugün okunan sayfa ve dakika sayaçları
+  int _todayPages = 0;
+  int _todayMinutes = 0;
+  bool _isLoadingStats = true;
 
   @override
   void initState() {
     super.initState();
     _quoteIndex = Random().nextInt(_quotes.length);
     refreshFlashcardCount();
+    refreshReadingStats();
   }
 
   void _refreshQuote() {
@@ -210,6 +235,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  String _getTodayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  // --------------------------------------------------------------------------
+  // BUGÜNÜN OKUMA İSTATİSTİKLERİNİ HAFIZADAN ÇEKİP GÜNCELLEYEN METOT
+  // --------------------------------------------------------------------------
+  Future<void> refreshReadingStats() async {
+    setState(() => _isLoadingStats = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayKey = _getTodayKey();
+
+      final pages = prefs.getInt('daily_pages_$todayKey') ?? 0;
+      final minutes = prefs.getInt('daily_minutes_$todayKey') ?? 0;
+
+      if (!mounted) return;
+      setState(() {
+        _todayPages = pages;
+        _todayMinutes = minutes;
+        _isLoadingStats = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingStats = false);
+    }
+  }
+
+  // SQLite veritabanındaki toplam aktif kart sayısını sorgulayan metot
   Future<void> refreshFlashcardCount() async {
     setState(() {
       _isLoadingCards = true;
@@ -371,6 +426,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // --------------------------------------------------------------------------
+  // CANLI İSTATİSTİK KARTLARI SATIRI (BUGÜN OKUNAN + FLASHCARD SAYISI)
+  // --------------------------------------------------------------------------
   Widget _buildStatsRow(ColorScheme colors, TextTheme textStyles) {
     return Row(
       children: [
@@ -380,9 +438,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             iconColor: colors.primary,
             iconBackground: colors.primaryContainer,
             title: 'Bugün Okunan',
-            value: '24 sayfa',
-            subtitle: '≈ 35 dakika',
-            isLoading: false,
+            value: '$_todayPages sayfa',
+            subtitle: '≈ $_todayMinutes dakika',
+            isLoading: _isLoadingStats,
           ),
         ),
         const SizedBox(width: 14),
@@ -412,9 +470,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         subtitle: 'Telifsiz ve eklenen kitaplar',
         icon: Icons.menu_book_rounded,
         color: colors.primary,
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const LibraryScreen()),
-        ),
+        onTap: () async {
+          // Kitaplığa git, kitap okuyup dönüldüğünde ana sayfa sayaçlarını tazele
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const LibraryScreen()),
+          );
+          if (!mounted) return;
+          refreshReadingStats();
+        },
       ),
       _QuickAccessItemData(
         title: 'Kelime Kartları',
@@ -431,7 +494,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         subtitle: 'Günlük tracker',
         icon: Icons.local_fire_department_rounded,
         color: colors.tertiary,
-        // GERÇEK HabitTrackerScreen bağlandı
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
         ),
@@ -471,6 +533,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // Modüllerden geri dönüldüğünde dashboard'u tazeleyen yardımcı metot
   Future<void> _openRealScreenAndRefresh(
     BuildContext context,
     Widget screen,
@@ -481,6 +544,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (!mounted) return;
     refreshFlashcardCount();
+    refreshReadingStats();
   }
 }
 
