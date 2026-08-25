@@ -1,12 +1,19 @@
-// ==============================================================
-// library_screen.dart
-// --------------------------------------------------------------
-// İNGİLİZCE KİTAPLIK VE DIŞARIDAN DOSYA YÜKLEME MODÜLÜ
-// ==============================================================
+// ============================================================================
+// DOSYA ADI: lib/library_screen.dart
+// AÇIKLAMA: Ana Kitaplık, PDF Yükleyici ve Okuma İstatistik Merkezi (Dashboard)
+// 
+// Temel Yetenekler:
+// 1. Okuma Karnesi: 🔥 Streak, toplam süre, incelenen ve kartlara eklenen kelimeler.
+// 2. Akıllı PDF Ayrıştırma: Yüklenen dokümanı sayfa sayfa böler ve telefona kalıcı yazar.
+// 3. İlerleme Takibi: Her kitabın altında son okunma tarihi ve tamamlanma barı sunar.
+// ============================================================================
 
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'book_model.dart';
 import 'reader_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -17,75 +24,396 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  final List<Map<String, String>> _books = [
-    {
-      'title': "Alice's Adventures in Wonderland",
-      'author': 'Lewis Carroll',
-      'level': 'Başlangıç / B1',
-      'icon': '🐇',
-      'content':
-          'Alice was beginning to get very tired of sitting by her sister on the bank, '
-          'and of having nothing to do. Once or twice she had peeped into the book her sister was reading, '
-          'but it had no pictures or conversations in it, and what is the use of a book, '
-          'thought Alice without pictures or conversations? '
-          'So she was considering in her own mind, whether the pleasure of making a daisy-chain '
-          'would be worth the trouble of getting up and picking the daisies, when suddenly '
-          'a White Rabbit with pink eyes ran close by her.',
-    },
-    {
-      'title': 'The Adventures of Sherlock Holmes',
-      'author': 'Arthur Conan Doyle',
-      'level': 'Orta Seviye / B2',
-      'icon': '🕵️',
-      'content':
-          'To Sherlock Holmes she is always the woman. I have seldom heard him mention her under any other name. '
-          'In his eyes she eclipses and predominates the whole of her sex. '
-          'It was not that he felt any emotion akin to love for Irene Adler. '
-          'All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind. '
-          'He was, I take it, the most perfect reasoning and observing machine that the world has seen.',
-    },
-  ];
+  List<Book> _books = [];
+  bool _isLoading = false;
 
-  Future<void> _pickAndOpenFile() async {
+  // Dashboard İstatistik Değişkenleri
+  int _streakDays = 1;
+  int _totalReadMinutes = 0;
+  int _totalWordsExamined = 0;
+  int _totalWordsSaved = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAllData();
+  }
+
+  // --------------------------------------------------------------------------
+  // TÜM VERİLERİ (İSTATİSTİKLER VE KİTAPLAR) CİHAZ HAFIZASINDAN ÇEKME
+  // --------------------------------------------------------------------------
+  Future<void> _loadAllData() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Genel İstatistikleri Yükle
+    setState(() {
+      _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
+      _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
+      _totalWordsSaved = prefs.getInt('stats_total_words_saved') ?? 0;
+      _streakDays = _calculateStreak(prefs.getString('stats_last_active_date'));
+    });
+
+    // 2. Kayıtlı Kitapları Yükle (Yoksa başlangıç klasiklerini ekle)
+    final bookDataList = prefs.getStringList('saved_books');
+    if (bookDataList != null && bookDataList.isNotEmpty) {
+      setState(() {
+        _books = bookDataList.map((str) => Book.fromJson(str)).toList();
+      });
+    } else {
+      final defaultBooks = [
+        Book(
+          id: '1',
+          title: "Alice's Adventures in Wonderland",
+          author: 'Lewis Carroll',
+          level: 'Başlangıç / B1',
+          icon: '🐇',
+          lastReadDate: DateTime.now().subtract(const Duration(hours: 2)),
+          totalReadSeconds: 420,
+          pages: [
+            'Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do. Once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it.',
+            'So she was considering in her own mind, whether the pleasure of making a daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her.',
+          ],
+        ),
+        Book(
+          id: '2',
+          title: 'The Adventures of Sherlock Holmes',
+          author: 'Arthur Conan Doyle',
+          level: 'Orta Seviye / B2',
+          icon: '🕵️',
+          lastReadDate: DateTime.now().subtract(const Duration(days: 1)),
+          totalReadSeconds: 680,
+          pages: [
+            'To Sherlock Holmes she is always the woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex.',
+            'It was not that he felt any emotion akin to love for Irene Adler. All emotions were abhorrent to his cold, precise but admirably balanced mind.',
+          ],
+        ),
+      ];
+      setState(() => _books = defaultBooks);
+      _saveBooksToStorage();
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // GÜNLÜK SERİ (STREAK) HESAPLAMA MANTIĞI
+  // --------------------------------------------------------------------------
+  int _calculateStreak(String? lastActiveStr) {
+    if (lastActiveStr == null) return 1;
+    final lastActive = DateTime.tryParse(lastActiveStr);
+    if (lastActive == null) return 1;
+
+    final now = DateTime.now();
+    final difference = DateTime(now.year, now.month, now.day)
+        .difference(DateTime(lastActive.year, lastActive.month, lastActive.day))
+        .inDays;
+
+    if (difference == 0) return _streakDays; // Bugün zaten giriş yapılmış
+    if (difference == 1) return _streakDays + 1; // Dün girilmiş, bugün de girildi: seri arttı
+    return 1; // 1 günden fazla ara verildi, seri sıfırlandı
+  }
+
+  // Kitap listesini cihaza kalıcı JSON dizisi olarak kaydeder
+  Future<void> _saveBooksToStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> bookDataList = _books.map((b) => b.toJson()).toList();
+    await prefs.setStringList('saved_books', bookDataList);
+  }
+
+  // Dashboard istatistiklerini cihaza kalıcı yazar
+  Future<void> _saveStatsToStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('stats_total_read_minutes', _totalReadMinutes);
+    await prefs.setInt('stats_total_words_examined', _totalWordsExamined);
+    await prefs.setInt('stats_total_words_saved', _totalWordsSaved);
+    await prefs.setString('stats_last_active_date', DateTime.now().toIso8601String());
+  }
+
+  // --------------------------------------------------------------------------
+  // DOSYA SEÇİCİ VE PDF AYRIŞTIRICI FONKSİYON
+  // --------------------------------------------------------------------------
+  Future<void> _pickAndProcessFile() async {
     try {
+      HapticFeedback.selectionClick();
       const XTypeGroup typeGroup = XTypeGroup(
         label: 'documents',
-        extensions: <String>['txt', 'epub', 'pdf'],
+        extensions: <String>['txt', 'pdf'],
       );
 
       final XFile? file = await openFile(acceptedTypeGroups: <XTypeGroup>[typeGroup]);
+      if (file == null) return;
 
-      if (file != null) {
-        final fileName = file.name;
-        String content = '';
+      setState(() => _isLoading = true);
 
-        if (fileName.toLowerCase().endsWith('.txt')) {
-          content = await file.readAsString();
-        } else {
-          content = 'Seçilen Dosya: $fileName\n\n'
-              'Bu dosya cihazınızdan başarıyla yüklendi.\n\n'
-              'Metindeki kelimelere dokunarak anında sözlükten anlamlarına bakabilir ve kelime kartı oluşturabilirsiniz.';
+      final fileName = file.name;
+      List<String> pages = [];
+
+      if (fileName.toLowerCase().endsWith('.txt')) {
+        final fullText = await file.readAsString();
+        final chunks = RegExp(r'.{1,1000}(\s|$)', dotAll: true).allMatches(fullText);
+        pages = chunks.map((m) => m.group(0)?.trim() ?? '').where((s) => s.isNotEmpty).toList();
+      } else if (fileName.toLowerCase().endsWith('.pdf')) {
+        final bytes = await file.readAsBytes();
+        final PdfDocument document = PdfDocument(inputBytes: bytes);
+        final PdfTextExtractor extractor = PdfTextExtractor(document);
+
+        // PDF sayfalarını tek tek ayıklayıp diziye ekler
+        for (int i = 0; i < document.pages.count; i++) {
+          final pageText = extractor.extractText(startPageIndex: i, endPageIndex: i);
+          if (pageText.trim().isNotEmpty) {
+            pages.add(pageText.trim());
+          }
         }
-
-        if (!mounted) return;
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ReaderScreen(
-              title: fileName,
-              author: 'Yüklendi',
-              content: content.isEmpty ? 'Metin okunamadı.' : content,
-            ),
-          ),
-        );
+        document.dispose();
       }
+
+      if (pages.isEmpty) {
+        pages = ['Belgede okunabilir metin bulunamadı.'];
+      }
+
+      final newBook = Book(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: fileName.replaceAll(RegExp(r'\.(pdf|txt)$', caseSensitive: false), ''),
+        author: 'Yüklenen Kitap',
+        level: 'Kullanıcı Kitabı',
+        icon: fileName.toLowerCase().endsWith('.pdf') ? '📕' : '📄',
+        pages: pages,
+        lastReadDate: DateTime.now(),
+      );
+
+      setState(() {
+        _books.insert(0, newBook); // Yeni kitabı en başa ekle
+        _isLoading = false;
+      });
+
+      await _saveBooksToStorage();
+
+      if (!mounted) return;
+      _openReader(newBook);
     } catch (e) {
+      setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Hata oluştu: $e')),
       );
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // OKUMA EKRANINI AÇMA VE SEANS VERİSİNİ KARŞILAMA
+  // --------------------------------------------------------------------------
+  Future<void> _openReader(Book book) async {
+    HapticFeedback.selectionClick();
+    
+    // Okuma ekranına git ve kullanıcı geri çıktığında dönen `ReadingSessionResult` verisini bekle
+    final result = await Navigator.push<ReadingSessionResult>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReaderScreen(
+          book: book,
+          onPageChanged: (newPage) {
+            book.currentPage = newPage;
+            book.lastReadDate = DateTime.now();
+            _saveBooksToStorage();
+          },
+        ),
+      ),
+    );
+
+    // Seans tamamlandıysa dönen süre ve kelime sayılarını doğrudan istatistiklere ekle
+    if (result != null) {
+      final addedMinutes = (result.durationSeconds / 60).ceil();
+      
+      setState(() {
+        book.currentPage = result.lastPage;
+        book.lastReadDate = DateTime.now();
+        book.totalReadSeconds += result.durationSeconds;
+
+        _totalReadMinutes += addedMinutes > 0 ? addedMinutes : 1;
+        _totalWordsExamined += result.wordsExamined;
+        _totalWordsSaved += result.wordsAdded;
+      });
+
+      await _saveBooksToStorage();
+      await _saveStatsToStorage();
+
+      if (!mounted) return;
+      
+      // Seans başarı kartı
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          backgroundColor: const Color(0xFF222226),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          content: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.bolt_rounded, color: Colors.amber, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Okuma Karnene İşlendi! 🎉',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                    ),
+                    Text(
+                      '${result.durationSeconds ~/ 60} dk okundu • ${result.wordsExamined} kelime incelendi',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  // Son okunma zamanını kullanıcı dostu metne dönüştürür (Örn: "Dün", "15 dk önce")
+  String _formatLastRead(DateTime? date) {
+    if (date == null) return 'Henüz okunmadı';
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
+    if (diff.inHours < 24) return '${diff.inHours} saat önce';
+    if (diff.inDays == 1) return 'Dün';
+    return '${diff.inDays} gün önce';
+  }
+
+  // --------------------------------------------------------------------------
+  // OKUMA KARNESİ (DASHBOARD) WIDGET'I
+  // --------------------------------------------------------------------------
+  Widget _buildReadingDashboard(ColorScheme colors) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colors.primaryContainer.withValues(alpha: 0.6),
+            colors.surfaceContainerHighest.withValues(alpha: 0.4),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.insights_rounded, size: 20, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Haftalık Okuma Karnesi',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+              // Günlük Seri (Streak Rozeti)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Text('🔥', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$_streakDays Gün',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.deepOrange),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 3'lü İstatistik Metrik Kartları
+          Row(
+            children: [
+              _buildStatMetric(
+                icon: Icons.timer_outlined,
+                label: 'Okuma Süresi',
+                value: '$_totalReadMinutes dk',
+                accentColor: colors.primary,
+              ),
+              const SizedBox(width: 12),
+              _buildStatMetric(
+                icon: Icons.search_rounded,
+                label: 'İncelenen',
+                value: '$_totalWordsExamined Kelime',
+                accentColor: Colors.teal,
+              ),
+              const SizedBox(width: 12),
+              _buildStatMetric(
+                icon: Icons.bookmark_added_outlined,
+                label: 'Kartlara Eklenen',
+                value: '$_totalWordsSaved Kelime',
+                accentColor: Colors.purple,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tekil İstatistik Kart Parçası
+  Widget _buildStatMetric({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color accentColor,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 18, color: accentColor),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -94,138 +422,143 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('İngilizce Kitaplık'),
+        title: const Text('İngilizce Kitaplık', style: TextStyle(fontWeight: FontWeight.bold)),
+        elevation: 0,
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _pickAndOpenFile,
-        icon: const Icon(Icons.upload_file_rounded),
-        label: const Text('Dosya Yükle'),
+        onPressed: _isLoading ? null : _pickAndProcessFile,
+        icon: _isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.upload_file_rounded),
+        label: Text(_isLoading ? 'İşleniyor...' : 'Kitap Yükle'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 8),
+            // 1. Alan: Okuma Karnesi
+            _buildReadingDashboard(colors),
+            
+            const SizedBox(height: 16),
+            // 2. Alan: Dosya Yükleme Butonu
             InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: _pickAndOpenFile,
+              borderRadius: BorderRadius.circular(16),
+              onTap: _isLoading ? null : _pickAndProcessFile,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: colors.primaryContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                  color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
+                      radius: 18,
                       backgroundColor: colors.primary,
-                      child: Icon(Icons.file_open_rounded, color: colors.onPrimary),
+                      child: Icon(Icons.add_rounded, color: colors.onPrimary, size: 20),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Kendi Kitabını / Dosyanı Yükle',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: colors.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '.txt, .epub veya .pdf dosyası seç',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colors.onSurface.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        'Yeni PDF veya TXT Kitap Ekle',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: colors.onSurface),
                       ),
                     ),
-                    Icon(Icons.chevron_right_rounded, color: colors.primary),
+                    Icon(Icons.chevron_right_rounded, color: colors.primary, size: 20),
                   ],
                 ),
               ),
             ),
+            
             const SizedBox(height: 20),
             Text(
-              'Önerilen Klasik Eserler',
+              'Kitaplarım (${_books.length})',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: colors.onSurface.withValues(alpha: 0.8),
+                color: colors.onSurface.withValues(alpha: 0.85),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            
+            // 3. Alan: Detaylı Kitap Listesi
             Expanded(
               child: ListView.separated(
                 itemCount: _books.length,
                 separatorBuilder: (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final book = _books[index];
+                  final readMinutes = (book.totalReadSeconds / 60).round();
+
                   return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.35)),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(14.0),
                       child: Row(
                         children: [
+                          // Kitap Simgesi
                           Container(
-                            width: 54,
-                            height: 64,
+                            width: 52,
+                            height: 68,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: colors.primaryContainer,
+                              color: colors.primaryContainer.withValues(alpha: 0.6),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(book['icon'] ?? '📖', style: const TextStyle(fontSize: 28)),
+                            child: Text(book.icon, style: const TextStyle(fontSize: 26)),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 14),
+                          // Kitap Bilgileri ve İlerleme
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  book['title'] ?? '',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  book.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 3),
                                 Text(
-                                  book['author'] ?? '',
-                                  style: TextStyle(fontSize: 13, color: colors.onSurface.withValues(alpha: 0.6)),
+                                  '${book.author} • ${book.totalPages} Sayfa',
+                                  style: TextStyle(fontSize: 11, color: colors.onSurface.withValues(alpha: 0.6)),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  'Son okuma: ${_formatLastRead(book.lastReadDate)}${readMinutes > 0 ? ' • $readMinutes dk' : ''}',
+                                  style: TextStyle(fontSize: 10, color: colors.primary, fontWeight: FontWeight.w500),
                                 ),
                                 const SizedBox(height: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: colors.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    book['level'] ?? '',
-                                    style: TextStyle(fontSize: 11, color: colors.primary, fontWeight: FontWeight.bold),
-                                  ),
+                                LinearProgressIndicator(
+                                  value: book.progress,
+                                  borderRadius: BorderRadius.circular(4),
+                                  minHeight: 5,
                                 ),
                               ],
                             ),
                           ),
+                          const SizedBox(width: 10),
+                          // Oku / Devam Et Butonu
                           FilledButton.tonal(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ReaderScreen(
-                                    title: book['title']!,
-                                    author: book['author']!,
-                                    content: book['content']!,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: const Text('Oku'),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () => _openReader(book),
+                            child: Text(book.currentPage > 0 ? 'Devam Et' : 'Oku', style: const TextStyle(fontSize: 12)),
                           ),
                         ],
                       ),
