@@ -41,6 +41,7 @@ dependencies:
   file_selector_android: ^0.5.2+9
   shared_preferences: ^2.5.5
   syncfusion_flutter_pdf: ^34.2.5
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

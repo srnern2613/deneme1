@@ -3,40 +3,32 @@
 // AÇIKLAMA: Apple Books & Kindle Seviyesi Akıllı E-Kitap Okuma Motoru
 //
 // MİMARİ VE ÇALIŞMA MANTIĞI:
-// 1. Sayfalama ve Gezinme: PageView widget'ı kullanılarak yatay sayfa geçişi sağlanır.
-//    Metin taşmalarını önlemek için sayfa içi hafif kaydırma (SingleChildScrollView)
-//    emniyet supabı olarak devrededir.
-// 2. Sayfa İlerlemesi Tespiti: Kullanıcının kitaba başladığı ilk sayfa (_initialStartPage)
-//    ile ayrıldığı son sayfa (_currentPage) karşılaştırılarak seansta okunan net sayfa
-//    sayısı hesaplanır ve ReadingSessionResult nesnesiyle geri döndürülür.
-// 3. Optik Renk Paletleri: Göz yorgunluğunu önleyen yumuşak Keten Beyazı, Doğal Sıcak
-//    Sepya ve Derin OLED Gece temaları arasında anlık geçiş imkanı sunar.
-// 4. Haptik Geri Bildirim: Sayfa çevirme, kelime seçme ve menü açma eylemlerinde
-//    cihaz donanımının titreşim motorunu (HapticFeedback) tetikler.
+// 1. Canlı Sözlük Sorgusu: Kelimeye dokunulduğunda `DictionaryService` üzerinden
+//    önce yerel SQLite taranır, yoksa ücretsiz API'den çekilip otomatik önbelleğe alınır.
+// 2. Çevrimdışı Hata Yönetimi: İnternet yoksa ve kelime kaydedilmemişse kullanıcıya
+//    uyarı kartı gösterilir; yine de kelimeyi kartlarına ekleyebilir.
+// 3. Sayfalama ve Tipografi: Göz dinlendirici Sepya/Gece modları, serif font ve
+//    haptik titreşim desteğiyle akıcı okuma sunar.
 // ============================================================================
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'book_model.dart';
+import 'database_helper.dart';
+import 'dictionary_service.dart';
 
-// Okuma esnasında seçilebilecek görsel renk temaları
 enum ReaderTheme { light, sepia, dark }
-
-// Yazı tipi türleri (Klasik Serif Kitap Fontu veya Modern Sans-Serif Font)
 enum ReaderFont { serif, sans }
 
 // ----------------------------------------------------------------------------
 // SEANS SONUÇ MODELİ
-// Okuyucudan çıkış yapıldığında ana ekrandaki "Bugün Okunan" kartını ve
-// kitaplıktaki okuma karnesini beslemek üzere geriye fırlatılan veri paketidir.
 // ----------------------------------------------------------------------------
 class ReadingSessionResult {
-  final int durationSeconds;  // Bu seans boyunca kitapta geçirilen toplam süre (saniye)
-  final int wordsExamined;    // Sözlük penceresi açılarak incelenen kelime sayısı
-  final int wordsAdded;       // Kelime kartlarına (Flashcards) eklenen kelime sayısı
-  final int lastPage;         // Kullanıcının okumayı bıraktığı son sayfa indeksi
-  final int pagesRead;        // Bu okuma seansında tamamlanan net sayfa adedi
+  final int durationSeconds;  // Seansta geçirilen süre (saniye)
+  final int wordsExamined;    // Anlamına bakılan kelime sayısı
+  final int wordsAdded;       // Kartlara eklenen kelime sayısı
+  final int lastPage;         // Kaldığı son sayfa indeksi
+  final int pagesRead;        // Seansta okunan net sayfa sayısı
 
   ReadingSessionResult({
     required this.durationSeconds,
@@ -62,33 +54,26 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
-  // Sayfalar arası geçişi denetleyen PageView kontrolcüsü
   late PageController _pageController;
-  
-  // Aktif sayfa ve oturumun başladığı ilk sayfa değişkenleri
   late int _currentPage;
   late int _initialStartPage;
 
-  // Görünüm ve tipografi durumları (Varsayılan olarak sıcak sepya ve serif başlar)
   double _fontSize = 17.5;
   ReaderTheme _currentTheme = ReaderTheme.sepia;
   ReaderFont _currentFont = ReaderFont.serif;
   
-  // Arayüz kontrol elemanlarının görünürlük bayrakları
-  bool _showControls = true;   // Üst ve alt barların ekranda olup olmadığı
-  bool _showSettings = false;   // "Aa" biçimlendirme panelinin açık olup olmadığı
-  String? _selectedWord;       // Dokunulan kelimenin vurgulanması için tutulan metin
+  bool _showControls = true;
+  bool _showSettings = false;
+  String? _selectedWord;
 
-  // Seans ölçüm sayaçları
-  DateTime _sessionStartTime = DateTime.now(); // Okuma başladığı anda mühürlenen zaman
-  int _wordsExaminedCount = 0;                 // İncelenen kelimelerin toplam sayısı
-  int _wordsAddedCount = 0;                    // Kartlara eklenen kelimelerin toplam sayısı
+  DateTime _sessionStartTime = DateTime.now();
+  int _wordsExaminedCount = 0;
+  int _wordsAddedCount = 0;
 
   @override
   void initState() {
     super.initState();
     _sessionStartTime = DateTime.now();
-    // Kitabın son kalınan sayfasını güvenli aralıkta (clamp) başlatıyoruz
     _currentPage = widget.book.currentPage.clamp(0, widget.book.totalPages - 1);
     _initialStartPage = _currentPage;
     _pageController = PageController(initialPage: _currentPage);
@@ -101,17 +86,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   // --------------------------------------------------------------------------
-  // KİTAPTAN ÇIKIŞ VE SEANS VERİSİNİ PAKETLEME FONKSİYONU
-  // Geri butonuna basıldığında süreyi ve okunan net sayfayı hesaplayıp ana ekrana iletir.
+  // KİTAPTAN ÇIKIŞ VE SEANS PAKETLEME
   // --------------------------------------------------------------------------
   void _handleExit() {
-    HapticFeedback.lightImpact(); // Çıkış esnasında hafif dokunsal onay
+    HapticFeedback.lightImpact();
     final duration = DateTime.now().difference(_sessionStartTime);
     final totalSeconds = duration.inSeconds;
 
-    // Okunan net sayfa sayısını tespit ediyoruz:
-    // Eğer ileri doğru sayfa çevrildiyse fark alınır.
-    // Eğer aynı sayfada en az 20 saniye okuma yapıldıysa o sayfa da okundu (1) kabul edilir.
     int pagesDelta = _currentPage - _initialStartPage;
     int pagesRead = pagesDelta > 0 ? pagesDelta : (totalSeconds >= 20 ? 1 : 0);
 
@@ -123,38 +104,32 @@ class _ReaderScreenState extends State<ReaderScreen> {
       pagesRead: pagesRead,
     );
 
-    Navigator.pop(context, result); // Seans paketini teslim ederek sayfayı kapat
+    Navigator.pop(context, result);
   }
 
-  // --------------------------------------------------------------------------
-  // OPTİK RENK VE TİPOGRAFİ HESAPLAYICILARI (COLOR SCIENCE)
-  // --------------------------------------------------------------------------
-  
-  // Kitap sayfasının ana arka plan rengi
+  // --- OPTİK RENK VE TİPOGRAFİ GETTERLARI ---
   Color get _backgroundColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFFF4ECE0); // Göz dinlendirici sarımtırak kitap kağıdı
+        return const Color(0xFFF4ECE0);
       case ReaderTheme.dark:
-        return const Color(0xFF141416); // Parlama yapmayan mat OLED gece siyahı
+        return const Color(0xFF141416);
       case ReaderTheme.light:
-        return const Color(0xFFFAF9F6); // Yumuşak kırık keten beyazı
+        return const Color(0xFFFAF9F6);
     }
   }
 
-  // Metinlerin baskı mürekkebi rengi
   Color get _textColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFF382E25); // Tok espresso kahvesi
+        return const Color(0xFF382E25);
       case ReaderTheme.dark:
-        return const Color(0xFFDCDCDA); // Göz kamaştırmayan mat perlit grisi
+        return const Color(0xFFDCDCDA);
       case ReaderTheme.light:
-        return const Color(0xFF212124); // Karbon gri tonu
+        return const Color(0xFF212124);
     }
   }
 
-  // Üst menü, alt çubuk ve açılır kutuların yükseltilmiş yüzey rengi
   Color get _surfacePanelColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
@@ -166,7 +141,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  // Panellerin ince sınır çizgisi rengi
   Color get _panelBorderColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
@@ -178,19 +152,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  // Vurgu ve odaklanma rengi
   Color get _accentColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFF9E6532); // Sıcak kehribar kahvesi
+        return const Color(0xFF9E6532);
       case ReaderTheme.dark:
-        return const Color(0xFFE5A93C); // Gece modunda parlayan altın sarısı
+        return const Color(0xFFE5A93C);
       case ReaderTheme.light:
-        return const Color(0xFF3B5998); // Klasik kurşuni mavi
+        return const Color(0xFF3B5998);
     }
   }
 
-  // Karanlık modda da kaybolmayan slider arka plan çizgisi rengi
   Color get _sliderInactiveColor {
     switch (_currentTheme) {
       case ReaderTheme.dark:
@@ -202,7 +174,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  // Kitap sayfasının satır aralığı ve font stili
   TextStyle get _readerTextStyle {
     return TextStyle(
       fontSize: _fontSize,
@@ -214,15 +185,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   // --------------------------------------------------------------------------
-  // SÖZLÜK VE KELİME KARTI POP-UP MODÜLÜ
-  // Bir kelimeye tıklandığında açılan anlam ve kelime kartı ekleme penceresi
+  // HİBRİT SÖZLÜK VE KELİME KARTI POP-UP'I
   // --------------------------------------------------------------------------
-  void _showWordDetails(String word) {
-    // Kelimenin etrafındaki noktalama işaretlerini temizliyoruz
-    final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '');
+  Future<void> _showWordDetails(String word) async {
+    final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '').trim();
     if (cleanWord.isEmpty) return;
 
-    // Dokunma anında haptik tıklama ver ve inceleme sayacını artır
     HapticFeedback.lightImpact();
     setState(() {
       _selectedWord = cleanWord;
@@ -236,110 +204,201 @@ class _ReaderScreenState extends State<ReaderScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Üst tutamaç çizgisi
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: _textColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  cleanWord,
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'serif',
-                    color: _textColor,
-                  ),
-                ),
-                // Sesli Telaffuz Butonu (TTS Hazırlığı)
-                IconButton.filledTonal(
-                  style: IconButton.styleFrom(
-                    backgroundColor: _textColor.withValues(alpha: 0.08),
-                  ),
-                  icon: Icon(Icons.volume_up_rounded, size: 20, color: _textColor),
-                  onPressed: () {
-                    HapticFeedback.selectionClick();
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return FutureBuilder<WordDefinitionResult>(
+              future: DictionaryService.instance.fetchWordMeaning(cleanWord),
+              builder: (context, snapshot) {
+                final isLoading = snapshot.connectionState == ConnectionState.waiting;
+                final result = snapshot.data;
+                final isOffline = result?.isOfflineError ?? false;
+                final meaning = result?.meaning ?? 'Çevriliyor...';
+                final example = result?.example;
+
+                return FutureBuilder<bool>(
+                  future: DatabaseHelper.instance.isWordInFlashcards(cleanWord),
+                  builder: (context, cardSnap) {
+                    bool isSaved = cardSnap.data ?? false;
+
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 38,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: _textColor.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                cleanWord,
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'serif',
+                                  color: _textColor,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  if (isSaved)
+                                    const Icon(Icons.star_rounded, color: Colors.amber, size: 24),
+                                  const SizedBox(width: 4),
+                                  IconButton.filledTonal(
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: _textColor.withValues(alpha: 0.08),
+                                    ),
+                                    icon: Icon(Icons.volume_up_rounded, size: 20, color: _textColor),
+                                    onPressed: () => HapticFeedback.selectionClick(),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          if (isLoading) ...[
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: _accentColor),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Sözlük taranıyor...',
+                                  style: TextStyle(fontSize: 14, color: _textColor.withValues(alpha: 0.7)),
+                                ),
+                              ],
+                            ),
+                          ] else if (isOffline) ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.wifi_off_rounded, color: Colors.amber, size: 22),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Çevrimdışısınız. Bu kelime daha önce kaydedilmediği için çevrilemedi.',
+                                      style: TextStyle(fontSize: 12, color: _textColor),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else ...[
+                            Text(
+                              meaning,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: _accentColor,
+                              ),
+                            ),
+                            if (example != null && example.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                '"$example"',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontStyle: FontStyle.italic,
+                                  color: _textColor.withValues(alpha: 0.7),
+                                ),
+                              ),
+                            ],
+                          ],
+
+                          const SizedBox(height: 22),
+
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: isSaved ? Colors.grey[700] : _accentColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                              onPressed: () async {
+                                HapticFeedback.mediumImpact();
+                                final messenger = ScaffoldMessenger.of(sheetContext);
+                                if (isSaved) {
+                                  await DatabaseHelper.instance.removeFlashcardByWord(cleanWord);
+                                  setSheetState(() => isSaved = false);
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      behavior: SnackBarBehavior.floating,
+                                      content: Text('"$cleanWord" kartlardan çıkarıldı.'),
+                                    ),
+                                  );
+                                } else {
+                                  final saveMeaning = isOffline ? 'Anlam bekleniyor' : meaning;
+                                  await DatabaseHelper.instance.addFlashcard(cleanWord, saveMeaning);
+                                  if (mounted) {
+                                    setState(() => _wordsAddedCount++);
+                                  }
+                                  setSheetState(() => isSaved = true);
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      behavior: SnackBarBehavior.floating,
+                                      content: Text('"$cleanWord" kelime kartlarına eklendi! 🌟'),
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: Icon(
+                                isSaved ? Icons.bookmark_remove_rounded : Icons.bookmark_add_rounded,
+                                size: 20,
+                              ),
+                              label: Text(
+                                isSaved ? 'Kelime Kartlarından Çıkar' : 'Kelime Kartlarına Ekle',
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
                   },
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Kelime anlamı, çevirisi ve örnek cümleleri burada listelenecek.',
-              style: TextStyle(
-                fontSize: 14,
-                color: _textColor.withValues(alpha: 0.75),
-              ),
-            ),
-            const SizedBox(height: 22),
-            // Kelime Kartına Ekleme Butonu
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: _accentColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                onPressed: () {
-                  HapticFeedback.mediumImpact(); // Başarılı ekleme haptik onayı
-                  setState(() => _wordsAddedCount++);
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      content: Text('"$cleanWord" kelime kartlarına eklendi!'),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.bookmark_add_rounded, size: 20),
-                label: const Text('Kelime Kartlarına Ekle', style: TextStyle(fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ],
-        ),
-      ),
+                );
+              },
+            );
+          },
+        );
+      },
     ).whenComplete(() {
-      // Pencere kapandığında kelime üzerindeki sarı seçim vurgusunu kaldırıyoruz
       setState(() => _selectedWord = null);
     });
   }
 
-  // --------------------------------------------------------------------------
-  // AKILLI PARAGRAF VE METİN BİRLEŞTİRME ALGORİTMASI
-  // PDF dosyalarındaki yapay satır sonlarını (\n) temizleyip akıcı paragraflar üretir.
-  // --------------------------------------------------------------------------
   String _normalizePdfText(String rawText) {
     String text = rawText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    // Çift satır sonlarını gerçek paragraf olarak işaretle
     text = text.replaceAll(RegExp(r'\n\s*\n+'), '{{PARAGRAPH}}');
-    // Satır içi yapay tek satır sonlarını boşluğa çevir
     text = text.replaceAll('\n', ' ');
-    // Çoklu boşlukları teke indir
     text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
-    // Paragrafları geri yükle
     text = text.replaceAll('{{PARAGRAPH}}', '\n\n');
     return text.trim();
   }
 
-  // Sayfadaki tüm kelimeleri tek tek dokunulabilir WidgetSpan elemanlarına dönüştürür
   List<InlineSpan> _buildInteractiveSpans(String text) {
     final cleanText = _normalizePdfText(text);
     final paragraphs = cleanText.split('\n\n');
@@ -365,7 +424,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
-                  // Dokunulan kelimenin arkasını hafifçe renklendir
                   color: isSelected ? _accentColor.withValues(alpha: 0.25) : Colors.transparent,
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -383,9 +441,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return spans;
   }
 
-  // --------------------------------------------------------------------------
-  // ÜSTTEN AÇILAN GÖRÜNÜM VE TEMA AYAR KUTUSU ("Aa")
-  // --------------------------------------------------------------------------
   Widget _buildSettingsSheet() {
     return Container(
       width: double.infinity,
@@ -407,7 +462,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 1. Satır: Yazı Boyutu Kademeli Kaydırıcısı
           Row(
             children: [
               Text('A', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _textColor)),
@@ -442,7 +496,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          // 2. Satır: Renk Temaları ve Font Tipi
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -544,7 +597,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false, // Donanımsal geri tuşunu yakalayıp seans verisiyle çıkışı tetikler
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _handleExit();
@@ -553,12 +606,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
         backgroundColor: _backgroundColor,
         body: Stack(
           children: [
-            // ----------------------------------------------------------------
-            // 1. KATMAN: Kitap Sayfası ve Immersive Mod Dokunma Alanı
-            // ----------------------------------------------------------------
             GestureDetector(
               onTap: () {
-                // Ekrana dokunulduğunda barları aç veya kapat
                 HapticFeedback.selectionClick();
                 setState(() {
                   _showControls = !_showControls;
@@ -570,7 +619,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 controller: _pageController,
                 itemCount: widget.book.totalPages,
                 onPageChanged: (pageIndex) {
-                  // Sayfa çevrilme haptik efekti
                   HapticFeedback.selectionClick();
                   setState(() {
                     _currentPage = pageIndex;
@@ -599,9 +647,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
 
-            // ----------------------------------------------------------------
-            // 2. KATMAN: Üst Bar ve "Aa" Ayarları (Animasyonlu Açılır / Gizlenir)
-            // ----------------------------------------------------------------
+            // Üst Bar
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOut,
@@ -672,9 +718,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
 
-            // ----------------------------------------------------------------
-            // 3. KATMAN: Alt İlerleme ve Hızlı Sayfa Atlama Barı (Scrubber)
-            // ----------------------------------------------------------------
+            // Alt Bar
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOut,
