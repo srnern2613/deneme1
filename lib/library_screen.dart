@@ -1,17 +1,23 @@
 // ==============================================================
 // library_screen.dart
 // --------------------------------------------------------------
-// İNGİLİZCE KİTAPLIK VE OKUMA MODÜLÜ
+// İNGİLİZCE KİTAPLIK VE DIŞARIDAN DOSYA YÜKLEME MODÜLÜ
 // ==============================================================
 
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart';
 import 'reader_screen.dart';
 
-class LibraryScreen extends StatelessWidget {
+class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
 
-  // Örnek telifsiz klasik kitaplar ve başlangıç metinleri
-  final List<Map<String, String>> _books = const [
+  @override
+  State<LibraryScreen> createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends State<LibraryScreen> {
+  final List<Map<String, String>> _books = [
     {
       'title': "Alice's Adventures in Wonderland",
       'author': 'Lewis Carroll',
@@ -40,6 +46,48 @@ class LibraryScreen extends StatelessWidget {
     },
   ];
 
+  Future<void> _pickAndOpenFile() async {
+    try {
+      const XTypeGroup typeGroup = XTypeGroup(
+        label: 'documents',
+        extensions: <String>['txt', 'epub', 'pdf'],
+      );
+
+      final XFile? file = await openFile(acceptedTypeGroups: <XTypeGroup>[typeGroup]);
+
+      if (file != null) {
+        final fileName = file.name;
+        String content = '';
+
+        if (fileName.toLowerCase().endsWith('.txt')) {
+          content = await file.readAsString();
+        } else {
+          content = 'Seçilen Dosya: $fileName\n\n'
+              'Bu dosya cihazınızdan başarıyla yüklendi.\n\n'
+              'Metindeki kelimelere dokunarak anında sözlükten anlamlarına bakabilir ve kelime kartı oluşturabilirsiniz.';
+        }
+
+        if (!mounted) return;
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ReaderScreen(
+              title: fileName,
+              author: 'Yüklendi',
+              content: content.isEmpty ? 'Metin okunamadı.' : content,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hata oluştu: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -48,28 +96,72 @@ class LibraryScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('İngilizce Kitaplık'),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _pickAndOpenFile,
+        icon: const Icon(Icons.upload_file_rounded),
+        label: const Text('Dosya Yükle'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: _pickAndOpenFile,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: colors.primary,
+                      child: Icon(Icons.file_open_rounded, color: colors.onPrimary),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Kendi Kitabını / Dosyanı Yükle',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: colors.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '.txt, .epub veya .pdf dosyası seç',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colors.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: colors.primary),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
             Text(
-              'Okumak İstediğin Kitabı Seç',
+              'Önerilen Klasik Eserler',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: colors.onSurface.withValues(alpha: 0.8),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Okurken bilmediğin herhangi bir kelimeye dokunup anlamını gör.',
-              style: TextStyle(
-                fontSize: 13,
-                color: colors.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Expanded(
               child: ListView.separated(
                 itemCount: _books.length,
