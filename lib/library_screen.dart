@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Ana Kitaplık, PDF Yükleyici ve Okuma İstatistik Merkezi (Dashboard)
+// AÇIKLAMA: Ana Kitaplık, PDF Yükleyici ve Optimize Edilmiş Dashboard
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'book_model.dart';
 import 'reader_screen.dart';
+import 'achievement_service.dart';
+import 'streak_freeze_service.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -23,6 +25,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   bool _isLoading = false;
 
   int _streakDays = 1;
+  bool _hasFreezeShield = true;
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
   int _totalWordsSaved = 0;
@@ -41,11 +44,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Future<void> _loadAllData() async {
     final prefs = await SharedPreferences.getInstance();
 
+    final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
+
     setState(() {
       _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
       _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
       _totalWordsSaved = prefs.getInt('stats_total_words_saved') ?? 0;
-      _streakDays = _calculateStreak(prefs.getString('stats_last_active_date'));
+      _streakDays = streakResult['streakDays'];
+      _hasFreezeShield = streakResult['hasFreezeShield'];
     });
 
     final bookDataList = prefs.getStringList('saved_books');
@@ -68,38 +74,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
             'So she was considering in her own mind, whether the pleasure of making a daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her.',
           ],
         ),
-        Book(
-          id: '2',
-          title: 'The Adventures of Sherlock Holmes',
-          author: 'Arthur Conan Doyle',
-          level: 'Orta Seviye / B2',
-          icon: '🕵️',
-          lastReadDate: DateTime.now().subtract(const Duration(days: 1)),
-          totalReadSeconds: 680,
-          pages: [
-            'To Sherlock Holmes she is always the woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex.',
-            'It was not that he felt any emotion akin to love for Irene Adler. All emotions were abhorrent to his cold, precise but admirably balanced mind.',
-          ],
-        ),
       ];
       setState(() => _books = defaultBooks);
       _saveBooksToStorage();
     }
-  }
-
-  int _calculateStreak(String? lastActiveStr) {
-    if (lastActiveStr == null) return 1;
-    final lastActive = DateTime.tryParse(lastActiveStr);
-    if (lastActive == null) return 1;
-
-    final now = DateTime.now();
-    final difference = DateTime(now.year, now.month, now.day)
-        .difference(DateTime(lastActive.year, lastActive.month, lastActive.day))
-        .inDays;
-
-    if (difference == 0) return _streakDays;
-    if (difference == 1) return _streakDays + 1;
-    return 1;
   }
 
   Future<void> _saveBooksToStorage() async {
@@ -118,7 +96,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _pickAndProcessFile() async {
     try {
-      HapticFeedback.selectionClick(); // (Dosya seçici açılırken hafif dokunsal geri bildirim sağlar)
+      HapticFeedback.selectionClick();
       const XTypeGroup typeGroup = XTypeGroup(
         label: 'documents',
         extensions: <String>['txt', 'pdf'],
@@ -183,7 +161,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _openReader(Book book) async {
-    HapticFeedback.selectionClick(); // (Okuma seansı başlatılırken dokunma hissi verir)
+    HapticFeedback.selectionClick();
     
     final result = await Navigator.push<ReadingSessionResult>(
       context,
@@ -225,45 +203,47 @@ class _LibraryScreenState extends State<LibraryScreen> {
       await _saveBooksToStorage();
       await _saveStatsToStorage();
 
+      final newlyUnlocked = await AchievementService.instance.checkAndUnlockAchievements(
+        totalPagesRead: currentDailyPages + addedPages,
+        totalFlashcards: _totalWordsSaved,
+        totalReadMinutes: _totalReadMinutes,
+      );
+
       if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          backgroundColor: const Color(0xFF222226),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          content: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.bolt_rounded, color: Colors.amber, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Okuma Karnene İşlendi! 🎉',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
-                    ),
-                    Text(
-                      '${result.durationSeconds ~/ 60} dk okundu • ${result.wordsExamined} kelime incelendi',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
-                    ),
-                  ],
-                ),
+
+      if (newlyUnlocked.isNotEmpty) {
+        showDialog(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: const Row(
+              children: [
+                Text('🎉', style: TextStyle(fontSize: 28)),
+                SizedBox(width: 10),
+                Text('Yeni Başarım!'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Tebrikler, harika bir adım attın ve yeni bir rozetin kilidini açtın:'),
+                const SizedBox(height: 12),
+                ...newlyUnlocked.map((badge) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text('🏆 $badge', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
+                )),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Harika!'),
               ),
             ],
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -298,36 +278,63 @@ class _LibraryScreenState extends State<LibraryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.insights_rounded, size: 20, color: Colors.orange),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Haftalık Okuma Karnesi',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: colors.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              const Expanded(
                 child: Row(
                   children: [
-                    const Text('🔥', style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$_streakDays Gün',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.deepOrange),
+                    Icon(Icons.insights_rounded, size: 20, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Haftalık Karne',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _hasFreezeShield ? Colors.blue.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(_hasFreezeShield ? '🛡️' : '⏳', style: const TextStyle(fontSize: 11)),
+                        const SizedBox(width: 3),
+                        Text(
+                          _hasFreezeShield ? 'Kalkan' : 'Yok',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: _hasFreezeShield ? Colors.blue : Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('🔥', style: TextStyle(fontSize: 11)),
+                        const SizedBox(width: 3),
+                        Text(
+                          '$_streakDays G.',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.deepOrange),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -409,7 +416,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isLoading ? null : _pickAndProcessFile,
-        elevation: 2, // (Gölge derinliği sabitlenerek geçişlerdeki titreşim engellendi)
+        elevation: 2,
         icon: AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           child: _isLoading
@@ -434,7 +441,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: _isLoading ? null : () {
-                HapticFeedback.lightImpact(); // (Yeni kitap ekle kartına dokunulduğunda yumuşak tıklama hissi)
+                HapticFeedback.lightImpact();
                 _pickAndProcessFile();
               },
               child: Container(
@@ -478,7 +485,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             
             Expanded(
               child: ListView.separated(
-                physics: const BouncingScrollPhysics(), // (Kitap listesinde iOS tarzı akıcı yaylanma efekti sağlandı)
+                physics: const BouncingScrollPhysics(),
                 itemCount: _books.length,
                 separatorBuilder: (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
@@ -542,7 +549,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                             onPressed: () {
-                              HapticFeedback.selectionClick(); // (Kitap okuma/devam et butonuna basıldığında dokunma hissi verir)
+                              HapticFeedback.selectionClick();
                               _openReader(book);
                             },
                             child: Text(book.currentPage > 0 ? 'Devam Et' : 'Oku', style: const TextStyle(fontSize: 12)),
