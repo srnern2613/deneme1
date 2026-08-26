@@ -1,8 +1,9 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
-// AÇIKLAMA: Apple Books & Kindle Standartlarında E-Kitap Okuyucu + Premium Ayar Paneli
+// AÇIKLAMA: Apple Books & Kindle Standartlarında E-Kitap Okuyucu + Canlı Koçluk & TTS
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +11,7 @@ import 'book_model.dart';
 import 'database_helper.dart';
 import 'dictionary_service.dart';
 import 'tts_service.dart';
+import 'coach_messages.dart';
 
 enum ReaderTheme { light, sepia, dark }
 enum ReaderFont { serif, sans }
@@ -64,6 +66,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
   int _wordsExaminedCount = 0;
   int _wordsAddedCount = 0;
 
+  // CANLI KOÇLUK DEĞİŞKENLERİ
+  Timer? _sessionTimer;
+  int _sessionSeconds = 0;
+  bool _notified15Min = false;
+  bool _notified30Min = false;
+  String? _activeCoachToast;
+
   static const Map<String, String> _posTranslations = {
     'noun': 'İsim',
     'verb': 'Fiil',
@@ -91,13 +100,43 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _initialStartPage = _currentPage;
     _pageController = PageController(initialPage: _currentPage);
     TtsService.instance.initService();
+    _startSessionCoachTimer();
   }
 
   @override
   void dispose() {
+    _sessionTimer?.cancel();
     TtsService.instance.stop();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _startSessionCoachTimer() {
+    _sessionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      _sessionSeconds++;
+
+      // 15. Dakika Koçluk Uyarısı
+      if (_sessionSeconds == 900 && !_notified15Min) {
+        _notified15Min = true;
+        _showCoachToast(CoachMessages.getReadingTimeCheer15Min());
+      }
+      // 30. Dakika Koçluk Uyarısı
+      else if (_sessionSeconds == 1800 && !_notified30Min) {
+        _notified30Min = true;
+        _showCoachToast(CoachMessages.getReadingTimeCheer30Min());
+      }
+    });
+  }
+
+  void _showCoachToast(String message) {
+    HapticFeedback.lightImpact();
+    setState(() => _activeCoachToast = message);
+    Future.delayed(const Duration(milliseconds: 3200), () {
+      if (mounted && _activeCoachToast == message) {
+        setState(() => _activeCoachToast = null);
+      }
+    });
   }
 
   void _togglePageReading() async {
@@ -483,6 +522,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                   await DatabaseHelper.instance.addFlashcard(cleanWord, saveMeaning);
                                   if (mounted) {
                                     setState(() => _wordsAddedCount++);
+                                    _showCoachToast('⭐ "$cleanWord" kelime kartlarına eklendi!');
                                   }
                                   setSheetState(() => isSaved = true);
                                   messenger.showSnackBar(
@@ -732,7 +772,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                   // SEKME 1: GÖRÜNÜM & TİPOGRAFİ
                   if (selectedTab == 0) ...[
-                    // Yazı Boyutu Slider'ı
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
@@ -786,7 +825,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 3 Net Görünür Renk Kartı
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -815,7 +853,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // YENİ GÖRSEL TİPOGRAFİ SEÇİM KARTLARI
                     Row(
                       children: [
                         _buildFontCard(
@@ -930,7 +967,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  // --- KUSURSUZ GÖRÜNÜR RENK KARTI ---
   Widget _buildColorCard(
     ReaderTheme theme,
     Color bgPreviewColor,
@@ -994,7 +1030,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  // --- GÖRSEL TİPOGRAFİ SEÇİM KARTI ---
   Widget _buildFontCard({
     required String title,
     required String subtitle,
@@ -1118,6 +1153,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     widget.book.currentPage = pageIndex;
                   });
                   widget.onPageChanged?.call(pageIndex);
+
+                  // Her 5 sayfada bir motivasyon bildirimi
+                  final pagesReadInSession = (_currentPage - _initialStartPage).abs();
+                  if (pagesReadInSession > 0 && pagesReadInSession % 5 == 0) {
+                    _showCoachToast(CoachMessages.getReadingPageCheer());
+                  }
                 },
                 itemBuilder: (context, index) {
                   final pageContent = widget.book.pages.isNotEmpty
@@ -1268,6 +1309,41 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ),
               ),
             ),
+
+            // CANLI KOÇLUK TOAST BİLDİRİM BANDI
+            if (_activeCoachToast != null)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 60,
+                left: 20,
+                right: 20,
+                child: AnimatedSlide(
+                  duration: const Duration(milliseconds: 280),
+                  offset: _activeCoachToast != null ? Offset.zero : const Offset(0, -1.5),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      _activeCoachToast!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

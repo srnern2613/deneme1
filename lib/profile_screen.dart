@@ -1,6 +1,6 @@
 // ==============================================================
 // DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Dinamik Profil, Seri Kalkanı ve Rozetler Odası
+// AÇIKLAMA: Dinamik Profil, Seri Kalkanı ve Eksiksiz Rozetler Odası
 // ==============================================================
 
 import 'package:flutter/material.dart';
@@ -12,6 +12,8 @@ import 'flashcards_screen.dart';
 import 'habit_tracker_screen.dart';
 import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
+import 'achievement_service.dart';
+import 'celebration_dialog.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -30,6 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _userGems = 50;
   List<int> _weeklyPages = [0, 0, 0, 0, 0, 0, 0];
   int _selectedTab = 0;
+  Map<String, bool> _unlockedBadgesMap = {};
 
   @override
   void initState() {
@@ -52,6 +55,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       pagesList.add(prefs.getInt('daily_pages_$key') ?? 0);
     }
 
+    final badgeKeys = [
+      'first_step', 'librarian', 'first_curiosity', 'first_spark', 'apprentice_reader',
+      'night_owl', 'early_bird', 'shield_master', 'weekend_warrior', 'time_bender',
+      'page_monster', 'bound_scholar', 'marathoner', 'text_detective',
+      'synapse_master', 'diamond_memory', 'voice_guide', 'curious_mind', 'word_collector',
+      'speed_of_light', 'ghost_reader', 'legendary_scholar',
+    ];
+
+    final Map<String, bool> badgeStatus = {};
+    for (var k in badgeKeys) {
+      badgeStatus[k] = await AchievementService.instance.isBadgeUnlocked(k);
+    }
+
     if (!mounted) return;
     setState(() {
       _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
@@ -62,6 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _weeklyPages = pagesList;
       _userTotalXp = xp;
       _userGems = gems;
+      _unlockedBadgesMap = badgeStatus;
     });
   }
 
@@ -70,6 +87,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => screen),
     ).then((_) => _loadProfileData());
+  }
+
+  void _showBadgeDetailModal(_BadgeData badge) {
+    HapticFeedback.selectionClick();
+    if (badge.isUnlocked) {
+      CelebrationDialog.show(
+        context,
+        emoji: badge.emoji,
+        title: badge.title,
+        subtitle: badge.subtitle,
+        actionLabel: 'Harika!',
+      );
+    } else {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Row(
+            children: [
+              Text(badge.emoji, style: const TextStyle(fontSize: 28)),
+              const SizedBox(width: 10),
+              Text(badge.title),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('🔒 Bu rozet henüz kilitli!', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+              const SizedBox(height: 8),
+              Text('Kilidi açmak için: ${badge.subtitle}', style: const TextStyle(fontSize: 13)),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tamam'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   void _showShieldInfoDialog() {
@@ -88,40 +147,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: Text(
           _hasFreezeShield
               ? 'Seri kalkanın AKTİF! Uygulamaya 1 gün giremesen bile serin sıfırlanmayacak.'
-              : 'Seri kalkanın kullanımda veya boşta. Mağazadan veya günlük hedefleri tamamlayarak kalkan kazanabilirsin!',
+              : 'Seri kalkanın boşta. Mağazadan veya günlük hedefleri tamamlayarak kalkan kazanabilirsin!',
           style: const TextStyle(fontSize: 13.5, height: 1.4),
         ),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Anladım'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showProDialog() {
-    HapticFeedback.mediumImpact();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
-          children: [
-            Text('🚀', style: TextStyle(fontSize: 24)),
-            SizedBox(width: 10),
-            Text('PRO Üyelik'),
-          ],
-        ),
-        content: const Text(
-          'Sınırsız PDF/TXT kitabı yükleme, bulut yedekleme, gelişmiş SRS istatistikleri ve yapay zeka destekli akıllı sınav modülü yakında sizlerle!\n\nŞimdilik tüm temel özellikleri tamamen ücretsiz kullanabilirsiniz.',
-          style: TextStyle(fontSize: 13.5, height: 1.4),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Harika!'),
           ),
         ],
       ),
@@ -402,63 +434,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
 
             if (_selectedTab == 1) ...[
+              // 1. 🌱 Yeni Başlayanlar
               _buildBadgeCategory('🌱 Yeni Başlayanlar', [
-                _BadgeData('🐣', 'İlk Adım', 'Uygulamaya ilk giriş yap', true),
-                _BadgeData('📕', 'Kütüphaneci Adayı', 'İlk PDF/TXT kitabını yükle', true),
-                _BadgeData('🔍', 'İlk Merak', 'İlk kelimenin anlamını incele', _totalWordsExamined > 0),
-                _BadgeData('⭐', 'İlk Kıvılcım', 'İlk kelime kartını kaydet', _totalFlashcards > 0),
-                _BadgeData('⏱️', 'Çırak Okur', 'İlk okuma seansını tamamla', _totalReadMinutes > 0),
+                _BadgeData('🐣', 'İlk Adım', 'Uygulamaya ilk adımı at', _unlockedBadgesMap['first_step'] ?? true),
+                _BadgeData('📕', 'Kütüphaneci Adayı', 'İlk kitabını yükle', _unlockedBadgesMap['librarian'] ?? true),
+                _BadgeData('🔍', 'İlk Merak', 'İlk kelime anlamını incele', _unlockedBadgesMap['first_curiosity'] ?? (_totalWordsExamined > 0)),
+                _BadgeData('⭐', 'İlk Kıvılcım', 'İlk kelime kartını kaydet', _unlockedBadgesMap['first_spark'] ?? (_totalFlashcards > 0)),
+                _BadgeData('⏱️', 'Çırak Okur', 'İlk okuma seansını tamamla', _unlockedBadgesMap['apprentice_reader'] ?? (_totalReadMinutes > 0)),
               ], isDark),
               const SizedBox(height: 16),
 
+              // 2. 🌅 Zaman & Alışkanlık
               _buildBadgeCategory('🌅 Zaman & Alışkanlık', [
-                _BadgeData('🦉', 'Gece Baykuşu', '00:00 - 04:00 arası oku', false),
-                _BadgeData('☕', 'Sabah Memuru', '06:00 - 08:00 arası oku', false),
+                _BadgeData('🦉', 'Gece Baykuşu', '00:00 - 04:00 arası oku', _unlockedBadgesMap['night_owl'] ?? false),
+                _BadgeData('☕', 'Sabah Memuru', '05:00 - 08:00 arası oku', _unlockedBadgesMap['early_bird'] ?? false),
                 _BadgeData('🛡️', 'Seri Kalkanı', 'Serini koruyan kalkanı hak et', _hasFreezeShield),
-                _BadgeData('📅', 'Hafta Sonu', 'Hafta sonu 20+ sayfa oku', false),
-                _BadgeData('⏳', 'Zaman Bükücü', 'Kesintisiz 45+ dk oku', _totalReadMinutes >= 45),
+                _BadgeData('📅', 'Hafta Sonu', 'Hafta sonu 20+ sayfa oku', _unlockedBadgesMap['weekend_warrior'] ?? false),
+                _BadgeData('⏳', 'Zaman Bükücü', 'Kesintisiz 45+ dk oku', _unlockedBadgesMap['time_bender'] ?? (_totalReadMinutes >= 45)),
               ], isDark),
-
               const SizedBox(height: 16),
 
+              // 3. 📚 Okuma Miktarları
               _buildBadgeCategory('📚 Okuma Miktarları', [
-                _BadgeData('📖', 'Sayfa Canavarı', 'Toplam 100 sayfa oku', totalWeeklyRead >= 100),
-                _BadgeData('📜', 'Ciltli Alim', 'Toplam 500 sayfa oku', false),
-                _BadgeData('🏃', 'Maratoncu', 'Bir günde 40+ sayfa oku', false),
-                _BadgeData('🕵️', 'Metin Dedektifi', '100+ kelime incele', _totalWordsExamined >= 100),
+                _BadgeData('📖', 'Sayfa Canavarı', 'Toplam 100 sayfa oku', _unlockedBadgesMap['page_monster'] ?? (totalWeeklyRead >= 100)),
+                _BadgeData('📜', 'Ciltli Alim', 'Toplam 500 sayfa oku', _unlockedBadgesMap['bound_scholar'] ?? false),
+                _BadgeData('🏃', 'Maratoncu', 'Bir günde 40+ sayfa oku', _unlockedBadgesMap['marathoner'] ?? false),
+                _BadgeData('🕵️', 'Metin Dedektifi', '100+ kelime incele', _unlockedBadgesMap['text_detective'] ?? (_totalWordsExamined >= 100)),
+              ], isDark),
+              const SizedBox(height: 16),
+
+              // 4. 📇 Hafıza & SRS
+              _buildBadgeCategory('📇 Hafıza & Kelime (SRS)', [
+                _BadgeData('🧠', 'Sinaps Ustası', 'Kelime havuzuna 25+ kart ekle', _unlockedBadgesMap['synapse_master'] ?? (_totalFlashcards >= 25)),
+                _BadgeData('💎', 'Elmas Hafıza', '50+ kelime kartı oluştur', _unlockedBadgesMap['diamond_memory'] ?? (_totalFlashcards >= 50)),
+                _BadgeData('🗣️', 'Sesli Rehber', 'Sesli kitapta 10+ dk dinleme yap', _unlockedBadgesMap['voice_guide'] ?? (_totalReadMinutes >= 10)),
+                _BadgeData('🔍', 'Meraklı Zihin', '50+ kelimenin anlamına bak', _unlockedBadgesMap['curious_mind'] ?? (_totalWordsExamined >= 50)),
+                _BadgeData('🌟', 'Koleksiyoncu', '30+ kelimeyi hafızaya al', _unlockedBadgesMap['word_collector'] ?? (_totalFlashcards >= 30)),
+              ], isDark),
+              const SizedBox(height: 16),
+
+              // 5. 🕵️ Gizli & Prestij
+              _buildBadgeCategory('🕵️ Gizli & Prestij', [
+                _BadgeData('⚡', 'Işık Hızı', '20+ dk odaklanarak oku', _unlockedBadgesMap['speed_of_light'] ?? (_totalReadMinutes >= 20)),
+                _BadgeData('🥷', 'Hayalet Okur', 'Toplam 30+ sayfa bitir', _unlockedBadgesMap['ghost_reader'] ?? (totalWeeklyRead >= 30)),
+                _BadgeData('👑', 'Efsanevi Alim', '300+ sayfa ve 50+ kelime tamamla', _unlockedBadgesMap['legendary_scholar'] ?? false),
               ], isDark),
             ],
             const SizedBox(height: 24),
-
-            InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: _showProDialog,
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Text('🚀', style: TextStyle(fontSize: 32)),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('PRO Sürüme Geç', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF4F46E5))),
-                          const SizedBox(height: 2),
-                          Text('Sınırsız PDF yükle, bulut yedekleme ve AI destekli sınav modülünün kilidini aç.', style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded, color: Color(0xFF4F46E5)),
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -483,40 +505,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           itemBuilder: (context, index) {
             final badge = badges[index];
-            return Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF131B2E) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: badge.isUnlocked ? Colors.amber.withValues(alpha: 0.6) : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-                  width: badge.isUnlocked ? 1.5 : 1,
+            return InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => _showBadgeDetailModal(badge),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF131B2E) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: badge.isUnlocked ? Colors.amber.withValues(alpha: 0.6) : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                    width: badge.isUnlocked ? 1.5 : 1,
+                  ),
                 ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    badge.emoji,
-                    style: TextStyle(fontSize: 26, color: badge.isUnlocked ? null : Colors.grey.withValues(alpha: 0.4)),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    badge.title,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badge.isUnlocked ? null : Colors.grey),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    badge.subtitle,
-                    style: TextStyle(fontSize: 8.5, color: Colors.grey[600]),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      badge.emoji,
+                      style: TextStyle(fontSize: 26, color: badge.isUnlocked ? null : Colors.grey.withValues(alpha: 0.4)),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      badge.title,
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badge.isUnlocked ? null : Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      badge.subtitle,
+                      style: TextStyle(fontSize: 8.5, color: Colors.grey[600]),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             );
           },

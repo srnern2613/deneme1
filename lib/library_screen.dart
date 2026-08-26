@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Duolingo Elmas Modeli, Sağ Üst Cüzdan ve Animasyonlu Ödül Kutlamalı Kitaplık
+// AÇIKLAMA: Kitaplık Ekranı (FAB Kaldırıldı & Liste Taşması Düzeltildi)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -14,7 +14,7 @@ import 'achievement_service.dart';
 import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
 import 'shop_screen.dart';
-import 'celebration_dialog.dart'; // (Animasyonlu Kutlama Modalı Eklendi)
+import 'celebration_dialog.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -228,7 +228,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
         if (!mounted) return;
 
-        // 🌟 ANİMASYONLU MERKEZİ KUTLAMA MODALI ÇAĞRILIYOR
         CelebrationDialog.show(
           context,
           emoji: '🎉',
@@ -245,7 +244,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               context,
               emoji: '🏆',
               title: 'Yeni Başarım Kilidi Açıldı!',
-              subtitle: newlyUnlocked.map((b) => '• $b').join('\n'),
+              subtitle: newlyUnlocked.map((b) => '• ${b.title}').join('\n'),
               actionLabel: 'Harika!',
             );
           });
@@ -480,21 +479,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isLoading ? null : _pickAndProcessFile,
-        elevation: 2,
-        icon: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : const Icon(Icons.upload_file_rounded, key: ValueKey('icon_upload')),
-        ),
-        label: Text(_isLoading ? 'Yükleniyor...' : 'Kitap Yükle'),
-      ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
@@ -512,24 +496,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
               },
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: colors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
+                  border: Border.all(color: colors.primary.withValues(alpha: 0.25)),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 18,
                       backgroundColor: colors.primary,
-                      child: Icon(Icons.add_rounded, color: colors.onPrimary, size: 20),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : Icon(Icons.add_rounded, color: colors.onPrimary, size: 20),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        'Yeni PDF veya TXT Kitap Ekle',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: colors.onSurface),
+                        _isLoading ? 'Kitap İşleniyor...' : 'Yeni PDF veya TXT Kitap Ekle',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: colors.onSurface),
                       ),
                     ),
                     Icon(Icons.chevron_right_rounded, color: colors.primary, size: 20),
@@ -552,6 +542,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             Expanded(
               child: ListView.separated(
                 physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 24),
                 itemCount: _books.length,
                 separatorBuilder: (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
