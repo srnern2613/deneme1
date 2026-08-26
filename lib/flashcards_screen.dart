@@ -4,13 +4,8 @@
 // KELİME KARTLARI LİSTESİ VE EGZERSİZ BAŞLATMA EKRANI
 // ==============================================================
 
-// Flutter temel arayüz kütüphanesini dahil ediyoruz
 import 'package:flutter/material.dart';
-
-// Veritabanı yardımcı sınıfını çağırıyoruz
 import 'database_helper.dart';
-
-// Tam ekran egzersiz ekranını import ediyoruz
 import 'flashcards_exercise_screen.dart';
 
 class FlashcardsScreen extends StatefulWidget {
@@ -21,7 +16,6 @@ class FlashcardsScreen extends StatefulWidget {
 }
 
 class _FlashcardsScreenState extends State<FlashcardsScreen> {
-  // SQLite veritabanından çekilen kayıtlı kelime kartları
   List<Map<String, dynamic>> _cards = [];
   bool _isLoading = true;
 
@@ -31,7 +25,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     _loadFlashcards();
   }
 
-  // SQLite'tan kartları çeken metot
   void _loadFlashcards() async {
     setState(() => _isLoading = true);
     final data = await DatabaseHelper.instance.getFlashcards();
@@ -43,13 +36,11 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     }
   }
 
-  // Kartı veritabanından silen metot
   void _deleteCard(int id) async {
     await DatabaseHelper.instance.deleteFlashcard(id);
     _loadFlashcards();
   }
 
-  // Egzersiz Ekranını Açan Metot
   void _startExercise() {
     if (_cards.isEmpty) return;
     Navigator.of(context).push(
@@ -57,7 +48,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
         builder: (context) => FlashcardsExerciseScreen(cards: _cards),
       ),
     ).then((_) {
-      // Egzersizden geri dönüldüğünde listeyi tekrar günceller
       _loadFlashcards();
     });
   }
@@ -65,6 +55,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -107,8 +98,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   child: Column(
                     children: [
                       const SizedBox(height: 10),
-
-                      // 1. BÖLÜM: Egzersiz Başlatma Butonu (Taşma Hatası Giderilmiş Alan)
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -118,7 +107,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                         ),
                         child: Row(
                           children: [
-                            // Sol taraftaki metin alanı ekran genişliğine göre esner
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,7 +131,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // Sağdaki Egzersiz Butonu
                             FilledButton.icon(
                               onPressed: _startExercise,
                               icon: const Icon(Icons.play_arrow_rounded, size: 20),
@@ -156,8 +143,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-
-                      // 2. BÖLÜM: Kartların Listesi
                       Expanded(
                         child: ListView.builder(
                           itemCount: _cards.length,
@@ -180,6 +165,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                               child: _FlashcardItem(
                                 word: card['word'],
                                 meaning: card['meaning'],
+                                isDark: isDark,
                               ),
                             );
                           },
@@ -192,12 +178,12 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   }
 }
 
-// Tekil Kart Arayüz Bileşeni
 class _FlashcardItem extends StatefulWidget {
   final String word;
   final String meaning;
+  final bool isDark;
 
-  const _FlashcardItem({required this.word, required this.meaning});
+  const _FlashcardItem({required this.word, required this.meaning, required this.isDark});
 
   @override
   State<_FlashcardItem> createState() => _FlashcardItemState();
@@ -212,6 +198,15 @@ class _FlashcardItemState extends State<_FlashcardItem> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      // Tema duyarlı arkaplan rengi
+      color: widget.isDark ? const Color(0xFF131B2E) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: widget.isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      elevation: 0,
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () => setState(() => _showMeaning = !_showMeaning),
@@ -235,14 +230,20 @@ class _FlashcardItemState extends State<_FlashcardItem> {
                   children: [
                     Text(
                       widget.word,
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: widget.isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _showMeaning ? widget.meaning : 'Anlamı görmek için dokunun',
                       style: TextStyle(
                         fontSize: 13,
-                        color: _showMeaning ? colors.primary : colors.onSurface.withValues(alpha: 0.5),
+                        color: _showMeaning
+                            ? colors.primary
+                            : (widget.isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                         fontWeight: _showMeaning ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),

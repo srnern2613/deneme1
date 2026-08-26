@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: Apple / Blinkist Standartlarında Modern Dashboard & İlerleme Kartı
+// AÇIKLAMA: Ultra-Premium Dashboard, Tema Duyarlı Kartlar & Canlı Seri Rozeti
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -50,11 +50,11 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+        scaffoldBackgroundColor: const Color(0xFFF6F8FC),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1E293B),
+          seedColor: const Color(0xFF4F46E5),
           brightness: Brightness.light,
-          primary: const Color(0xFF0F172A),
+          primary: const Color(0xFF4F46E5),
           secondary: const Color(0xFF10B981),
           surface: Colors.white,
         ),
@@ -62,7 +62,7 @@ class _MyAppState extends State<MyApp> {
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0B0F19),
+        scaffoldBackgroundColor: const Color(0xFF090D16),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF6366F1),
           brightness: Brightness.dark,
@@ -191,6 +191,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _todayPages = 0;
   int _todayMinutes = 0;
   int _readingTargetPages = 20;
+  int _currentStreak = 7;
 
   @override
   void initState() {
@@ -252,7 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               _buildHeader(isDark),
               const SizedBox(height: 18),
-              _buildQuoteCard(),
+              _buildQuoteCard(isDark),
               const SizedBox(height: 18),
               _buildModernHeroCard(isDark),
               const SizedBox(height: 24),
@@ -294,20 +295,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(
-                  'Merhaba, $_userName',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.6,
-                    color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Text('⚡', style: TextStyle(fontSize: 20)),
-              ],
+            Text(
+              'Merhaba, $_userName',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.6,
+                color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+              ),
             ),
             const SizedBox(height: 2),
             Text(
@@ -320,121 +315,243 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        Row(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                HapticFeedback.lightImpact();
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E1B4B) : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF4338CA) : const Color(0xFFFDE68A),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Text('🔥', style: TextStyle(fontSize: 14)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$_currentStreak Gün',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? const Color(0xFFA5B4FC) : const Color(0xFFB45309),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-          child: IconButton(
-            icon: Icon(
-              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-              color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF475569),
-              size: 20,
             ),
-            onPressed: widget.onToggleTheme,
-          ),
+            const SizedBox(width: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: IconButton(
+                icon: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF475569),
+                  size: 19,
+                ),
+                onPressed: widget.onToggleTheme,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildQuoteCard() {
+  // --- DÜZELTİLMİŞ VE KUSURSUZ GÖRSEL DÜZENLİ GÜNÜN İLHAMI KARTI ---
+  Widget _buildQuoteCard(bool isDark) {
     final currentQuote = _quotes[_quoteIndex];
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0F172A),
-            Color(0xFF1E1B4B),
-          ],
+          colors: isDark
+              ? [
+                  const Color(0xFF151C2C),
+                  const Color(0xFF0F172A),
+                ]
+              : [
+                  const Color(0xFF1E1B4B),
+                  const Color(0xFF311042),
+                ],
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E1B4B).withValues(alpha: 0.35),
-            blurRadius: 16,
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.35)
+                : const Color(0xFF1E1B4B).withValues(alpha: 0.25),
+            blurRadius: 18,
             offset: const Offset(0, 6),
           ),
         ],
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF263352)
+              : const Color(0xFF4338CA).withValues(alpha: 0.5),
+          width: 1,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.4)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            // Sol Üst Arka Plan Filigran Tırnak İşareti (Butondan tamamen uzak ve şık)
+            Positioned(
+              left: 12,
+              top: -8,
+              child: Text(
+                '“',
+                style: TextStyle(
+                  fontFamily: 'serif',
+                  fontSize: 100,
+                  height: 1.0,
+                  color: Colors.white.withValues(alpha: 0.04),
+                  fontWeight: FontWeight.bold,
                 ),
-                child: const Text(
-                  'GÜNÜN İLHAMI',
-                  style: TextStyle(
-                    color: Color(0xFFA5B4FC),
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                    fontSize: 10,
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Üst Bar: Etiket ve Yenileme Butonu
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBBF24).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFFFBBF24).withValues(alpha: 0.35),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.auto_awesome, size: 11, color: Color(0xFFFBBF24)),
+                            SizedBox(width: 5),
+                            Text(
+                              'GÜNÜN İLHAMI',
+                              style: TextStyle(
+                                color: Color(0xFFFDE68A),
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.1,
+                                fontSize: 9.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: _refreshQuote,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.refresh_rounded, color: Colors.white70, size: 13),
+                              SizedBox(width: 4),
+                              Text(
+                                'Yeni Söz',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF94A3B8), size: 18),
-                onPressed: _refreshQuote,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            child: Text(
-              '“${currentQuote.text}”',
-              key: ValueKey<String>(currentQuote.text),
-              style: const TextStyle(
-                fontFamily: 'serif',
-                color: Color(0xFFF8FAFC),
-                fontSize: 15,
-                height: 1.45,
-                fontStyle: FontStyle.italic,
+                  const SizedBox(height: 14),
+
+                  // 2. Alıntı Metni
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      '“${currentQuote.text}”',
+                      key: ValueKey<String>(currentQuote.text),
+                      style: const TextStyle(
+                        fontFamily: 'serif',
+                        color: Color(0xFFF8FAFC),
+                        fontSize: 15.5,
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                        fontStyle: FontStyle.italic,
+                        letterSpacing: 0.1,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 3. Yazar Bölümü
+                  Row(
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 1.5,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBBF24),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        currentQuote.author,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '— ${currentQuote.author}',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // --- YENİ HERO HEDEF KARTI (SEKTÖR STANDARDI) ---
   Widget _buildModernHeroCard(bool isDark) {
     final double goalProgress = (_readingTargetPages > 0)
         ? (_todayPages / _readingTargetPages).clamp(0.0, 1.0)
@@ -457,7 +574,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            color: isCompleted
+                ? const Color(0xFF10B981).withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -466,7 +585,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. ÜST BAŞLIK & İLERLEME ROZETİ
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -507,10 +625,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 child: Row(
                   children: [
-                    Text(
-                      isCompleted ? '🎉' : '🔥',
-                      style: const TextStyle(fontSize: 11),
-                    ),
+                    Text(isCompleted ? '🎉' : '🔥', style: const TextStyle(fontSize: 11)),
                     const SizedBox(width: 4),
                     Text(
                       isCompleted ? 'Tamamlandı' : '%$percent',
@@ -529,7 +644,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          // 2. SAYI DEĞERLERİ & AÇIKLAMA
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -558,9 +672,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               Text(
-                isCompleted
-                    ? 'Hedefe Ulaşıldı! 🚀'
-                    : 'Son $remainingPages sayfa kaldı',
+                isCompleted ? 'Hedefe Ulaşıldı! 🚀' : 'Son $remainingPages sayfa kaldı',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -573,7 +685,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 10),
 
-          // 3. GENİŞ MODERN İLERLEME ÇUBUĞU
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
@@ -587,7 +698,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 18),
 
-          // 4. ALT METRİK HAPLARI
           Row(
             children: [
               Expanded(
@@ -676,7 +786,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- HIZLI ERİŞİM GRİDİ ---
   Widget _buildQuickAccessGrid(bool isDark) {
     final List<_QuickAccessItemData> items = [
       _QuickAccessItemData(

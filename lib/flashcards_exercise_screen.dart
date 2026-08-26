@@ -1,6 +1,7 @@
 // ==============================================================
-// DOSYA ADI: lib/flashcards_exercise_screen.dart
-// AÇIKLAMA: Ses Destekli Tam Ekran Kelime Egzersizi (SRS)
+// flashcards_exercise_screen.dart
+// --------------------------------------------------------------
+// SES DESTEKLİ TAM EKRAN KELİME EGZERSİZİ (SRS)
 // ==============================================================
 
 import 'package:flutter/material.dart';
@@ -80,6 +81,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     final currentCard = _remainingCards.first;
     final String currentWord = currentCard['word'] ?? '';
     final int currentIndex = _initialTotal - _remainingCards.length + 1;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -166,15 +168,16 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   width: double.infinity,
                   height: double.infinity,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).cardTheme.color ?? Colors.white,
+                    // TEMA DUYARLI KART ARKAPLANI
+                    color: isDark ? const Color(0xFF131B2E) : Colors.white,
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: colors.outlineVariant.withValues(alpha: 0.5),
+                      color: isDark ? const Color(0xFF1E293B) : colors.outlineVariant.withValues(alpha: 0.5),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -225,7 +228,10 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                             textAlign: TextAlign.center,
                             style: textStyles.headlineMedium?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: _isFlipped ? colors.primary : colors.onSurface,
+                              // TEMA DUYARLI YAZI RENGİ (Karanlık modda net beyaz/açık renk)
+                              color: _isFlipped
+                                  ? colors.primary
+                                  : (isDark ? const Color(0xFFF8FAFC) : colors.onSurface),
                             ),
                           ),
                         ),
@@ -289,7 +295,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
   }
 
   Widget _buildCompletionView(ColorScheme colors, TextTheme textStyles) {
-    final double successRate = _initialTotal > 0 ? (_knownCount / _initialTotal) * 100 : 0;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Center(
       child: Padding(
@@ -299,8 +305,8 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           children: [
             CircleAvatar(
               radius: 48,
-              backgroundColor: Colors.green[100],
-              child: Icon(Icons.emoji_events_rounded, size: 54, color: Colors.green[700]),
+              backgroundColor: isDark ? const Color(0xFF064E3B) : Colors.green[100],
+              child: Icon(Icons.emoji_events_rounded, size: 54, color: isDark ? Colors.green[300] : Colors.green[700]),
             ),
             const SizedBox(height: 24),
             Text('Tebrikler! 🎉', style: textStyles.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -314,17 +320,19 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Theme.of(context).cardTheme.color ?? Colors.white,
+                color: isDark ? const Color(0xFF131B2E) : Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.4)),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF1E293B) : colors.outlineVariant.withValues(alpha: 0.4),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildResultStat('Toplam', '$_initialTotal', colors.primary),
-                  _buildResultStat('Bildim', '$_knownCount', Colors.green[600]!),
-                  _buildResultStat('Tekrar', '$_reviewCount', colors.error),
-                  _buildResultStat('Başarı', '%${successRate.toInt()}', Colors.amber[800]!),
+                  _buildResultStat('Toplam', '$_initialTotal', colors.primary, isDark),
+                  _buildResultStat('Bildim', '$_knownCount', Colors.green[600]!, isDark),
+                  _buildResultStat('Tekrar', '$_reviewCount', colors.error, isDark),
+                  _buildResultStat('Başarı', '%${(_initialTotal > 0 ? (_knownCount / _initialTotal) * 100 : 0).toInt()}', Colors.amber[800]!, isDark),
                 ],
               ),
             ),
@@ -367,12 +375,18 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     );
   }
 
-  Widget _buildResultStat(String label, String value, Color color) {
+  Widget _buildResultStat(String label, String value, Color color, bool isDark) {
     return Column(
       children: [
         Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? const Color(0xFF94A3B8) : Colors.grey,
+          ),
+        ),
       ],
     );
   }
