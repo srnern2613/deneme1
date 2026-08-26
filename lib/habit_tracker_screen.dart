@@ -69,7 +69,6 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     final pages = prefs.getInt('daily_pages_$todayKey') ?? 0;
     final minutes = prefs.getInt('daily_minutes_$todayKey') ?? 0;
 
-    // Aktif sayfa hedefini genel Dashboard için kaydet
     final readingGoal = _habits.firstWhere(
       (h) => h['type'] == 'page_goal',
       orElse: () => {'targetValue': 20},
@@ -95,7 +94,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   }
 
   void _toggleHabit(int index) {
-    HapticFeedback.selectionClick();
+    HapticFeedback.selectionClick(); // (Alışkanlık checkbox durumu değiştirildiğinde dokunma hissi verir)
     setState(() {
       final habit = _habits[index];
       final bool currentStatus = habit['isCompleted'] as bool;
@@ -108,8 +107,8 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     });
   }
 
-  // Mevcut Hedefi Düzenleme Dialogu
   void _showEditTargetDialog(Map<String, dynamic> habit) {
+    HapticFeedback.lightImpact(); // (Hedef düzenleme penceresi açılırken dokunma hissi verir)
     final targetController = TextEditingController(text: habit['targetValue'].toString());
 
     showDialog(
@@ -162,8 +161,8 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     );
   }
 
-  // Yeni Alışkanlık Ekleme (Çakışma Korumalı)
   void _showAddHabitDialog() {
+    HapticFeedback.selectionClick(); // (Yeni hedef ekleme butonuna basıldığında dokunma hissi verir)
     final titleController = TextEditingController();
     final targetController = TextEditingController(text: '10');
     String selectedType = 'manual';
@@ -193,7 +192,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                     const Text('Takip Türü', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: selectedType,
+                      initialValue: selectedType,
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -231,13 +230,11 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                 ),
                 FilledButton(
                   onPressed: () {
-                    // ÇAKIŞMA KONTROLÜ: Zaten otomatik bir hedef var mı?
                     final existingIndex = _habits.indexWhere((h) => h['type'] == selectedType && selectedType != 'manual');
 
                     if (existingIndex != -1) {
-                      Navigator.pop(context); // Dialogu kapat
+                      Navigator.pop(context);
 
-                      // Kullanıcıya rehberlik eden uyarı penceresi
                       showDialog(
                         context: context,
                         builder: (ctx) => AlertDialog(
@@ -322,11 +319,11 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
         label: const Text('Yeni Hedef'),
       ),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(), // (Alışkanlıklar sayfasında iOS tarzı akıcı yaylanma efekti sağlandı)
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Zinciri Kırma İlerleme Kartı
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -436,6 +433,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                     child: const Icon(Icons.delete_outline, color: Colors.white),
                   ),
                   onDismissed: (_) {
+                    HapticFeedback.mediumImpact(); // (Alışkanlık silindiğinde dokunma hissi verir)
                     setState(() {
                       _habits.removeAt(index);
                     });

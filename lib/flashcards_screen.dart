@@ -5,6 +5,7 @@
 // ==============================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // (Buton dokunmalarında haptic geri bildirim sağlamak için içe aktarıldı)
 import 'database_helper.dart';
 import 'flashcards_exercise_screen.dart';
 
@@ -37,12 +38,14 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   }
 
   void _deleteCard(int id) async {
+    HapticFeedback.mediumImpact(); // (Kart silindiğinde orta sertlikte dokunma hissi verir)
     await DatabaseHelper.instance.deleteFlashcard(id);
     _loadFlashcards();
   }
 
   void _startExercise() {
     if (_cards.isEmpty) return;
+    HapticFeedback.selectionClick(); // (Egzersiz başlatma butonuna basıldığında akıcı dokunma hissi verir)
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => FlashcardsExerciseScreen(cards: _cards),
@@ -63,7 +66,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: _loadFlashcards,
+            onPressed: () {
+              HapticFeedback.selectionClick(); // (Yenileme tuşuna basıldığında dokunma hissi sağlar)
+              _loadFlashcards();
+            },
             tooltip: 'Yenile',
           )
         ],
@@ -145,6 +151,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       const SizedBox(height: 14),
                       Expanded(
                         child: ListView.builder(
+                          physics: const BouncingScrollPhysics(), // (Listede akıcı ve yumuşak iOS yaylanma efekti sağlandı)
                           itemCount: _cards.length,
                           itemBuilder: (context, index) {
                             final card = _cards[index];
@@ -198,7 +205,6 @@ class _FlashcardItemState extends State<_FlashcardItem> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      // Tema duyarlı arkaplan rengi
       color: widget.isDark ? const Color(0xFF131B2E) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
@@ -209,7 +215,10 @@ class _FlashcardItemState extends State<_FlashcardItem> {
       elevation: 0,
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => setState(() => _showMeaning = !_showMeaning),
+        onTap: () {
+          HapticFeedback.selectionClick(); // (Kelime kartına dokunup anlamı açıp kapatırken akıcı dokunma hissi verir)
+          setState(() => _showMeaning = !_showMeaning);
+        },
         child: Padding(
           padding: const EdgeInsets.all(18),
           child: Row(

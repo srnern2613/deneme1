@@ -1,9 +1,10 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: Ultra-Premium Dashboard, Tema Duyarlı Kartlar & Canlı Seri Rozeti
+// AÇIKLAMA: Ultra-Premium Dashboard, Derinlikli Sekme Animasyonları & Tema Yönetimi
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,7 @@ import 'dictionary_screen.dart';
 import 'flashcards_screen.dart';
 import 'library_screen.dart';
 import 'habit_tracker_screen.dart';
+import 'profile_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +38,7 @@ class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
 
   void _toggleTheme() {
+    HapticFeedback.lightImpact();
     setState(() {
       _themeMode =
           _themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
@@ -58,6 +61,12 @@ class _MyAppState extends State<MyApp> {
           secondary: const Color(0xFF10B981),
           surface: Colors.white,
         ),
+        pageTransitionsTheme: PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
@@ -69,6 +78,12 @@ class _MyAppState extends State<MyApp> {
           primary: const Color(0xFF818CF8),
           secondary: const Color(0xFF34D399),
           surface: const Color(0xFF131B2E),
+        ),
+        pageTransitionsTheme: PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
         ),
       ),
       themeMode: _themeMode,
@@ -97,11 +112,7 @@ class _RootScreenState extends State<RootScreen> {
       DashboardScreen(key: _dashboardKey, onToggleTheme: widget.onToggleTheme),
       const LibraryScreen(),
       const FlashcardsScreen(),
-      const PlaceholderScreen(
-        title: 'Profil & İstatistik',
-        icon: Icons.person_outline_rounded,
-        description: 'Kişisel gelişim verilerin burada toplanacak.',
-      ),
+      const ProfileScreen(),
     ];
   }
 
@@ -119,9 +130,24 @@ class _RootScreenState extends State<RootScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      // (Göz yormayan, derinlik hissi veren Fade + Scale animasyonlu modern sekme geçişi)
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.97, end: 1.0).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey<int>(_currentIndex),
+          child: _screens[_currentIndex],
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -191,7 +217,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _todayPages = 0;
   int _todayMinutes = 0;
   int _readingTargetPages = 20;
-  int _currentStreak = 7;
+  final int _currentStreak = 7;
 
   @override
   void initState() {
@@ -374,7 +400,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- DÜZELTİLMİŞ VE KUSURSUZ GÖRSEL DÜZENLİ GÜNÜN İLHAMI KARTI ---
   Widget _buildQuoteCard(bool isDark) {
     final currentQuote = _quotes[_quoteIndex];
 
@@ -386,14 +411,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isDark
-              ? [
-                  const Color(0xFF151C2C),
-                  const Color(0xFF0F172A),
-                ]
-              : [
-                  const Color(0xFF1E1B4B),
-                  const Color(0xFF311042),
-                ],
+              ? [const Color(0xFF151C2C), const Color(0xFF0F172A)]
+              : [const Color(0xFF1E1B4B), const Color(0xFF311042)],
         ),
         boxShadow: [
           BoxShadow(
@@ -415,7 +434,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(24),
         child: Stack(
           children: [
-            // Sol Üst Arka Plan Filigran Tırnak İşareti (Butondan tamamen uzak ve şık)
             Positioned(
               left: 12,
               top: -8,
@@ -430,13 +448,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Üst Bar: Etiket ve Yenileme Butonu
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -500,8 +516,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 14),
-
-                  // 2. Alıntı Metni
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
                     child: Text(
@@ -519,8 +533,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  // 3. Yazar Bölümü
                   Row(
                     children: [
                       Container(
@@ -643,7 +655,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -684,7 +695,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 10),
-
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
@@ -697,7 +707,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 18),
-
           Row(
             children: [
               Expanded(
@@ -942,49 +951,4 @@ class _QuickAccessItemData {
     required this.color,
     required this.onTap,
   });
-}
-
-class PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final String description;
-  const PlaceholderScreen({
-    super.key,
-    required this.title,
-    required this.icon,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 48, color: const Color(0xFF6366F1)),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

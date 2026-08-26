@@ -2,18 +2,10 @@
 // dictionary_screen.dart
 // --------------------------------------------------------------
 // SÖZLÜK & KELİME ARAMA EKRANI (HAFIZALI & SARI İKONLU)
-// 
-// Bu ekran:
-// 1. Yerel veritabanındaki kelimeleri listeler ve arama yaptırır.
-// 2. Kullanıcının daha önce kaydettiği kartları tespit eder.
-// 3. Kayıtlı olan kelimelere doğrudan dolu sarı ikon (amber) koyar.
-// 4. İkona tıklandığında anında kart ekler veya siler (Toggle mantığı).
 // ==============================================================
 
-// Flutter Material bileşenlerini dahil ediyoruz
 import 'package:flutter/material.dart';
-
-// Veritabanı sorguları için oluşturduğumuz SQLite yardımcı sınıfı
+import 'package:flutter/services.dart'; // (Dokunma haptic geri bildirimleri için içe aktarıldı)
 import 'database_helper.dart';
 
 class DictionaryScreen extends StatefulWidget {
@@ -24,42 +16,27 @@ class DictionaryScreen extends StatefulWidget {
 }
 
 class _DictionaryScreenState extends State<DictionaryScreen> {
-  // Kullanıcının arama kutusuna yazdığı metni kontrol eden controller
   final TextEditingController _searchController = TextEditingController();
-
-  // Arama sonucunda listelenecek kelimeleri tutan dinamik liste
   List<Map<String, dynamic>> _searchResults = [];
-
-  // Kullanıcının daha önce Flashcard olarak eklediği kelimelerin sadece isimlerini tutan Set kümesi.
-  // Set kullanmamızın sebebi: "Bu kelime kayıtlı mı?" kontrolünün (contains) anında (O(1)) yapılmasıdır.
   Set<String> _savedWordNames = {};
-
-  // Veritabanından veriler yüklenirken dönen çarkı kontrol eden bayrak
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // Ekran ilk açıldığında hem kayıtlı kartları öğreniyoruz hem de tüm kelimeleri listeliyoruz
     _loadData('');
   }
 
-  // Hem kullanıcının kayıtlı Flashcard'larını hem de sözlük kelimelerini eşzamanlı çeken metot
   Future<void> _loadData(String query) async {
     setState(() => _isLoading = true);
 
-    // 1. Kullanıcının mevcut flashcard kayıtlarını çekiyoruz
     final savedCards = await DatabaseHelper.instance.getFlashcards();
-    
-    // Sadece kelime isimlerini küçük harfe çevirip hızlı erişim kümesine (Set) aktarıyoruz
     final Set<String> savedNames = savedCards
         .map((card) => (card['word'] as String).toLowerCase().trim())
         .toSet();
 
-    // 2. Arama kutusundaki kelimeye göre sözlük tablosunda arama yapıyoruz
     final results = await DatabaseHelper.instance.searchWord(query);
 
-    // Ekran hâlâ aktifse arayüzü güncelliyoruz
     if (mounted) {
       setState(() {
         _savedWordNames = savedNames;
@@ -69,17 +46,13 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
   }
 
-  // Bir kelimenin sağındaki yer imi (bookmark) butonuna basıldığında çalışan metot
   Future<void> _toggleBookmark(String word, String meaning) async {
+    HapticFeedback.selectionClick(); // (Kelime kartı kaydetme/çıkarma butonuna tıklandığında akıcı his verir)
     final cleanWord = word.trim();
     final lowerWord = cleanWord.toLowerCase();
     final isAlreadySaved = _savedWordNames.contains(lowerWord);
 
     if (isAlreadySaved) {
-      // -----------------------------------------------------------
-      // DURUM A: Kelime zaten kayıtlıysa -> Flashcards tablosundan siliyoruz
-      // -----------------------------------------------------------
-      // Önce ilgili kelimenin veritabanındaki id'sini bulmak için listeyi tarıyoruz
       final allCards = await DatabaseHelper.instance.getFlashcards();
       final targetCard = allCards.firstWhere(
         (card) => (card['word'] as String).toLowerCase().trim() == lowerWord,
@@ -90,7 +63,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         await DatabaseHelper.instance.deleteFlashcard(targetCard['id'] as int);
       }
 
-      // Ekranda ikonu anında boş ikona çeviriyoruz
       setState(() {
         _savedWordNames.remove(lowerWord);
       });
@@ -105,12 +77,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         ),
       );
     } else {
-      // -----------------------------------------------------------
-      // DURUM B: Kelime kayıtlı değilse -> Flashcards tablosuna ekliyoruz
-      // -----------------------------------------------------------
       await DatabaseHelper.instance.addFlashcard(cleanWord, meaning);
 
-      // Ekranda ikonu anında sarı/dolu ikona çeviriyoruz
       setState(() {
         _savedWordNames.add(lowerWord);
       });
@@ -139,10 +107,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 1. BÖLÜM: Arama Kutusu
             TextField(
               controller: _searchController,
-              // Kullanıcı her harf yazdığında veya sildiğinde listeyi yeniden filtreler
               onChanged: (text) => _loadData(text),
               decoration: InputDecoration(
                 hintText: 'Kelime veya anlam ara...',
@@ -151,6 +117,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                     ? IconButton(
                         icon: const Icon(Icons.clear_rounded),
                         onPressed: () {
+                          HapticFeedback.lightImpact(); // (Arama temizleme tuşuna basıldığında dokunma hissi verir)
                           _searchController.clear();
                           _loadData('');
                         },
@@ -166,7 +133,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 2. BÖLÜM: Kelime Kartları Listesi
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -178,6 +144,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                           ),
                         )
                       : ListView.separated(
+                          physics: const BouncingScrollPhysics(), // (Sözlük listesinde iOS tarzı akıcı yaylanma efekti sağlandı)
                           itemCount: _searchResults.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 10),
                           itemBuilder: (context, index) {
@@ -186,7 +153,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                             final String meaning = item['meaning'] ?? '';
                             final String? example = item['example'];
 
-                            // Bu kelimenin hafızamızdaki kayıtlılar kümesinde olup olmadığını kontrol ediyoruz
                             final bool isSaved = _savedWordNames.contains(word.toLowerCase().trim());
 
                             return Card(
@@ -220,11 +186,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                     ],
                                   ],
                                 ),
-                                // SAĞDAKİ DURUMSAL BUTON (KAYITLIYSA SARI VE DOLU)
                                 trailing: IconButton(
                                   icon: Icon(
                                     isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                                    // Kayıtlıysa amber/sarı, değilse standart tema rengi
                                     color: isSaved ? Colors.amber[700] : colors.onSurface.withValues(alpha: 0.4),
                                     size: 26,
                                   ),
