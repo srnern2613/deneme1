@@ -1,8 +1,9 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: Duolingo Tarzı Üst Bar (Seri, Elmas, XP), Canlı Envanter Şeridi & Dashboard
+// AÇIKLAMA: Bağlamsal Canlı Selamlama, 5 Sekmeli Navigasyon & Dashboard
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -15,7 +16,9 @@ import 'flashcards_screen.dart';
 import 'library_screen.dart';
 import 'habit_tracker_screen.dart';
 import 'profile_screen.dart';
+import 'shop_screen.dart';
 import 'xp_shop_service.dart';
+import 'coach_messages.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -110,9 +113,14 @@ class _RootScreenState extends State<RootScreen> {
   void initState() {
     super.initState();
     _screens = [
-      DashboardScreen(key: _dashboardKey, onToggleTheme: widget.onToggleTheme),
+      DashboardScreen(
+        key: _dashboardKey,
+        onToggleTheme: widget.onToggleTheme,
+        onNavigateToShop: () => _onTabTapped(3),
+      ),
       const LibraryScreen(),
       const FlashcardsScreen(),
+      const ShopScreen(),
       const ProfileScreen(),
     ];
   }
@@ -182,6 +190,11 @@ class _RootScreenState extends State<RootScreen> {
               label: 'Kartlar',
             ),
             NavigationDestination(
+              icon: Icon(Icons.storefront_outlined),
+              selectedIcon: Icon(Icons.storefront_rounded, color: Color(0xFF4F46E5)),
+              label: 'Mağaza',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(Icons.person_rounded, color: Color(0xFF4F46E5)),
               label: 'Profil',
@@ -195,7 +208,12 @@ class _RootScreenState extends State<RootScreen> {
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
-  const DashboardScreen({super.key, required this.onToggleTheme});
+  final VoidCallback onNavigateToShop;
+  const DashboardScreen({
+    super.key,
+    required this.onToggleTheme,
+    required this.onNavigateToShop,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -223,12 +241,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isDoubleXpActive = false;
   bool _hasGoldenCrown = false;
 
+  Timer? _countdownTimer;
+  Duration _timeUntilMidnight = Duration.zero;
+
   @override
   void initState() {
     super.initState();
     _quoteIndex = Random().nextInt(_quotes.length);
     refreshFlashcardCount();
     refreshReadingStats();
+    _startCountdownTimer();
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startCountdownTimer() {
+    _timeUntilMidnight = XpShopService.instance.getTimeUntilMidnight();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() {
+        _timeUntilMidnight = XpShopService.instance.getTimeUntilMidnight();
+      });
+    });
+  }
+
+  String _formatDuration(Duration d) {
+    final hours = d.inHours.toString().padLeft(2, '0');
+    final minutes = (d.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (d.inSeconds % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
+  }
+
+  String _getContextualGreeting() {
+    return CoachMessages.getHomeGreeting(
+      todayPages: _todayPages,
+      targetPages: _readingTargetPages,
+      hasShield: _hasFreezeShield,
+    );
   }
 
   void _refreshQuote() {
@@ -259,7 +312,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final doubleXp = await XpShopService.instance.isDoubleXpActive();
       final crown = await XpShopService.instance.hasItem('golden_crown');
 
-      // Günlük Hedef Ödülü Kontrolü (+15 Elmas Sandığı)
       final goalRewardClaimed = prefs.getBool('goal_reward_claimed_$todayKey') ?? false;
       if (pages >= target && !goalRewardClaimed && pages > 0) {
         await prefs.setBool('goal_reward_claimed_$todayKey', true);
@@ -287,183 +339,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       setState(() => _flashcardCount = cards.length);
     } catch (_) {}
-  }
-
-  // --- DUOLINGO TARZI ELMAS MAĞAZASI MODALI ---
-  void _openShopModal() {
-    HapticFeedback.mediumImpact();
-    final messenger = ScaffoldMessenger.of(context);
-    final nav = Navigator.of(context);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      builder: (modalContext) => StatefulBuilder(
-        builder: (modalContext, setModalState) => Container(
-          padding: const EdgeInsets.all(24.0),
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(modalContext).size.height * 0.8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Row(
-                    children: [
-                      Text('🛍️', style: TextStyle(fontSize: 28)),
-                      SizedBox(width: 10),
-                      Text('Elmas Mağazası', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.cyan.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text('💎 $_userGems Elmas', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.cyan)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              const Text('Günlük hedeflerden kazandığın elmaslarla serini koru!', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              const SizedBox(height: 20),
-
-              Expanded(
-                child: ListView(
-                  physics: const BouncingScrollPhysics(),
-                  children: [
-                    const Text('🛡️ Güvence & İksirler', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue)),
-                    const SizedBox(height: 8),
-
-                    _buildShopItem(
-                      emoji: '🛡️',
-                      title: 'Seri Kalkanı (Streak Freeze)',
-                      price: '30 💎',
-                      desc: '1 gün uygulamaya giremediğinde serini korur.',
-                      onBuy: () async {
-                        bool success = await XpShopService.instance.spendGems(30);
-                        if (success) {
-                          await XpShopService.instance.setFreezeShield(true);
-                          await refreshReadingStats();
-                          if (!mounted) return;
-                          setModalState(() {});
-                          nav.pop();
-                          messenger.showSnackBar(const SnackBar(content: Text('🛡️ Seri Kalkanı Satın Alındı!')));
-                        } else {
-                          messenger.showSnackBar(const SnackBar(content: Text('❌ Yetersiz Elmas! Hedeflerini tamamlayarak kazan.')));
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 10),
-
-                    _buildShopItem(
-                      emoji: '⚡',
-                      title: 'Çift XP İksiri (24 Saat)',
-                      price: '50 💎',
-                      desc: '24 saat boyunca okuduğun sayfalardan 2 kat XP kazanırsın.',
-                      onBuy: () async {
-                        bool success = await XpShopService.instance.spendGems(50);
-                        if (success) {
-                          await XpShopService.instance.activateDoubleXp();
-                          await refreshReadingStats();
-                          if (!mounted) return;
-                          setModalState(() {});
-                          nav.pop();
-                          messenger.showSnackBar(const SnackBar(content: Text('⚡ Çift XP İksiri Aktif Edildi!')));
-                        } else {
-                          messenger.showSnackBar(const SnackBar(content: Text('❌ Yetersiz Elmas!')));
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 10),
-
-                    _buildShopItem(
-                      emoji: '🔄',
-                      title: 'Seri İhya (Streak Repair)',
-                      price: '60 💎',
-                      desc: 'Unutulup sıfırlanan serini tek tıkla geri getirir!',
-                      onBuy: () async {
-                        bool success = await XpShopService.instance.spendGems(60);
-                        if (success) {
-                          await refreshReadingStats();
-                          if (!mounted) return;
-                          setModalState(() {});
-                          nav.pop();
-                          messenger.showSnackBar(const SnackBar(content: Text('🔄 Seri Başarıyla İhya Edildi!')));
-                        } else {
-                          messenger.showSnackBar(const SnackBar(content: Text('❌ Yetersiz Elmas!')));
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    const Text('👑 Statü & Rozetler', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.amber)),
-                    const SizedBox(height: 8),
-
-                    _buildShopItem(
-                      emoji: '👑',
-                      title: 'Efsanevi Altın Taç',
-                      price: '80 💎',
-                      desc: 'İsminin üzerinde parlayan prestij tacı.',
-                      onBuy: () async {
-                        bool success = await XpShopService.instance.spendGems(80);
-                        if (success) {
-                          await XpShopService.instance.buyItem('golden_crown');
-                          await refreshReadingStats();
-                          if (!mounted) return;
-                          setModalState(() {});
-                          nav.pop();
-                          messenger.showSnackBar(const SnackBar(content: Text('👑 Altın Taç Alındı!')));
-                        } else {
-                          messenger.showSnackBar(const SnackBar(content: Text('❌ Yetersiz Elmas!')));
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ).then((_) => refreshReadingStats());
-  }
-
-  Widget _buildShopItem({required String emoji, required String title, required String price, required String desc, required VoidCallback onBuy}) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 28)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                const SizedBox(height: 2),
-                Text(desc, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          FilledButton.tonal(
-            onPressed: onBuy,
-            child: Text(price, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -517,32 +392,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- DUOLINGO MODELİ GLOBAL ÜST BAR (SERİ, ELMAS, XP) ---
   Widget _buildDuolingoHeader(bool isDark) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          children: [
-            Text(
-              'Merhaba, $_userName',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
-                color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Merhaba, $_userName',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                      color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  if (_hasGoldenCrown) ...[
+                    const SizedBox(width: 4),
+                    const Text('👑', style: TextStyle(fontSize: 16)),
+                  ],
+                ],
               ),
-            ),
-            if (_hasGoldenCrown) ...[
-              const SizedBox(width: 4),
-              const Text('👑', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 2),
+              Text(
+                _getContextualGreeting(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                ),
+              ),
             ],
-          ],
+          ),
         ),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 1. 🔥 Seri Rozeti
             InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () {
@@ -570,11 +461,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(width: 6),
-
-            // 2. 💎 Elmas Cüzdanı
             InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: _openShopModal,
+              onTap: widget.onNavigateToShop,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 decoration: BoxDecoration(
@@ -594,8 +483,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(width: 6),
-
-            // 3. ⚡ Toplam XP Göstergesi
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               decoration: BoxDecoration(
@@ -614,8 +501,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(width: 6),
-
-            // Tema Butonu
             IconButton(
               visualDensity: VisualDensity.compact,
               icon: Icon(
@@ -1026,49 +911,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- YATAY KAYDIRILABİLİR AKTİF GÜÇLENDİRİCİLER & KALKAN ŞERİDİ ---
   Widget _buildActiveBoostersCarousel(bool isDark) {
+    final timerString = _formatDuration(_timeUntilMidnight);
+
     return SizedBox(
       height: 38,
       child: ListView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         children: [
-          // 1. Seri Koruma Kalkanı Rozeti
           InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: _openShopModal,
+            onTap: widget.onNavigateToShop,
             child: Container(
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: _hasFreezeShield
                     ? Colors.blue.withValues(alpha: 0.14)
-                    : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                    : Colors.red.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: _hasFreezeShield ? Colors.blue.withValues(alpha: 0.4) : Colors.transparent,
+                  color: _hasFreezeShield
+                      ? Colors.blue.withValues(alpha: 0.4)
+                      : Colors.red.withValues(alpha: 0.4),
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(_hasFreezeShield ? '🛡️' : '⏳', style: const TextStyle(fontSize: 13)),
+                  Text(_hasFreezeShield ? '🛡️' : '⚠️', style: const TextStyle(fontSize: 13)),
                   const SizedBox(width: 6),
                   Text(
-                    _hasFreezeShield ? '1 Günlük Kalkan Aktif' : 'Kalkan Boşta (Al)',
+                    _hasFreezeShield
+                        ? 'Kalkan Aktif (⏳ $timerString)'
+                        : 'Kalkan Yok! ($timerString kaldı)',
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
-                      color: _hasFreezeShield ? Colors.blue : (isDark ? Colors.grey[400] : Colors.grey[700]),
+                      color: _hasFreezeShield ? Colors.blue : Colors.redAccent,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-
-          // 2. Çift XP İksiri (Varsa)
           if (_isDoubleXpActive)
             Container(
               margin: const EdgeInsets.only(right: 8),

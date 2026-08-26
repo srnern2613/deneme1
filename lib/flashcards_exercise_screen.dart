@@ -1,13 +1,15 @@
 // ==============================================================
 // flashcards_exercise_screen.dart
 // --------------------------------------------------------------
-// SES DESTEKLİ SRS EGZERSİZİ + XP KAZANIMI
+// SES DESTEKLİ SRS EGZERSİZİ + CANLI KOÇLUK MESAJLARI (STREAK CHEERS)
 // ==============================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'tts_service.dart';
 import 'xp_shop_service.dart';
+import 'celebration_dialog.dart';
+import 'coach_messages.dart';
 
 class FlashcardsExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -24,7 +26,10 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
   int _knownCount = 0;
   int _reviewCount = 0;
   int _initialTotal = 0;
+  int _consecutiveKnownStreak = 0;
+  String? _cheerMessage;
   bool _isFlipped = false;
+  bool _celebrationShown = false;
 
   @override
   void initState() {
@@ -39,22 +44,55 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     super.dispose();
   }
 
+  void _triggerCheer(String message) {
+    setState(() => _cheerMessage = message);
+    Future.delayed(const Duration(milliseconds: 2200), () {
+      if (mounted && _cheerMessage == message) {
+        setState(() => _cheerMessage = null);
+      }
+    });
+  }
+
   Future<void> _handleCardDismiss(DismissDirection direction) async {
     TtsService.instance.stop();
     if (direction == DismissDirection.startToEnd) {
-      // BİLDİM: Sadece XP kazandırır
       await XpShopService.instance.addXp(5);
       
+      _consecutiveKnownStreak++;
+      final cheer = CoachMessages.getFlashcardCheer(_consecutiveKnownStreak);
+      if (cheer != null) {
+        _triggerCheer(cheer);
+      }
+
       setState(() {
         _knownCount++;
         _remainingCards.removeAt(0);
         _isFlipped = false;
       });
     } else {
+      _consecutiveKnownStreak = 0;
+      if (_reviewCount % 3 == 0 && _reviewCount > 0) {
+        _triggerCheer(CoachMessages.getWrongAnswerEncouragement());
+      }
       setState(() {
         _reviewCount++;
         _remainingCards.removeAt(0);
         _isFlipped = false;
+      });
+    }
+
+    if (_remainingCards.isEmpty && !_celebrationShown) {
+      _celebrationShown = true;
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        CelebrationDialog.show(
+          context,
+          emoji: '🎯',
+          title: 'Kelime Egzersizi Tamam!',
+          subtitle: '$_initialTotal kelimeden $_knownCount tanesini eksiksiz bildin. Hafıza kasların güçleniyor!',
+          earnedXp: _knownCount * 5,
+          actionLabel: 'Harika!',
+        );
       });
     }
   }
@@ -74,9 +112,48 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         ),
       ),
       body: SafeArea(
-        child: _remainingCards.isEmpty
-            ? _buildCompletionView(colors, textStyles)
-            : _buildExerciseView(colors, textStyles),
+        child: Stack(
+          children: [
+            _remainingCards.isEmpty
+                ? _buildCompletionView(colors, textStyles)
+                : _buildExerciseView(colors, textStyles),
+
+            // CANLI KOÇLUK BANNERI
+            if (_cheerMessage != null)
+              Positioned(
+                top: 10,
+                left: 20,
+                right: 20,
+                child: AnimatedSlide(
+                  duration: const Duration(milliseconds: 250),
+                  offset: _cheerMessage != null ? Offset.zero : const Offset(0, -1.5),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      _cheerMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -355,6 +432,8 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                     _knownCount = 0;
                     _reviewCount = 0;
                     _isFlipped = false;
+                    _celebrationShown = false;
+                    _consecutiveKnownStreak = 0;
                   });
                 },
               ),

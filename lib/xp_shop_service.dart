@@ -9,7 +9,7 @@ class XpShopService {
   static final XpShopService instance = XpShopService._init();
   XpShopService._init();
 
-  // Toplam XP (Asla harcanmaz, kariyer puanıdır)
+  // Toplam XP (Kariyer puanı)
   Future<int> getTotalXp() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt('user_total_xp') ?? 100;
@@ -18,10 +18,10 @@ class XpShopService {
   // Harcanabilir Elmas Bakiyesi
   Future<int> getGemsBalance() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('user_gems_balance') ?? 50; // Başlangıç 50 Elmas
+    return prefs.getInt('user_gems_balance') ?? 50;
   }
 
-  // XP Ekleme (Okuma ve Flashcard için)
+  // XP Ekleme
   Future<int> addXp(int amount) async {
     final prefs = await SharedPreferences.getInstance();
     int currentXp = await getTotalXp();
@@ -31,7 +31,7 @@ class XpShopService {
     
     int finalXp = amount;
     if (now < doubleXpExpiry) {
-      finalXp *= 2; // Çift XP İksiri aktif!
+      finalXp *= 2;
     }
 
     int updatedXp = currentXp + finalXp;
@@ -39,7 +39,7 @@ class XpShopService {
     return updatedXp;
   }
 
-  // Elmas Ekleme (Yalnızca Günlük Hedef Tamamlama veya Sandıklardan)
+  // Elmas Ekleme
   Future<int> addGems(int amount) async {
     final prefs = await SharedPreferences.getInstance();
     int currentGems = await getGemsBalance();
@@ -59,7 +59,7 @@ class XpShopService {
     return false;
   }
 
-  // Kalkan ve İksir Durumları
+  // Kalkan Durumu
   Future<bool> hasFreezeShield() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('has_freeze_shield') ?? true;
@@ -70,6 +70,14 @@ class XpShopService {
     await prefs.setBool('has_freeze_shield', value);
   }
 
+  // Gece 00:00'a kalan süreyi hesaplar
+  Duration getTimeUntilMidnight() {
+    final now = DateTime.now();
+    final midnight = DateTime(now.year, now.month, now.day + 1);
+    return midnight.difference(now);
+  }
+
+  // Çift XP Durumu
   Future<void> activateDoubleXp() async {
     final prefs = await SharedPreferences.getInstance();
     final expiry = DateTime.now().add(const Duration(hours: 24)).millisecondsSinceEpoch;

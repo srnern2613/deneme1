@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Duolingo Elmas Modeli, Sağ Üst Cüzdan ve Anti-Hile Entegrasyonlu Kitaplık
+// AÇIKLAMA: Duolingo Elmas Modeli, Sağ Üst Cüzdan ve Animasyonlu Ödül Kutlamalı Kitaplık
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -13,6 +13,8 @@ import 'reader_screen.dart';
 import 'achievement_service.dart';
 import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
+import 'shop_screen.dart';
+import 'celebration_dialog.dart'; // (Animasyonlu Kutlama Modalı Eklendi)
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -226,229 +228,37 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
         if (!mounted) return;
 
-        if (newlyUnlocked.isNotEmpty) {
-          showDialog(
-            context: context,
-            builder: (dialogContext) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: const Row(
-                children: [
-                  Text('🎉', style: TextStyle(fontSize: 28)),
-                  SizedBox(width: 10),
-                  Text('Yeni Başarım!'),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Tebrikler, harika bir adım attın ve yeni bir rozetin kilidini açtın:'),
-                  const SizedBox(height: 12),
-                  ...newlyUnlocked.map((badge) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Text('🏆 $badge', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
-                  )),
-                ],
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Harika!'),
-                ),
-              ],
-            ),
-          );
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-            backgroundColor: const Color(0xFF222226),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            content: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.bolt_rounded, color: Colors.amber, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '+$earnedXp XP Kazanıldı! 🎉',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
-                      ),
-                      Text(
-                        '$actualMinutes dk okundu • Toplam: $_userTotalXp XP',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+        // 🌟 ANİMASYONLU MERKEZİ KUTLAMA MODALI ÇAĞRILIYOR
+        CelebrationDialog.show(
+          context,
+          emoji: '🎉',
+          title: 'Harika Okuma Seansı!',
+          subtitle: '$actualMinutes dakika boyunca $addedPages sayfa okudun. Zihnin gelişim ivmesi yakaladı!',
+          earnedXp: earnedXp,
+          actionLabel: 'Süper, Devam Et!',
         );
+
+        if (newlyUnlocked.isNotEmpty) {
+          Future.delayed(const Duration(milliseconds: 1400), () {
+            if (!mounted) return;
+            CelebrationDialog.show(
+              context,
+              emoji: '🏆',
+              title: 'Yeni Başarım Kilidi Açıldı!',
+              subtitle: newlyUnlocked.map((b) => '• $b').join('\n'),
+              actionLabel: 'Harika!',
+            );
+          });
+        }
       }
     }
   }
 
-  void _openShopModal() {
-    HapticFeedback.mediumImpact();
-    final messenger = ScaffoldMessenger.of(context);
-    final nav = Navigator.of(context);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (modalContext) => StatefulBuilder(
-        builder: (modalContext, setModalState) => Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Row(
-                    children: [
-                      Text('🛍️', style: TextStyle(fontSize: 26)),
-                      SizedBox(width: 10),
-                      Text('Elmas Mağazası', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.cyan.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text('💎 $_userGems Elmas', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.cyan)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text('Günlük hedeflerden kazandığın elmaslarla serini koru!', style: TextStyle(fontSize: 12.5, color: Colors.grey)),
-              const SizedBox(height: 20),
-
-              _buildShopItem(
-                emoji: '🛡️',
-                title: 'Seri Kalkanı (Streak Freeze)',
-                price: '30 💎',
-                desc: 'Bir gün uygulamaya giremediğinde serini korur.',
-                onBuy: () async {
-                  bool success = await XpShopService.instance.spendGems(30);
-                  if (success) {
-                    await XpShopService.instance.setFreezeShield(true);
-                    final newGems = await XpShopService.instance.getGemsBalance();
-                    if (!mounted) return;
-                    setState(() {
-                      _userGems = newGems;
-                      _hasFreezeShield = true;
-                    });
-                    setModalState(() {});
-                    nav.pop();
-                    messenger.showSnackBar(const SnackBar(content: Text('🛡️ Seri Kalkanı Başarıyla Satın Alındı!')));
-                  } else {
-                    messenger.showSnackBar(const SnackBar(content: Text('❌ Yetersiz Elmas!')));
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-
-              _buildShopItem(
-                emoji: '⚡',
-                title: 'Çift XP İksiri (24 Saat)',
-                price: '50 💎',
-                desc: '24 saat boyunca okuduğun her sayfadan 2 kat XP kazanırsın.',
-                onBuy: () async {
-                  bool success = await XpShopService.instance.spendGems(50);
-                  if (success) {
-                    await XpShopService.instance.activateDoubleXp();
-                    final newGems = await XpShopService.instance.getGemsBalance();
-                    if (!mounted) return;
-                    setState(() => _userGems = newGems);
-                    setModalState(() {});
-                    nav.pop();
-                    messenger.showSnackBar(const SnackBar(content: Text('⚡ Çift XP İksiri Aktif Edildi!')));
-                  } else {
-                    messenger.showSnackBar(const SnackBar(content: Text('❌ Yetersiz Elmas!')));
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-
-              _buildShopItem(
-                emoji: '👑',
-                title: 'Altın Profil Tacı',
-                price: '80 💎',
-                desc: 'Profil kartında isminin üzerine parlayan efsanevi taç ekler.',
-                onBuy: () async {
-                  bool success = await XpShopService.instance.spendGems(80);
-                  if (success) {
-                    await XpShopService.instance.buyItem('golden_crown');
-                    final newGems = await XpShopService.instance.getGemsBalance();
-                    if (!mounted) return;
-                    setState(() => _userGems = newGems);
-                    setModalState(() {});
-                    nav.pop();
-                    messenger.showSnackBar(const SnackBar(content: Text('👑 Altın Profil Tacı Envantere Eklendi!')));
-                  } else {
-                    messenger.showSnackBar(const SnackBar(content: Text('❌ Yetersiz Elmas!')));
-                  }
-                },
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShopItem({required String emoji, required String title, required String price, required String desc, required VoidCallback onBuy}) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 28)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                const SizedBox(height: 2),
-                Text(desc, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          FilledButton.tonal(
-            onPressed: onBuy,
-            child: Text(price, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
-          ),
-        ],
-      ),
-    );
+  void _openShopScreen() {
+    HapticFeedback.lightImpact();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const ShopScreen()),
+    ).then((_) => _loadAllData());
   }
 
   String _formatLastRead(DateTime? date) {
@@ -618,13 +428,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
         title: const Text('İngilizce Kitaplık', style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
         actions: [
-          // 💎 Elmas Butonu
           Padding(
             padding: const EdgeInsets.only(right: 6.0),
             child: Center(
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: _openShopModal,
+                onTap: _openShopScreen,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                   decoration: BoxDecoration(
@@ -646,7 +455,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
             ),
           ),
-          // ⚡ XP Butonu
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
