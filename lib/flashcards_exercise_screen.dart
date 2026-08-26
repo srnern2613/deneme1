@@ -1,12 +1,13 @@
 // ==============================================================
 // flashcards_exercise_screen.dart
 // --------------------------------------------------------------
-// SES DESTEKLİ TAM EKRAN KELİME EGZERSİZİ (SRS)
+// SES DESTEKLİ SRS EGZERSİZİ + XP KAZANIMI
 // ==============================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'tts_service.dart';
+import 'xp_shop_service.dart';
 
 class FlashcardsExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -38,9 +39,12 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     super.dispose();
   }
 
-  void _handleCardDismiss(DismissDirection direction) {
+  Future<void> _handleCardDismiss(DismissDirection direction) async {
     TtsService.instance.stop();
     if (direction == DismissDirection.startToEnd) {
+      // BİLDİM: Sadece XP kazandırır
+      await XpShopService.instance.addXp(5);
+      
       setState(() {
         _knownCount++;
         _remainingCards.removeAt(0);
@@ -132,11 +136,11 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.thumb_up_rounded, color: Colors.white, size: 36),
-                    SizedBox(width: 12),
+                    Icon(Icons.thumb_up_rounded, color: Colors.white, size: 32),
+                    SizedBox(width: 10),
                     Text(
-                      'BİLDİM',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                      'BİLDİM (+5 XP)',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ],
                 ),
@@ -154,10 +158,10 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   children: [
                     Text(
                       'TEKRAR ET',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
-                    SizedBox(width: 12),
-                    Icon(Icons.replay_rounded, color: Colors.white, size: 36),
+                    SizedBox(width: 10),
+                    Icon(Icons.replay_rounded, color: Colors.white, size: 32),
                   ],
                 ),
               ),
@@ -168,7 +172,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   width: double.infinity,
                   height: double.infinity,
                   decoration: BoxDecoration(
-                    // TEMA DUYARLI KART ARKAPLANI
                     color: isDark ? const Color(0xFF131B2E) : Colors.white,
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
@@ -202,7 +205,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                               ),
                               backgroundColor: _isFlipped ? colors.primaryContainer : colors.secondaryContainer,
                             ),
-                            // TELAFUZ DİNLEME BUTONU
                             IconButton.filledTonal(
                               style: IconButton.styleFrom(
                                 backgroundColor: colors.primary.withValues(alpha: 0.12),
@@ -228,7 +230,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                             textAlign: TextAlign.center,
                             style: textStyles.headlineMedium?.copyWith(
                               fontWeight: FontWeight.bold,
-                              // TEMA DUYARLI YAZI RENGİ (Karanlık modda net beyaz/açık renk)
                               color: _isFlipped
                                   ? colors.primary
                                   : (isDark ? const Color(0xFFF8FAFC) : colors.onSurface),
@@ -312,8 +313,9 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
             Text('Tebrikler! 🎉', style: textStyles.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(
-              'Bugünkü kelime egzersizini tamamladın.',
+              'Egzersiz tamamlandı. XP seviyen yükseldi!',
               style: TextStyle(color: colors.onSurface.withValues(alpha: 0.6)),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
 
@@ -332,7 +334,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   _buildResultStat('Toplam', '$_initialTotal', colors.primary, isDark),
                   _buildResultStat('Bildim', '$_knownCount', Colors.green[600]!, isDark),
                   _buildResultStat('Tekrar', '$_reviewCount', colors.error, isDark),
-                  _buildResultStat('Başarı', '%${(_initialTotal > 0 ? (_knownCount / _initialTotal) * 100 : 0).toInt()}', Colors.amber[800]!, isDark),
+                  _buildResultStat('Kazanılan XP', '+${_knownCount * 5} ⚡', Colors.amber[800]!, isDark),
                 ],
               ),
             ),
@@ -378,7 +380,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
   Widget _buildResultStat(String label, String value, Color color, bool isDark) {
     return Column(
       children: [
-        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
         const SizedBox(height: 4),
         Text(
           label,

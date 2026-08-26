@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Ana Kitaplık, PDF Yükleyici ve Optimize Edilmiş Dashboard
+// AÇIKLAMA: Duolingo Elmas Modeli, Sağ Üst Cüzdan ve Anti-Hile Entegrasyonlu Kitaplık
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -12,6 +12,7 @@ import 'book_model.dart';
 import 'reader_screen.dart';
 import 'achievement_service.dart';
 import 'streak_freeze_service.dart';
+import 'xp_shop_service.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -29,6 +30,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
   int _totalWordsSaved = 0;
+  int _userTotalXp = 100;
+  int _userGems = 50;
 
   @override
   void initState() {
@@ -43,15 +46,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _loadAllData() async {
     final prefs = await SharedPreferences.getInstance();
-
     final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
+    final xp = await XpShopService.instance.getTotalXp();
+    final gems = await XpShopService.instance.getGemsBalance();
+    final shieldStatus = await XpShopService.instance.hasFreezeShield();
 
+    if (!mounted) return;
     setState(() {
       _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
       _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
       _totalWordsSaved = prefs.getInt('stats_total_words_saved') ?? 0;
       _streakDays = streakResult['streakDays'];
-      _hasFreezeShield = streakResult['hasFreezeShield'];
+      _hasFreezeShield = shieldStatus;
+      _userTotalXp = xp;
+      _userGems = gems;
     });
 
     final bookDataList = prefs.getStringList('saved_books');
@@ -178,73 +186,269 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
 
     if (result != null) {
-      final int addedMinutes = (result.durationSeconds / 60).ceil();
-      final int addedPages = result.pagesRead;
-      final todayKey = _getTodayKey();
-
-      final prefs = await SharedPreferences.getInstance();
+      final int validDurationSeconds = result.durationSeconds;
+      final int calculatedMinutes = (validDurationSeconds / 60).ceil();
+      final int actualMinutes = validDurationSeconds < 15 ? 0 : (calculatedMinutes > 0 ? calculatedMinutes : 1);
       
-      final int currentDailyPages = prefs.getInt('daily_pages_$todayKey') ?? 0;
-      final int currentDailyMinutes = prefs.getInt('daily_minutes_$todayKey') ?? 0;
+      final int addedPages = actualMinutes > 0 ? result.pagesRead : 0;
+      
+      if (actualMinutes > 0 && addedPages > 0) {
+        final earnedXp = actualMinutes * 10;
+        final updatedXp = await XpShopService.instance.addXp(earnedXp);
 
-      await prefs.setInt('daily_pages_$todayKey', currentDailyPages + addedPages);
-      await prefs.setInt('daily_minutes_$todayKey', currentDailyMinutes + (addedMinutes > 0 ? addedMinutes : 1));
+        final todayKey = _getTodayKey();
+        final prefs = await SharedPreferences.getInstance();
+        
+        final int currentDailyPages = prefs.getInt('daily_pages_$todayKey') ?? 0;
+        final int currentDailyMinutes = prefs.getInt('daily_minutes_$todayKey') ?? 0;
 
-      setState(() {
-        book.currentPage = result.lastPage;
-        book.lastReadDate = DateTime.now();
-        book.totalReadSeconds += result.durationSeconds;
+        await prefs.setInt('daily_pages_$todayKey', currentDailyPages + addedPages);
+        await prefs.setInt('daily_minutes_$todayKey', currentDailyMinutes + actualMinutes);
 
-        _totalReadMinutes += (addedMinutes > 0 ? addedMinutes : 1);
-        _totalWordsExamined += result.wordsExamined;
-        _totalWordsSaved += result.wordsAdded;
-      });
+        setState(() {
+          book.currentPage = result.lastPage;
+          book.lastReadDate = DateTime.now();
+          book.totalReadSeconds += validDurationSeconds;
 
-      await _saveBooksToStorage();
-      await _saveStatsToStorage();
+          _totalReadMinutes += actualMinutes;
+          _totalWordsExamined += result.wordsExamined;
+          _userTotalXp = updatedXp;
+        });
 
-      final newlyUnlocked = await AchievementService.instance.checkAndUnlockAchievements(
-        totalPagesRead: currentDailyPages + addedPages,
-        totalFlashcards: _totalWordsSaved,
-        totalReadMinutes: _totalReadMinutes,
-      );
+        await _saveBooksToStorage();
+        await _saveStatsToStorage();
 
-      if (!mounted) return;
+        final newlyUnlocked = await AchievementService.instance.checkAndUnlockAchievements(
+          totalPagesRead: currentDailyPages + addedPages,
+          totalFlashcards: _totalWordsSaved,
+          totalReadMinutes: _totalReadMinutes,
+        );
 
-      if (newlyUnlocked.isNotEmpty) {
-        showDialog(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            title: const Row(
-              children: [
-                Text('🎉', style: TextStyle(fontSize: 28)),
-                SizedBox(width: 10),
-                Text('Yeni Başarım!'),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Tebrikler, harika bir adım attın ve yeni bir rozetin kilidini açtın:'),
-                const SizedBox(height: 12),
-                ...newlyUnlocked.map((badge) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text('🏆 $badge', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
-                )),
-              ],
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Harika!'),
+        if (!mounted) return;
+
+        if (newlyUnlocked.isNotEmpty) {
+          showDialog(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Row(
+                children: [
+                  Text('🎉', style: TextStyle(fontSize: 28)),
+                  SizedBox(width: 10),
+                  Text('Yeni Başarım!'),
+                ],
               ),
-            ],
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Tebrikler, harika bir adım attın ve yeni bir rozetin kilidini açtın:'),
+                  const SizedBox(height: 12),
+                  ...newlyUnlocked.map((badge) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text('🏆 $badge', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
+                  )),
+                ],
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Harika!'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            backgroundColor: const Color(0xFF222226),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            content: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.bolt_rounded, color: Colors.amber, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '+$earnedXp XP Kazanıldı! 🎉',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                      ),
+                      Text(
+                        '$actualMinutes dk okundu • Toplam: $_userTotalXp XP',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       }
     }
+  }
+
+  void _openShopModal() {
+    HapticFeedback.mediumImpact();
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (modalContext) => StatefulBuilder(
+        builder: (modalContext, setModalState) => Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Text('🛍️', style: TextStyle(fontSize: 26)),
+                      SizedBox(width: 10),
+                      Text('Elmas Mağazası', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.cyan.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text('💎 $_userGems Elmas', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.cyan)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text('Günlük hedeflerden kazandığın elmaslarla serini koru!', style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+              const SizedBox(height: 20),
+
+              _buildShopItem(
+                emoji: '🛡️',
+                title: 'Seri Kalkanı (Streak Freeze)',
+                price: '30 💎',
+                desc: 'Bir gün uygulamaya giremediğinde serini korur.',
+                onBuy: () async {
+                  bool success = await XpShopService.instance.spendGems(30);
+                  if (success) {
+                    await XpShopService.instance.setFreezeShield(true);
+                    final newGems = await XpShopService.instance.getGemsBalance();
+                    if (!mounted) return;
+                    setState(() {
+                      _userGems = newGems;
+                      _hasFreezeShield = true;
+                    });
+                    setModalState(() {});
+                    nav.pop();
+                    messenger.showSnackBar(const SnackBar(content: Text('🛡️ Seri Kalkanı Başarıyla Satın Alındı!')));
+                  } else {
+                    messenger.showSnackBar(const SnackBar(content: Text('❌ Yetersiz Elmas!')));
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+
+              _buildShopItem(
+                emoji: '⚡',
+                title: 'Çift XP İksiri (24 Saat)',
+                price: '50 💎',
+                desc: '24 saat boyunca okuduğun her sayfadan 2 kat XP kazanırsın.',
+                onBuy: () async {
+                  bool success = await XpShopService.instance.spendGems(50);
+                  if (success) {
+                    await XpShopService.instance.activateDoubleXp();
+                    final newGems = await XpShopService.instance.getGemsBalance();
+                    if (!mounted) return;
+                    setState(() => _userGems = newGems);
+                    setModalState(() {});
+                    nav.pop();
+                    messenger.showSnackBar(const SnackBar(content: Text('⚡ Çift XP İksiri Aktif Edildi!')));
+                  } else {
+                    messenger.showSnackBar(const SnackBar(content: Text('❌ Yetersiz Elmas!')));
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+
+              _buildShopItem(
+                emoji: '👑',
+                title: 'Altın Profil Tacı',
+                price: '80 💎',
+                desc: 'Profil kartında isminin üzerine parlayan efsanevi taç ekler.',
+                onBuy: () async {
+                  bool success = await XpShopService.instance.spendGems(80);
+                  if (success) {
+                    await XpShopService.instance.buyItem('golden_crown');
+                    final newGems = await XpShopService.instance.getGemsBalance();
+                    if (!mounted) return;
+                    setState(() => _userGems = newGems);
+                    setModalState(() {});
+                    nav.pop();
+                    messenger.showSnackBar(const SnackBar(content: Text('👑 Altın Profil Tacı Envantere Eklendi!')));
+                  } else {
+                    messenger.showSnackBar(const SnackBar(content: Text('❌ Yetersiz Elmas!')));
+                  }
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShopItem({required String emoji, required String title, required String price, required String desc, required VoidCallback onBuy}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 28)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                const SizedBox(height: 2),
+                Text(desc, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.tonal(
+            onPressed: onBuy,
+            child: Text(price, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatLastRead(DateTime? date) {
@@ -413,6 +617,60 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(
         title: const Text('İngilizce Kitaplık', style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
+        actions: [
+          // 💎 Elmas Butonu
+          Padding(
+            padding: const EdgeInsets.only(right: 6.0),
+            child: Center(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _openShopModal,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.cyan.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('💎', style: TextStyle(fontSize: 13)),
+                      const SizedBox(width: 3),
+                      Text(
+                        '$_userGems',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.cyan[700]),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // ⚡ XP Butonu
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('⚡', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 3),
+                    Text(
+                      '$_userTotalXp',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.amber),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isLoading ? null : _pickAndProcessFile,

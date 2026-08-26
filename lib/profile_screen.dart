@@ -1,6 +1,6 @@
 // ==============================================================
 // DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Profil ve Seri Kalkanı Entegratörlü Başarılar Odası
+// AÇIKLAMA: Dinamik Profil, Seri Kalkanı ve Rozetler Odası
 // ==============================================================
 
 import 'package:flutter/material.dart';
@@ -10,7 +10,8 @@ import 'database_helper.dart';
 import 'library_screen.dart';
 import 'flashcards_screen.dart';
 import 'habit_tracker_screen.dart';
-import 'streak_freeze_service.dart'; // (Kalkan servisi eklendi)
+import 'streak_freeze_service.dart';
+import 'xp_shop_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -23,9 +24,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
   int _totalFlashcards = 0;
-  int _streakDays = 7;
+  int _streakDays = 1;
   bool _hasFreezeShield = true;
-  List<int> _weeklyPages = [12, 25, 8, 30, 18, 22, 15];
+  int _userTotalXp = 100;
+  int _userGems = 50;
+  List<int> _weeklyPages = [0, 0, 0, 0, 0, 0, 0];
   int _selectedTab = 0;
 
   @override
@@ -38,23 +41,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     final cards = await DatabaseHelper.instance.getFlashcards();
     final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
+    final xp = await XpShopService.instance.getTotalXp();
+    final gems = await XpShopService.instance.getGemsBalance();
 
     List<int> pagesList = [];
     final now = DateTime.now();
     for (int i = 6; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
       final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      pagesList.add(prefs.getInt('daily_pages_$key') ?? (10 + (i * 3) % 15));
+      pagesList.add(prefs.getInt('daily_pages_$key') ?? 0);
     }
 
     if (!mounted) return;
     setState(() {
-      _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 145;
-      _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 58;
+      _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
+      _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
       _totalFlashcards = cards.length;
       _streakDays = streakResult['streakDays'];
       _hasFreezeShield = streakResult['hasFreezeShield'];
       _weeklyPages = pagesList;
+      _userTotalXp = xp;
+      _userGems = gems;
     });
   }
 
@@ -80,8 +87,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         content: Text(
           _hasFreezeShield
-              ? 'Seri kalkanın şu an AKTİF! Uygulamaya 1 gün giremesen bile kalkanın serini koruyacak ve sıfırlanmasını önleyecektir.'
-              : 'Seri kalkanın şu an kullanımda veya boşta. Kalkanı yenilemek için günlük okuma hedeflerini tamamla!',
+              ? 'Seri kalkanın AKTİF! Uygulamaya 1 gün giremesen bile serin sıfırlanmayacak.'
+              : 'Seri kalkanın kullanımda veya boşta. Mağazadan veya günlük hedefleri tamamlayarak kalkan kazanabilirsin!',
           style: const TextStyle(fontSize: 13.5, height: 1.4),
         ),
         actions: [
@@ -131,6 +138,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Profil & Başarılar', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 6.0),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.cyan.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('💎', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 3),
+                    Text(
+                      '$_userGems',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.cyan[700]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('⚡', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 3),
+                    Text(
+                      '$_userTotalXp',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.amber),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -138,7 +193,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Kullanıcı Bilgi & Seri Kartı (Kalkan Bilgisi Dahil)
             Container(
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
@@ -172,7 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Ahmet',
+                          'Eren',
                           style: TextStyle(
                             color: colors.onPrimary,
                             fontSize: 20,
@@ -216,7 +270,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Sekme Seçici
             Container(
               height: 48,
               padding: const EdgeInsets.all(4),
@@ -280,7 +333,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 20),
 
-            // SEKME 0: İSTATİSTİKLER
             if (_selectedTab == 0) ...[
               Container(
                 padding: const EdgeInsets.all(20),
@@ -349,14 +401,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
 
-            // SEKME 1: BAŞARILAR ODASI
             if (_selectedTab == 1) ...[
               _buildBadgeCategory('🌱 Yeni Başlayanlar', [
                 _BadgeData('🐣', 'İlk Adım', 'Uygulamaya ilk giriş yap', true),
                 _BadgeData('📕', 'Kütüphaneci Adayı', 'İlk PDF/TXT kitabını yükle', true),
-                _BadgeData('🔍', 'İlk Merak', 'İlk kelimenin anlamını incele', true),
+                _BadgeData('🔍', 'İlk Merak', 'İlk kelimenin anlamını incele', _totalWordsExamined > 0),
                 _BadgeData('⭐', 'İlk Kıvılcım', 'İlk kelime kartını kaydet', _totalFlashcards > 0),
-                _BadgeData('⏱️', 'Çırak Okur', 'İlk okuma seansını tamamla', true),
+                _BadgeData('⏱️', 'Çırak Okur', 'İlk okuma seansını tamamla', _totalReadMinutes > 0),
               ], isDark),
               const SizedBox(height: 16),
 
@@ -365,42 +416,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _BadgeData('☕', 'Sabah Memuru', '06:00 - 08:00 arası oku', false),
                 _BadgeData('🛡️', 'Seri Kalkanı', 'Serini koruyan kalkanı hak et', _hasFreezeShield),
                 _BadgeData('📅', 'Hafta Sonu', 'Hafta sonu 20+ sayfa oku', false),
-                _BadgeData('⏳', 'Zaman Bükücü', 'Kesintisiz 45+ dk oku', false),
+                _BadgeData('⏳', 'Zaman Bükücü', 'Kesintisiz 45+ dk oku', _totalReadMinutes >= 45),
               ], isDark),
+
               const SizedBox(height: 16),
 
               _buildBadgeCategory('📚 Okuma Miktarları', [
-                _BadgeData('📖', 'Sayfa Canavarı', 'Toplam 100 sayfa oku', false),
+                _BadgeData('📖', 'Sayfa Canavarı', 'Toplam 100 sayfa oku', totalWeeklyRead >= 100),
                 _BadgeData('📜', 'Ciltli Alim', 'Toplam 500 sayfa oku', false),
-                _BadgeData('🏛️', 'İmparatorluk', 'Aynı anda 10 kitap yükle', false),
                 _BadgeData('🏃', 'Maratoncu', 'Bir günde 40+ sayfa oku', false),
-                _BadgeData('🕵️', 'Metin Dedektifi', '100+ kelime incele', false),
-              ], isDark),
-              const SizedBox(height: 16),
-
-              _buildBadgeCategory('📇 Kelime & Hafıza (SRS)', [
-                _BadgeData('🧠', 'Sinaps', 'Tek seferde 50 kelime ekle', false),
-                _BadgeData('💎', 'Elmas Hafıza', 'SRS kartlarında hatasız geç', false),
-                _BadgeData('🗣️', 'Sesli Rehber', 'Sayfayı kulaklıkla dinle', true),
-                _BadgeData('🔍', 'Meraklı Zihin', 'Sözlüğü 200 kez aç', false),
-                _BadgeData('🌟', 'Koleksiyoner', '50 favori kelime ekle', false),
-              ], isDark),
-              const SizedBox(height: 16),
-
-              _buildBadgeCategory('🕵️ Gizli & Eğlenceli (Easter Eggs)', [
-                _BadgeData('⚡', 'Işık Hızı', 'Uygulamayı günde 5 kez aç', true),
-                _BadgeData('🎯', 'Mükemmeliyetçi', 'Hedefi %100 tamamla', false),
-                _BadgeData('🦇', 'Gece Kuşu', '03:00 - 05:00 arası gezin', false),
-                _BadgeData('🥷', 'Hayalet Okur', '3 gün sessizliğe gömül', false),
-                _BadgeData('🔄', 'Döngü Ustası', 'Aynı kelimeyi 5 kez arat', false),
-                _BadgeData('🎛️', 'Özelleştirici', 'Tema butonuna ilk kez tıkla', true),
-                _BadgeData('🎲', 'Şanslı Keşif', '"Yeni Söz"e 5 kez bas', false),
-                _BadgeData('👑', 'Efsanevi Alim', 'Tüm rozetlerin kilidini aç', false),
+                _BadgeData('🕵️', 'Metin Dedektifi', '100+ kelime incele', _totalWordsExamined >= 100),
               ], isDark),
             ],
             const SizedBox(height: 24),
 
-            // PRO Üyelik Banner
             InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: _showProDialog,
