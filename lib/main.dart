@@ -1,20 +1,13 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: Uygulama Giriş Noktası, Tema Yönetimi ve Ana Dashboard Ekranı
-//
-// MİMARİ VE ÇALIŞMA MANTIĞI:
-// 1. Canlı Dashboard İstatistikleri: `refreshReadingStats()` fonksiyonu, SharedPreferences
-//    üzerindeki bugüne ait okunan sayfa ve dakikayı çekip "Bugün Okunan" kartında gösterir.
-// 2. Sekmeler Arası Senkronizasyon: RootScreen üzerindeki IndexedStack mimarisinde
-//    kullanıcı diğer sekmelerden (örneğin Kitaplık) Ana Sayfa'ya döndüğünde
-//    GlobalKey aracılığıyla Dashboard verilerini anında yeniler.
+// AÇIKLAMA: Apple / Blinkist Standartlarında Modern Dashboard & İlerleme Kartı
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// PROJEDEKİ DİĞER MODÜLLER
 import 'database_helper.dart';
 import 'dictionary_screen.dart';
 import 'flashcards_screen.dart';
@@ -22,6 +15,13 @@ import 'library_screen.dart';
 import 'habit_tracker_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
   runApp(const MyApp());
 }
 
@@ -35,7 +35,6 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
 
-  // Açık / Koyu tema geçişini tetikleyen fonksiyon
   void _toggleTheme() {
     setState(() {
       _themeMode =
@@ -46,46 +45,30 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Kişisel Gelişim Uygulaması',
+      title: 'Kişisel Gelişim & Okuma',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF),
+          seedColor: const Color(0xFF1E293B),
           brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF5F6FA),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-        textTheme: const TextTheme(
-          headlineSmall: TextStyle(fontWeight: FontWeight.bold),
-          titleMedium: TextStyle(fontWeight: FontWeight.w600),
-          bodyMedium: TextStyle(height: 1.4),
+          primary: const Color(0xFF0F172A),
+          secondary: const Color(0xFF10B981),
+          surface: Colors.white,
         ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0B0F19),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF),
+          seedColor: const Color(0xFF6366F1),
           brightness: Brightness.dark,
-        ),
-        scaffoldBackgroundColor: const Color(0xFF121218),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          color: const Color(0xFF1E1E27),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-        textTheme: const TextTheme(
-          headlineSmall: TextStyle(fontWeight: FontWeight.bold),
-          titleMedium: TextStyle(fontWeight: FontWeight.w600),
-          bodyMedium: TextStyle(height: 1.4),
+          primary: const Color(0xFF818CF8),
+          secondary: const Color(0xFF34D399),
+          surface: const Color(0xFF131B2E),
         ),
       ),
       themeMode: _themeMode,
@@ -94,12 +77,8 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-// ----------------------------------------------------------------------------
-// ROOT SCREEN: Alt Navigasyon Barı ve Sekme Yöneticisi
-// ----------------------------------------------------------------------------
 class RootScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
-
   const RootScreen({super.key, required this.onToggleTheme});
 
   @override
@@ -108,41 +87,27 @@ class RootScreen extends StatefulWidget {
 
 class _RootScreenState extends State<RootScreen> {
   int _currentIndex = 0;
-  
-  // DashboardState içindeki yenileme fonksiyonlarına erişmek için GlobalKey
-  final GlobalKey<_DashboardScreenState> _dashboardKey =
-      GlobalKey<_DashboardScreenState>();
-
+  final GlobalKey<_DashboardScreenState> _dashboardKey = GlobalKey<_DashboardScreenState>();
   late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
     _screens = [
-      // 0) Ana Sayfa (Dashboard)
       DashboardScreen(key: _dashboardKey, onToggleTheme: widget.onToggleTheme),
-
-      // 1) Kitaplık Modülü
       const LibraryScreen(),
-
-      // 2) Kelime Kartları (Flashcards) Modülü
       const FlashcardsScreen(),
-
-      // 3) Profil Sekmesi
       const PlaceholderScreen(
-        title: 'Profil',
-        icon: Icons.person_rounded,
-        description: 'Kullanıcı bilgileri ve ayarlar burada yer alacak.',
+        title: 'Profil & İstatistik',
+        icon: Icons.person_outline_rounded,
+        description: 'Kişisel gelişim verilerin burada toplanacak.',
       ),
     ];
   }
 
   void _onTabTapped(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
-
-    // Kullanıcı Ana Sayfa sekmesine her bastığında verileri hafızadan yeniden okut
+    HapticFeedback.selectionClick();
+    setState(() => _currentIndex = index);
     if (index == 0) {
       _dashboardKey.currentState?.refreshFlashcardCount();
       _dashboardKey.currentState?.refreshReadingStats();
@@ -151,48 +116,59 @@ class _RootScreenState extends State<RootScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: _onTabTapped,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Ana Sayfa',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+              width: 1,
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book_rounded),
-            label: 'Kitaplık',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.style_outlined),
-            selectedIcon: Icon(Icons.style_rounded),
-            label: 'Flashcards',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Profil',
-          ),
-        ],
+        ),
+        child: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: _onTabTapped,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          indicatorColor: isDark ? const Color(0xFF312E81) : const Color(0xFFEEF2FF),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF4F46E5)),
+              label: 'Keşfet',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.auto_stories_outlined),
+              selectedIcon: Icon(Icons.auto_stories_rounded, color: Color(0xFF4F46E5)),
+              label: 'Kitaplık',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.style_outlined),
+              selectedIcon: Icon(Icons.style_rounded, color: Color(0xFF4F46E5)),
+              label: 'Kartlar',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded, color: Color(0xFF4F46E5)),
+              label: 'Profil',
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ----------------------------------------------------------------------------
-// DASHBOARD SCREEN: Ana Sayfa Gösterge Paneli
-// ----------------------------------------------------------------------------
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
-
   const DashboardScreen({super.key, required this.onToggleTheme});
 
   @override
@@ -211,15 +187,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   late int _quoteIndex;
-  
-  // Flashcard istatistikleri
   int _flashcardCount = 0;
-  bool _isLoadingCards = true;
-
-  // Bugün okunan sayfa ve dakika sayaçları
   int _todayPages = 0;
   int _todayMinutes = 0;
-  bool _isLoadingStats = true;
+  int _readingTargetPages = 20;
 
   @override
   void initState() {
@@ -230,6 +201,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _refreshQuote() {
+    HapticFeedback.selectionClick();
     setState(() {
       _quoteIndex = Random().nextInt(_quotes.length);
     });
@@ -240,78 +212,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
-  // --------------------------------------------------------------------------
-  // BUGÜNÜN OKUMA İSTATİSTİKLERİNİ HAFIZADAN ÇEKİP GÜNCELLEYEN METOT
-  // --------------------------------------------------------------------------
   Future<void> refreshReadingStats() async {
-    setState(() => _isLoadingStats = true);
     try {
       final prefs = await SharedPreferences.getInstance();
       final todayKey = _getTodayKey();
 
       final pages = prefs.getInt('daily_pages_$todayKey') ?? 0;
       final minutes = prefs.getInt('daily_minutes_$todayKey') ?? 0;
+      final target = prefs.getInt('active_reading_target_pages') ?? 20;
 
       if (!mounted) return;
       setState(() {
         _todayPages = pages;
         _todayMinutes = minutes;
-        _isLoadingStats = false;
+        _readingTargetPages = target;
       });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoadingStats = false);
-    }
+    } catch (_) {}
   }
 
-  // SQLite veritabanındaki toplam aktif kart sayısını sorgulayan metot
   Future<void> refreshFlashcardCount() async {
-    setState(() {
-      _isLoadingCards = true;
-    });
-
     try {
       final cards = await DatabaseHelper.instance.getFlashcards();
       if (!mounted) return;
-
-      setState(() {
-        _flashcardCount = cards.length;
-        _isLoadingCards = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingCards = false;
-      });
-      debugPrint('Flashcard sayısı alınırken hata oluştu: $e');
-    }
+      setState(() => _flashcardCount = cards.length);
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
-    final TextTheme textStyles = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildGreetingHeader(colors, textStyles),
-              const SizedBox(height: 20),
-              _buildQuoteCard(colors, textStyles),
+              _buildHeader(isDark),
+              const SizedBox(height: 18),
+              _buildQuoteCard(),
+              const SizedBox(height: 18),
+              _buildModernHeroCard(isDark),
               const SizedBox(height: 24),
-              _buildStatsRow(colors, textStyles),
-              const SizedBox(height: 28),
-              Text(
-                'Hızlı Erişim',
-                style: textStyles.headlineSmall?.copyWith(fontSize: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Hızlı Erişim',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  Text(
+                    'Tüm Araçlar',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF6366F1),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
-              _buildQuickAccessGrid(context, colors, textStyles),
-              const SizedBox(height: 12),
+              _buildQuickAccessGrid(isDark),
             ],
           ),
         ),
@@ -319,59 +287,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildGreetingHeader(ColorScheme colors, TextTheme textStyles) {
+  Widget _buildHeader(bool isDark) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Merhaba, $_userName 👋',
-                style: textStyles.headlineSmall?.copyWith(fontSize: 22),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Bugün gelişime bir adım daha yaklaş.',
-                style: textStyles.bodyMedium?.copyWith(
-                  color: colors.onSurface.withValues(alpha: 0.6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Merhaba, $_userName',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.6,
+                    color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                  ),
                 ),
+                const SizedBox(width: 6),
+                const Text('⚡', style: TextStyle(fontSize: 20)),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Günün gelişim hedeflerini tamamla.',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-        ),
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: colors.primaryContainer,
           child: IconButton(
             icon: Icon(
-              Theme.of(context).brightness == Brightness.dark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
-              color: colors.onPrimaryContainer,
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF475569),
+              size: 20,
             ),
             onPressed: widget.onToggleTheme,
-            tooltip: 'Temayı değiştir',
           ),
         ),
       ],
     );
   }
 
-  Widget _buildQuoteCard(ColorScheme colors, TextTheme textStyles) {
-    final Quote currentQuote = _quotes[_quoteIndex];
+  Widget _buildQuoteCard() {
+    final currentQuote = _quotes[_quoteIndex];
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [colors.primary, colors.tertiary],
+          colors: [
+            Color(0xFF0F172A),
+            Color(0xFF1E1B4B),
+          ],
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E1B4B).withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,24 +379,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.format_quote_rounded, color: colors.onPrimary, size: 20),
-                  const SizedBox(width: 6),
-                  Text(
-                    'GÜNÜN SÖZÜ',
-                    style: textStyles.bodyMedium?.copyWith(
-                      color: colors.onPrimary,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.1,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.4)),
+                ),
+                child: const Text(
+                  'GÜNÜN İLHAMI',
+                  style: TextStyle(
+                    color: Color(0xFFA5B4FC),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                    fontSize: 10,
                   ),
-                ],
+                ),
               ),
               IconButton(
-                icon: Icon(Icons.refresh_rounded, color: colors.onPrimary),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF94A3B8), size: 18),
                 onPressed: _refreshQuote,
-                tooltip: 'Yeni söz göster',
               ),
             ],
           ),
@@ -404,21 +409,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: Text(
-              '"${currentQuote.text}"',
+              '“${currentQuote.text}”',
               key: ValueKey<String>(currentQuote.text),
-              style: textStyles.titleMedium?.copyWith(
-                color: colors.onPrimary,
-                fontSize: 16,
-                height: 1.5,
+              style: const TextStyle(
+                fontFamily: 'serif',
+                color: Color(0xFFF8FAFC),
+                fontSize: 15,
+                height: 1.45,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
-            '- ${currentQuote.author}',
-            style: textStyles.bodyMedium?.copyWith(
-              color: colors.onPrimary.withValues(alpha: 0.85),
-              fontStyle: FontStyle.italic,
+            '— ${currentQuote.author}',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -426,52 +434,257 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --------------------------------------------------------------------------
-  // CANLI İSTATİSTİK KARTLARI SATIRI (BUGÜN OKUNAN + FLASHCARD SAYISI)
-  // --------------------------------------------------------------------------
-  Widget _buildStatsRow(ColorScheme colors, TextTheme textStyles) {
-    return Row(
-      children: [
-        Expanded(
-          child: StatCard(
-            icon: Icons.menu_book_rounded,
-            iconColor: colors.primary,
-            iconBackground: colors.primaryContainer,
-            title: 'Bugün Okunan',
-            value: '$_todayPages sayfa',
-            subtitle: '≈ $_todayMinutes dakika',
-            isLoading: _isLoadingStats,
-          ),
+  // --- YENİ HERO HEDEF KARTI (SEKTÖR STANDARDI) ---
+  Widget _buildModernHeroCard(bool isDark) {
+    final double goalProgress = (_readingTargetPages > 0)
+        ? (_todayPages / _readingTargetPages).clamp(0.0, 1.0)
+        : 0.0;
+    final int percent = (goalProgress * 100).toInt();
+    final bool isCompleted = goalProgress >= 1.0;
+    final int remainingPages = (_readingTargetPages - _todayPages).clamp(0, 9999);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF131B2E) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isCompleted
+              ? const Color(0xFF10B981).withValues(alpha: 0.5)
+              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+          width: isCompleted ? 1.5 : 1,
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: StatCard(
-            icon: Icons.style_rounded,
-            iconColor: colors.tertiary,
-            iconBackground: colors.tertiaryContainer,
-            title: 'Kayıtlı Kelime Kartı',
-            value: '$_flashcardCount kart',
-            subtitle: 'Toplam kayıtlı kart',
-            isLoading: _isLoadingCards,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
-        ),
-      ],
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. ÜST BAŞLIK & İLERLEME ROZETİ
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.auto_stories_rounded, color: Color(0xFF6366F1), size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Günlük Okuma Hedefi',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                      color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isCompleted
+                      ? const Color(0xFF10B981).withValues(alpha: 0.14)
+                      : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isCompleted
+                        ? const Color(0xFF10B981).withValues(alpha: 0.4)
+                        : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      isCompleted ? '🎉' : '🔥',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isCompleted ? 'Tamamlandı' : '%$percent',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: isCompleted
+                            ? const Color(0xFF10B981)
+                            : (isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 2. SAYI DEĞERLERİ & AÇIKLAMA
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$_todayPages',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.0,
+                        color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' / $_readingTargetPages sayfa',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                isCompleted
+                    ? 'Hedefe Ulaşıldı! 🚀'
+                    : 'Son $remainingPages sayfa kaldı',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isCompleted
+                      ? const Color(0xFF10B981)
+                      : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // 3. GENİŞ MODERN İLERLEME ÇUBUĞU
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: goalProgress,
+              minHeight: 10,
+              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isCompleted ? const Color(0xFF10B981) : const Color(0xFF6366F1),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // 4. ALT METRİK HAPLARI
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A).withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.timer_outlined, size: 18, color: Color(0xFF6366F1)),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$_todayMinutes Dk',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                            ),
+                          ),
+                          Text(
+                            'Okuma Süresi',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A).withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.style_outlined, size: 18, color: Color(0xFFEC4899)),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$_flashcardCount Kart',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                            ),
+                          ),
+                          Text(
+                            'Kelime Havuzu',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildQuickAccessGrid(
-    BuildContext context,
-    ColorScheme colors,
-    TextTheme textStyles,
-  ) {
+  // --- HIZLI ERİŞİM GRİDİ ---
+  Widget _buildQuickAccessGrid(bool isDark) {
     final List<_QuickAccessItemData> items = [
       _QuickAccessItemData(
         title: 'Kitaplığım',
-        subtitle: 'Telifsiz ve eklenen kitaplar',
-        icon: Icons.menu_book_rounded,
-        color: colors.primary,
+        subtitle: 'Kütüphane & PDF',
+        icon: Icons.auto_stories_rounded,
+        color: const Color(0xFF4F46E5),
         onTap: () async {
-          // Kitaplığa git, kitap okuyup dönüldüğünde ana sayfa sayaçlarını tazele
           await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const LibraryScreen()),
           );
@@ -481,32 +694,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       _QuickAccessItemData(
         title: 'Kelime Kartları',
-        subtitle: 'Flashcards / SRS',
+        subtitle: 'Hafıza & SRS',
         icon: Icons.style_rounded,
-        color: colors.secondary,
-        onTap: () => _openRealScreenAndRefresh(
-          context,
-          const FlashcardsScreen(),
-        ),
+        color: const Color(0xFFEC4899),
+        onTap: () => _openRealScreenAndRefresh(context, const FlashcardsScreen()),
       ),
       _QuickAccessItemData(
-        title: 'Hobi & Okuma Takibi',
-        subtitle: 'Günlük tracker',
+        title: 'Alışkanlık Takibi',
+        subtitle: 'Zinciri Kırma & Seri',
         icon: Icons.local_fire_department_rounded,
-        color: colors.tertiary,
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
-        ),
+        color: const Color(0xFFFF7A00),
+        onTap: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
+          );
+          if (!mounted) return;
+          refreshReadingStats();
+        },
       ),
       _QuickAccessItemData(
-        title: 'Sözlük / Çeviri',
-        subtitle: 'Çevrimdışı sözlük',
+        title: 'Sözlük & Çeviri',
+        subtitle: 'Çevrimdışı Arama',
         icon: Icons.translate_rounded,
-        color: colors.error,
-        onTap: () => _openRealScreenAndRefresh(
-          context,
-          const DictionaryScreen(),
-        ),
+        color: const Color(0xFF10B981),
+        onTap: () => _openRealScreenAndRefresh(context, const DictionaryScreen()),
       ),
     ];
 
@@ -516,32 +727,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
       itemCount: items.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisSpacing: 14,
-        crossAxisSpacing: 14,
-        childAspectRatio: 1.15,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.25,
       ),
       itemBuilder: (context, index) {
         final item = items[index];
-        return QuickAccessCard(
-          title: item.title,
-          subtitle: item.subtitle,
-          icon: item.icon,
-          color: item.color,
-          onTap: item.onTap,
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF131B2E) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                item.onTap();
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: item.color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(item.icon, color: item.color, size: 20),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          item.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         );
       },
     );
   }
 
-  // Modüllerden geri dönüldüğünde dashboard'u tazeleyen yardımcı metot
-  Future<void> _openRealScreenAndRefresh(
-    BuildContext context,
-    Widget screen,
-  ) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => screen),
-    );
-
+  Future<void> _openRealScreenAndRefresh(BuildContext context, Widget screen) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (context) => screen));
     if (!mounted) return;
     refreshFlashcardCount();
     refreshReadingStats();
@@ -551,135 +816,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 class Quote {
   final String text;
   final String author;
-
   const Quote(this.text, this.author);
-}
-
-class StatCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBackground;
-  final String title;
-  final String value;
-  final String subtitle;
-  final bool isLoading;
-
-  const StatCard({
-    super.key,
-    required this.icon,
-    required this.iconColor,
-    required this.iconBackground,
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    this.isLoading = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme textStyles = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: iconBackground,
-              child: Icon(icon, color: iconColor, size: 18),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: textStyles.bodyMedium?.copyWith(
-                color: colors.onSurface.withValues(alpha: 0.6),
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(height: 2),
-            isLoading
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    value,
-                    style: textStyles.titleMedium?.copyWith(fontSize: 17),
-                  ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: textStyles.bodyMedium?.copyWith(
-                color: colors.onSurface.withValues(alpha: 0.5),
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class QuickAccessCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const QuickAccessCard({
-    super.key,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme textStyles = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: color.withValues(alpha: 0.15),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const Spacer(),
-              Text(
-                title,
-                style: textStyles.titleMedium?.copyWith(fontSize: 14),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: textStyles.bodyMedium?.copyWith(
-                  fontSize: 11,
-                  color: colors.onSurface.withValues(alpha: 0.55),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _QuickAccessItemData {
@@ -702,57 +839,40 @@ class PlaceholderScreen extends StatelessWidget {
   final String title;
   final IconData icon;
   final String description;
-  final bool showAppBar;
-
   const PlaceholderScreen({
     super.key,
     required this.title,
     required this.icon,
     required this.description,
-    this.showAppBar = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
-    final TextTheme textStyles = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: showAppBar ? AppBar(title: Text(title)) : null,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 44,
-                  backgroundColor: colors.primaryContainer,
-                  child: Icon(icon, size: 40, color: colors.onPrimaryContainer),
+      appBar: AppBar(title: Text(title)),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 48, color: const Color(0xFF6366F1)),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                description,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  title,
-                  style: textStyles.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  description,
-                  textAlign: TextAlign.center,
-                  style: textStyles.bodyMedium?.copyWith(
-                    color: colors.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Chip(
-                  label: const Text('Yapım Aşamasında'),
-                  avatar: const Icon(Icons.construction_rounded, size: 16),
-                  backgroundColor: colors.secondaryContainer,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
