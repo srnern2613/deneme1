@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'database_helper.dart';
 import 'flashcards_exercise_screen.dart';
 import 'quiz_exercise_screen.dart';
+import 'match_exercise_screen.dart';
+import 'spelling_exercise_screen.dart';
 import 'xp_shop_service.dart';
 
 class FlashcardsScreen extends StatefulWidget {
@@ -63,6 +65,28 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     HapticFeedback.mediumImpact();
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => QuizExerciseScreen(cards: _cards)),
+    ).then((_) => _loadCardsAndStats());
+  }
+
+  void _startMatchExercise() {
+    if (_cards.length < 4) {
+      _showMinCardsWarning(4);
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => MatchExerciseScreen(cards: _cards)),
+    ).then((_) => _loadCardsAndStats());
+  }
+
+  void _startSpellingExercise() {
+    if (_cards.isEmpty) {
+      _showEmptyWarning();
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => SpellingExerciseScreen(cards: _cards)),
     ).then((_) => _loadCardsAndStats());
   }
 
@@ -150,7 +174,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Üst Bilgi Kartı
+                  // Üst Bilgi Bannerı
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -224,7 +248,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 3. KELİME EŞLEŞTİRME (Match)
+                  // 3. KELİME EŞLEŞTİRME (Match Madness)
                   _buildPracticeCard(
                     emoji: '🧩',
                     title: 'Kelime Eşleştirme',
@@ -232,12 +256,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                     reward: '+10 XP',
                     badgeColor: Colors.purple,
                     isDark: isDark,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('🧩 Kelime Eşleştirme modu hazırlanıyor!')),
-                      );
-                    },
+                    onTap: _startMatchExercise,
                   ),
                   const SizedBox(height: 12),
 
@@ -249,12 +268,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                     reward: '+8 XP',
                     badgeColor: Colors.blue,
                     isDark: isDark,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('🎧 Dinle & Yaz modu hazırlanıyor!')),
-                      );
-                    },
+                    onTap: _startSpellingExercise,
                   ),
                   const SizedBox(height: 30),
                 ],
