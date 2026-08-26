@@ -4,10 +4,10 @@
 //
 // MİMARİ VE ÇALIŞMA MANTIĞI:
 // 1. Dinamik Seans Kaydı: Okuyucu ekranı kapandığında dönen ReadingSessionResult
-//    içeriği alınır; bugünün tarihine ait günlük sayfa ve dakika sayaçları güncellenir.
+//    alınır; bugünün tarihine ait günlük sayfa ve dakika sayaçları (int) güncellenir.
 // 2. Günlük Seri (Streak) Motoru: Kullanıcının son giriş yaptığı gün ile bugünü
 //    kıyaslayarak seri devamlılığını hesaplar ve 🔥 rozetinde gösterir.
-// 3. Dosya Ayrıştırıcı: TXT ve PDF dosyalarını bloklara/sayfalara ayırarak doğrudan
+// 3. Dosya Ayrıştırıcı: TXT ve PDF dosyalarını sayfalara ayırarak doğrudan
 //    uygulama içi taranabilir kitap nesnelerine dönüştürür.
 // ============================================================================
 
@@ -228,15 +228,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     // Okuma tamamlanıp sonuç döndüyse ana sayfayı ve veritabanını güncelle
     if (result != null) {
-      final addedMinutes = (result.durationSeconds / 60).ceil();
-      final addedPages = result.pagesRead;
+      // Saniyeyi dakikaya tam sayı olarak dönüştürüyoruz (int tip güvenliği)
+      final int addedMinutes = (result.durationSeconds / 60).ceil();
+      final int addedPages = result.pagesRead;
       final todayKey = _getTodayKey();
 
       final prefs = await SharedPreferences.getInstance();
       
       // Bugünün özel günlük sayfa ve dakika anahtarlarını hafızadan alıp üstüne ekliyoruz
-      int currentDailyPages = prefs.getInt('daily_pages_$todayKey') ?? 0;
-      int currentDailyMinutes = prefs.getInt('daily_minutes_$todayKey') ?? 0;
+      final int currentDailyPages = prefs.getInt('daily_pages_$todayKey') ?? 0;
+      final int currentDailyMinutes = prefs.getInt('daily_minutes_$todayKey') ?? 0;
 
       await prefs.setInt('daily_pages_$todayKey', currentDailyPages + addedPages);
       await prefs.setInt('daily_minutes_$todayKey', currentDailyMinutes + (addedMinutes > 0 ? addedMinutes : 1));
@@ -246,7 +247,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         book.lastReadDate = DateTime.now();
         book.totalReadSeconds += result.durationSeconds;
 
-        _totalReadMinutes += addedMinutes > 0 ? addedMinutes : 1;
+        _totalReadMinutes += (addedMinutes > 0 ? addedMinutes : 1);
         _totalWordsExamined += result.wordsExamined;
         _totalWordsSaved += result.wordsAdded;
       });

@@ -1,21 +1,13 @@
 // ==============================================================
-// flashcards_exercise_screen.dart
-// --------------------------------------------------------------
-// TAM EKRAN KELİME ÇALIŞMA (SRS EGZERSİZ) MODÜLÜ
-//
-// Bu ekran:
-// 1. Kaydedilen kelimeleri tam ekran kartlar halinde gösterir.
-// 2. Karta dokununca İngilizce/Türkçe yüzünü çevirir.
-// 3. Sağa kaydırınca "Bildim" (yeşil), sola kaydırınca "Tekrar" (kırmızı) sayar.
-// 4. Egzersiz bitiminde başarı oranını ve özet skor tablosunu sunar.
+// DOSYA ADI: lib/flashcards_exercise_screen.dart
+// AÇIKLAMA: Ses Destekli Tam Ekran Kelime Egzersizi (SRS)
 // ==============================================================
 
-// Flutter Material UI araçlarını içeri aktarıyoruz
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'tts_service.dart';
 
-// Egzersiz ekranının ana widget sınıfı
 class FlashcardsExerciseScreen extends StatefulWidget {
-  // FlashcardsScreen'den gelen kart listesini karşılayan parametre
   final List<Map<String, dynamic>> cards;
 
   const FlashcardsExerciseScreen({super.key, required this.cards});
@@ -25,36 +17,35 @@ class FlashcardsExerciseScreen extends StatefulWidget {
 }
 
 class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
-  // Kullanıcı kaydırdıkça listeden düşecek aktif kartlar listesi
   late List<Map<String, dynamic>> _remainingCards;
 
-  // Skor sayaçları
   int _knownCount = 0;
   int _reviewCount = 0;
   int _initialTotal = 0;
-
-  // Kartın arka yüzünün (Türkçe) açık olup olmadığını tutan durum
   bool _isFlipped = false;
 
   @override
   void initState() {
     super.initState();
-    // Gelen kartların sırasını rastgele karıştırıyoruz
     _remainingCards = List.from(widget.cards)..shuffle();
     _initialTotal = _remainingCards.length;
   }
 
-  // Sağa (Bildim) veya Sola (Tekrar Et) kaydırma mantığı
+  @override
+  void dispose() {
+    TtsService.instance.stop();
+    super.dispose();
+  }
+
   void _handleCardDismiss(DismissDirection direction) {
+    TtsService.instance.stop();
     if (direction == DismissDirection.startToEnd) {
-      // Sağa kaydırıldı -> Bildim
       setState(() {
         _knownCount++;
         _remainingCards.removeAt(0);
         _isFlipped = false;
       });
     } else {
-      // Sola kaydırıldı -> Tekrar Et
       setState(() {
         _reviewCount++;
         _remainingCards.removeAt(0);
@@ -79,24 +70,21 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       ),
       body: SafeArea(
         child: _remainingCards.isEmpty
-            // Tüm kartlar bittiğinde sonuç özetini çiz
             ? _buildCompletionView(colors, textStyles)
-            // Kartlar devam ederken çalışma arayüzünü çiz
             : _buildExerciseView(colors, textStyles),
       ),
     );
   }
 
-  // Egzersiz sürerken gösterilen kart alanı
   Widget _buildExerciseView(ColorScheme colors, TextTheme textStyles) {
     final currentCard = _remainingCards.first;
+    final String currentWord = currentCard['word'] ?? '';
     final int currentIndex = _initialTotal - _remainingCards.length + 1;
 
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         children: [
-          // Üst İlerleme ve Sayaç Alanı
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -127,14 +115,12 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Kaydırılabilir Flashcard
           Expanded(
             child: Dismissible(
-              key: ValueKey(currentCard['id'] ?? currentCard['word']),
+              key: ValueKey(currentCard['id'] ?? currentWord),
               direction: DismissDirection.horizontal,
               onDismissed: _handleCardDismiss,
               
-              // Sağa kaydırma arka planı (Yeşil - Bildim)
               background: Container(
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -154,7 +140,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                 ),
               ),
 
-              // Sola kaydırma arka planı (Kırmızı - Tekrar Et)
               secondaryBackground: Container(
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -175,7 +160,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                 ),
               ),
 
-              // Kart Gövdesi (Dokununca çevrilir)
               child: GestureDetector(
                 onTap: () => setState(() => _isFlipped = !_isFlipped),
                 child: Container(
@@ -201,16 +185,33 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Chip(
-                          label: Text(
-                            _isFlipped ? 'TÜRKÇE ANLAMI' : 'İNGİLİZCE',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: _isFlipped ? colors.onPrimaryContainer : colors.onSecondaryContainer,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Chip(
+                              label: Text(
+                                _isFlipped ? 'TÜRKÇE ANLAMI' : 'İNGİLİZCE',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isFlipped ? colors.onPrimaryContainer : colors.onSecondaryContainer,
+                                ),
+                              ),
+                              backgroundColor: _isFlipped ? colors.primaryContainer : colors.secondaryContainer,
                             ),
-                          ),
-                          backgroundColor: _isFlipped ? colors.primaryContainer : colors.secondaryContainer,
+                            // TELAFUZ DİNLEME BUTONU
+                            IconButton.filledTonal(
+                              style: IconButton.styleFrom(
+                                backgroundColor: colors.primary.withValues(alpha: 0.12),
+                              ),
+                              icon: Icon(Icons.volume_up_rounded, color: colors.primary, size: 22),
+                              tooltip: 'Telaffuzu Dinle',
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                TtsService.instance.speakWord(currentWord);
+                              },
+                            ),
+                          ],
                         ),
                         const Spacer(),
 
@@ -219,7 +220,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                           child: Text(
                             _isFlipped
                                 ? (currentCard['meaning'] ?? '')
-                                : (currentCard['word'] ?? ''),
+                                : currentWord,
                             key: ValueKey(_isFlipped),
                             textAlign: TextAlign.center,
                             style: textStyles.headlineMedium?.copyWith(
@@ -253,7 +254,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Alt Manuel Butonlar
           Row(
             children: [
               Expanded(
@@ -288,7 +288,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     );
   }
 
-  // Egzersiz Tamamlandı Ekranı
   Widget _buildCompletionView(ColorScheme colors, TextTheme textStyles) {
     final double successRate = _initialTotal > 0 ? (_knownCount / _initialTotal) * 100 : 0;
 

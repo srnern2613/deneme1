@@ -1,34 +1,25 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
-// AÇIKLAMA: Apple Books & Kindle Seviyesi Akıllı E-Kitap Okuma Motoru
-//
-// MİMARİ VE ÇALIŞMA MANTIĞI:
-// 1. Canlı Sözlük Sorgusu: Kelimeye dokunulduğunda `DictionaryService` üzerinden
-//    önce yerel SQLite taranır, yoksa ücretsiz API'den çekilip otomatik önbelleğe alınır.
-// 2. Çevrimdışı Hata Yönetimi: İnternet yoksa ve kelime kaydedilmemişse kullanıcıya
-//    uyarı kartı gösterilir; yine de kelimeyi kartlarına ekleyebilir.
-// 3. Sayfalama ve Tipografi: Göz dinlendirici Sepya/Gece modları, serif font ve
-//    haptik titreşim desteğiyle akıcı okuma sunar.
+// AÇIKLAMA: Apple Books & Kindle Standartlarında E-Kitap Okuyucu + Premium Ayar Paneli
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'book_model.dart';
 import 'database_helper.dart';
 import 'dictionary_service.dart';
+import 'tts_service.dart';
 
 enum ReaderTheme { light, sepia, dark }
 enum ReaderFont { serif, sans }
 
-// ----------------------------------------------------------------------------
-// SEANS SONUÇ MODELİ
-// ----------------------------------------------------------------------------
 class ReadingSessionResult {
-  final int durationSeconds;  // Seansta geçirilen süre (saniye)
-  final int wordsExamined;    // Anlamına bakılan kelime sayısı
-  final int wordsAdded;       // Kartlara eklenen kelime sayısı
-  final int lastPage;         // Kaldığı son sayfa indeksi
-  final int pagesRead;        // Seansta okunan net sayfa sayısı
+  final int durationSeconds;
+  final int wordsExamined;
+  final int wordsAdded;
+  final int lastPage;
+  final int pagesRead;
 
   ReadingSessionResult({
     required this.durationSeconds,
@@ -61,14 +52,36 @@ class _ReaderScreenState extends State<ReaderScreen> {
   double _fontSize = 17.5;
   ReaderTheme _currentTheme = ReaderTheme.sepia;
   ReaderFont _currentFont = ReaderFont.serif;
-  
+  double _ttsSpeedMultiplier = 0.45;
+
   bool _showControls = true;
-  bool _showSettings = false;
   String? _selectedWord;
+  
+  bool _isPageReading = false;
+  int? _activeHighlightWordIndex;
 
   DateTime _sessionStartTime = DateTime.now();
   int _wordsExaminedCount = 0;
   int _wordsAddedCount = 0;
+
+  static const Map<String, String> _posTranslations = {
+    'noun': 'İsim',
+    'verb': 'Fiil',
+    'adjective': 'Sıfat',
+    'adverb': 'Zarf',
+    'pronoun': 'Zamir',
+    'preposition': 'Edat',
+    'conjunction': 'Bağlaç',
+    'interjection': 'Ünlem',
+    'article': 'Belirteç',
+    'phrase': 'Deyim / İfade',
+  };
+
+  String _getTurkishPos(String? pos) {
+    if (pos == null || pos.trim().isEmpty) return '';
+    final clean = pos.trim().toLowerCase();
+    return _posTranslations[clean] ?? pos.toUpperCase();
+  }
 
   @override
   void initState() {
@@ -77,18 +90,73 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _currentPage = widget.book.currentPage.clamp(0, widget.book.totalPages - 1);
     _initialStartPage = _currentPage;
     _pageController = PageController(initialPage: _currentPage);
+    TtsService.instance.initService();
   }
 
   @override
   void dispose() {
+    TtsService.instance.stop();
     _pageController.dispose();
     super.dispose();
   }
 
-  // --------------------------------------------------------------------------
-  // KİTAPTAN ÇIKIŞ VE SEANS PAKETLEME
-  // --------------------------------------------------------------------------
+  void _togglePageReading() async {
+    HapticFeedback.mediumImpact();
+
+    if (_isPageReading) {
+      await TtsService.instance.stop();
+      if (mounted) {
+        setState(() {
+          _isPageReading = false;
+          _activeHighlightWordIndex = null;
+        });
+      }
+    } else {
+      final pageContent = widget.book.pages.isNotEmpty
+          ? widget.book.pages[_currentPage]
+          : '';
+
+      if (pageContent.trim().isEmpty) return;
+
+      final cleanText = _normalizePdfText(pageContent);
+      final wordsList = _extractWords(cleanText);
+
+      setState(() {
+        _isPageReading = true;
+        _activeHighlightWordIndex = 0;
+      });
+
+      await TtsService.instance.speakTextWithHighlight(
+        cleanText,
+        onProgress: (currentWord, startOffset, endOffset) {
+          if (!mounted || !_isPageReading) return;
+
+          final cleanTarget = currentWord.replaceAll(RegExp(r'[^\w\s]'), '').toLowerCase();
+          
+          for (int i = 0; i < wordsList.length; i++) {
+            final wordInList = wordsList[i].replaceAll(RegExp(r'[^\w\s]'), '').toLowerCase();
+            if (wordInList == cleanTarget && (i >= (_activeHighlightWordIndex ?? 0))) {
+              setState(() {
+                _activeHighlightWordIndex = i;
+              });
+              break;
+            }
+          }
+        },
+        onComplete: () {
+          if (mounted) {
+            setState(() {
+              _isPageReading = false;
+              _activeHighlightWordIndex = null;
+            });
+          }
+        },
+      );
+    }
+  }
+
   void _handleExit() {
+    TtsService.instance.stop();
     HapticFeedback.lightImpact();
     final duration = DateTime.now().difference(_sessionStartTime);
     final totalSeconds = duration.inSeconds;
@@ -107,13 +175,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
     Navigator.pop(context, result);
   }
 
-  // --- OPTİK RENK VE TİPOGRAFİ GETTERLARI ---
+  // --- KUSURSUZ OPTİK RENK PALETİ ---
   Color get _backgroundColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFFF4ECE0);
+        return const Color(0xFFF5EFE6);
       case ReaderTheme.dark:
-        return const Color(0xFF141416);
+        return const Color(0xFF121214);
       case ReaderTheme.light:
         return const Color(0xFFFAF9F6);
     }
@@ -122,20 +190,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Color get _textColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFF382E25);
+        return const Color(0xFF382B1E);
       case ReaderTheme.dark:
-        return const Color(0xFFDCDCDA);
+        return const Color(0xFFE6E6E6);
       case ReaderTheme.light:
-        return const Color(0xFF212124);
+        return const Color(0xFF1E1E20);
     }
   }
 
   Color get _surfacePanelColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFFE8DCBE);
+        return const Color(0xFFEBE0D0);
       case ReaderTheme.dark:
-        return const Color(0xFF222226);
+        return const Color(0xFF1E1E22);
       case ReaderTheme.light:
         return Colors.white;
     }
@@ -144,33 +212,44 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Color get _panelBorderColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFFD8C8A4);
+        return const Color(0xFFD6C5AD);
       case ReaderTheme.dark:
-        return const Color(0xFF38383E);
+        return const Color(0xFF36363C);
       case ReaderTheme.light:
-        return const Color(0xFFE5E5EA);
+        return const Color(0xFFE2E2E8);
     }
   }
 
   Color get _accentColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFF9E6532);
+        return const Color(0xFF9E5D24);
       case ReaderTheme.dark:
-        return const Color(0xFFE5A93C);
+        return const Color(0xFFEBB04D);
       case ReaderTheme.light:
-        return const Color(0xFF3B5998);
+        return const Color(0xFF2B549A);
     }
   }
 
   Color get _sliderInactiveColor {
     switch (_currentTheme) {
       case ReaderTheme.dark:
-        return const Color(0xFF4A4A52);
+        return const Color(0xFF42424A);
       case ReaderTheme.sepia:
-        return const Color(0xFFC8B998);
+        return const Color(0xFFC7B79E);
       case ReaderTheme.light:
-        return const Color(0xFFD1D1D6);
+        return const Color(0xFFDCDCE2);
+    }
+  }
+
+  Color get _ttsHighlightColor {
+    switch (_currentTheme) {
+      case ReaderTheme.sepia:
+        return const Color(0xFFD99B26).withValues(alpha: 0.38);
+      case ReaderTheme.dark:
+        return const Color(0xFFFFC107).withValues(alpha: 0.32);
+      case ReaderTheme.light:
+        return const Color(0xFFFFD54F).withValues(alpha: 0.48);
     }
   }
 
@@ -185,17 +264,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   // --------------------------------------------------------------------------
-  // HİBRİT SÖZLÜK VE KELİME KARTI POP-UP'I
+  // HİBRİT SÖZLÜK POP-UP
   // --------------------------------------------------------------------------
   Future<void> _showWordDetails(String word) async {
     final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '').trim();
     if (cleanWord.isEmpty) return;
+
+    if (_isPageReading) {
+      await TtsService.instance.stop();
+      if (mounted) {
+        setState(() {
+          _isPageReading = false;
+          _activeHighlightWordIndex = null;
+        });
+      }
+    }
 
     HapticFeedback.lightImpact();
     setState(() {
       _selectedWord = cleanWord;
       _wordsExaminedCount++;
     });
+
+    if (!mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -213,8 +304,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 final isLoading = snapshot.connectionState == ConnectionState.waiting;
                 final result = snapshot.data;
                 final isOffline = result?.isOfflineError ?? false;
-                final meaning = result?.meaning ?? 'Çevriliyor...';
-                final example = result?.example;
 
                 return FutureBuilder<bool>(
                   future: DatabaseHelper.instance.isWordInFlashcards(cleanWord),
@@ -237,37 +326,57 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 16),
                           
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                cleanWord,
-                                style: TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'serif',
-                                  color: _textColor,
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    cleanWord,
+                                    style: TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'serif',
+                                      color: _textColor,
+                                    ),
+                                  ),
+                                  if (result?.phonetic != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      result!.phonetic!,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontStyle: FontStyle.italic,
+                                        color: _accentColor.withValues(alpha: 0.85),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                               Row(
                                 children: [
                                   if (isSaved)
                                     const Icon(Icons.star_rounded, color: Colors.amber, size: 24),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(width: 6),
                                   IconButton.filledTonal(
                                     style: IconButton.styleFrom(
-                                      backgroundColor: _textColor.withValues(alpha: 0.08),
+                                      backgroundColor: _accentColor.withValues(alpha: 0.15),
                                     ),
-                                    icon: Icon(Icons.volume_up_rounded, size: 20, color: _textColor),
-                                    onPressed: () => HapticFeedback.selectionClick(),
+                                    icon: Icon(Icons.volume_up_rounded, size: 22, color: _accentColor),
+                                    tooltip: 'Telaffuzu Dinle',
+                                    onPressed: () {
+                                      HapticFeedback.selectionClick();
+                                      TtsService.instance.speakWord(cleanWord);
+                                    },
                                   ),
                                 ],
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 14),
 
                           if (isLoading) ...[
                             Row(
@@ -279,7 +388,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  'Sözlük taranıyor...',
+                                  'Gelişmiş sözlük taranıyor...',
                                   style: TextStyle(fontSize: 14, color: _textColor.withValues(alpha: 0.7)),
                                 ),
                               ],
@@ -306,25 +415,40 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               ),
                             ),
                           ] else ...[
-                            Text(
-                              meaning,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: _accentColor,
-                              ),
-                            ),
-                            if (example != null && example.isNotEmpty) ...[
-                              const SizedBox(height: 8),
+                            if (result?.partOfSpeech != null && result!.partOfSpeech!.isNotEmpty) ...[
                               Text(
-                                '"$example"',
+                                _getTurkishPos(result.partOfSpeech).toUpperCase(),
                                 style: TextStyle(
-                                  fontSize: 13,
-                                  fontStyle: FontStyle.italic,
-                                  color: _textColor.withValues(alpha: 0.7),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
+                                  color: _textColor.withValues(alpha: 0.55),
                                 ),
                               ),
+                              const SizedBox(height: 6),
                             ],
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: (result?.alternativeMeanings ?? [result?.primaryMeaning ?? ''])
+                                  .map((mean) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                        decoration: BoxDecoration(
+                                          color: _accentColor.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: _accentColor.withValues(alpha: 0.25)),
+                                        ),
+                                        child: Text(
+                                          mean,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: _accentColor,
+                                          ),
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
                           ],
 
                           const SizedBox(height: 22),
@@ -341,6 +465,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               onPressed: () async {
                                 HapticFeedback.mediumImpact();
                                 final messenger = ScaffoldMessenger.of(sheetContext);
+
                                 if (isSaved) {
                                   await DatabaseHelper.instance.removeFlashcardByWord(cleanWord);
                                   setSheetState(() => isSaved = false);
@@ -351,7 +476,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                     ),
                                   );
                                 } else {
-                                  final saveMeaning = isOffline ? 'Anlam bekleniyor' : meaning;
+                                  final saveMeaning = isOffline
+                                      ? 'Anlam bekleniyor'
+                                      : (result?.alternativeMeanings.take(3).join(', ') ?? result?.primaryMeaning ?? '');
+                                  
                                   await DatabaseHelper.instance.addFlashcard(cleanWord, saveMeaning);
                                   if (mounted) {
                                     setState(() => _wordsAddedCount++);
@@ -390,6 +518,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
+  // --- PARAGRAF VE KELİME MOTORU ---
   String _normalizePdfText(String rawText) {
     String text = rawText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     text = text.replaceAll(RegExp(r'\n\s*\n+'), '{{PARAGRAPH}}');
@@ -399,10 +528,26 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return text.trim();
   }
 
+  List<String> _extractWords(String text) {
+    final words = <String>[];
+    final paragraphs = text.split('\n\n');
+    for (var p in paragraphs) {
+      final pWords = p.trim().split(' ');
+      for (var w in pWords) {
+        if (w.trim().isNotEmpty) {
+          words.add(w.trim());
+        }
+      }
+    }
+    return words;
+  }
+
   List<InlineSpan> _buildInteractiveSpans(String text) {
     final cleanText = _normalizePdfText(text);
     final paragraphs = cleanText.split('\n\n');
     final spans = <InlineSpan>[];
+
+    int globalWordIndex = 0;
 
     for (var p = 0; p < paragraphs.length; p++) {
       final paragraph = paragraphs[p].trim();
@@ -411,8 +556,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final words = paragraph.split(' ');
       for (var word in words) {
         if (word.isEmpty) continue;
+        
         final clean = word.replaceAll(RegExp(r'[^\w\s]'), '');
         final isSelected = _selectedWord != null && _selectedWord == clean;
+        final isCurrentlySpoken = _isPageReading && (_activeHighlightWordIndex == globalWordIndex);
 
         spans.add(
           WidgetSpan(
@@ -421,17 +568,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
             child: GestureDetector(
               onTap: () => _showWordDetails(word),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 2),
+                duration: const Duration(milliseconds: 140),
+                padding: const EdgeInsets.symmetric(horizontal: 2.5, vertical: 1),
                 decoration: BoxDecoration(
-                  color: isSelected ? _accentColor.withValues(alpha: 0.25) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(4),
+                  color: isCurrentlySpoken
+                      ? _ttsHighlightColor
+                      : (isSelected ? _accentColor.withValues(alpha: 0.25) : Colors.transparent),
+                  borderRadius: BorderRadius.circular(5),
+                  border: isCurrentlySpoken
+                      ? Border.all(color: _accentColor.withValues(alpha: 0.4), width: 1)
+                      : null,
                 ),
-                child: Text('$word ', style: _readerTextStyle),
+                child: Text(
+                  '$word ',
+                  style: _readerTextStyle.copyWith(
+                    fontWeight: isCurrentlySpoken ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
               ),
             ),
           ),
         );
+
+        globalWordIndex++;
       }
 
       if (p < paragraphs.length - 1) {
@@ -441,153 +600,485 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return spans;
   }
 
-  Widget _buildSettingsSheet() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-      decoration: BoxDecoration(
-        color: _surfacePanelColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        border: Border(
-          top: BorderSide(color: _panelBorderColor),
-          bottom: BorderSide(color: _panelBorderColor),
-        ),
+  // --------------------------------------------------------------------------
+  // PREMIUM ALTTAN AÇILAN AYARLAR PANELİ
+  // --------------------------------------------------------------------------
+  void _openSettingsBottomSheet() {
+    HapticFeedback.lightImpact();
+    int selectedTab = 0;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _surfacePanelColor,
+      isScrollControlled: true,
+      elevation: 24,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Text('A', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _textColor)),
-              Expanded(
-                child: SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 4,
-                    activeTrackColor: _accentColor,
-                    inactiveTrackColor: _sliderInactiveColor,
-                    thumbColor: _accentColor,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                    tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 2.5),
-                    activeTickMarkColor: Colors.white.withValues(alpha: 0.7),
-                    inactiveTickMarkColor: _currentTheme == ReaderTheme.dark
-                        ? Colors.white.withValues(alpha: 0.4)
-                        : _textColor.withValues(alpha: 0.3),
-                  ),
-                  child: Slider(
-                    value: _fontSize,
-                    min: 14.0,
-                    max: 26.0,
-                    divisions: 8,
-                    onChanged: (val) {
-                      HapticFeedback.selectionClick();
-                      setState(() => _fontSize = val);
-                    },
-                  ),
-                ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final profiles = TtsService.instance.voiceProfiles;
+            final activeProfile = TtsService.instance.activeProfile;
+
+            return Container(
+              color: _surfacePanelColor,
+              padding: EdgeInsets.fromLTRB(
+                22,
+                16,
+                22,
+                MediaQuery.of(context).padding.bottom + 20,
               ),
-              Text('A', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _textColor)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildColorPill(ReaderTheme.light, const Color(0xFFFAF9F6), 'Aydınlık'),
-                  const SizedBox(width: 8),
-                  _buildColorPill(ReaderTheme.sepia, const Color(0xFFF4ECE0), 'Sepya'),
-                  const SizedBox(width: 8),
-                  _buildColorPill(ReaderTheme.dark, const Color(0xFF141416), 'Gece'),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _textColor.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 2 Sekmeli Segment Seçici
+                  Container(
+                    height: 46,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: _textColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _panelBorderColor),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setSheetState(() => selectedTab = 0);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              decoration: BoxDecoration(
+                                color: selectedTab == 0 ? _accentColor : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.text_fields_rounded,
+                                    size: 18,
+                                    color: selectedTab == 0 ? Colors.white : _textColor,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Görünüm',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: selectedTab == 0 ? Colors.white : _textColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setSheetState(() => selectedTab = 1);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              decoration: BoxDecoration(
+                                color: selectedTab == 1 ? _accentColor : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.headphones_rounded,
+                                    size: 18,
+                                    color: selectedTab == 1 ? Colors.white : _textColor,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Sesli Kitap',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: selectedTab == 1 ? Colors.white : _textColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // SEKME 1: GÖRÜNÜM & TİPOGRAFİ
+                  if (selectedTab == 0) ...[
+                    // Yazı Boyutu Slider'ı
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _textColor.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _panelBorderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            'A',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: _textColor,
+                            ),
+                          ),
+                          Expanded(
+                            child: SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                trackHeight: 4,
+                                activeTrackColor: _accentColor,
+                                inactiveTrackColor: _sliderInactiveColor,
+                                thumbColor: _accentColor,
+                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                              ),
+                              child: Slider(
+                                value: _fontSize,
+                                min: 14.0,
+                                max: 26.0,
+                                divisions: 8,
+                                onChanged: (val) {
+                                  HapticFeedback.selectionClick();
+                                  setSheetState(() => _fontSize = val);
+                                  setState(() => _fontSize = val);
+                                },
+                              ),
+                            ),
+                          ),
+                          Text(
+                            'A',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: _textColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 3 Net Görünür Renk Kartı
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildColorCard(
+                          ReaderTheme.light,
+                          const Color(0xFFFAF9F6),
+                          'Aydınlık',
+                          const Color(0xFF1E1E20),
+                          setSheetState,
+                        ),
+                        _buildColorCard(
+                          ReaderTheme.sepia,
+                          const Color(0xFFF5EFE6),
+                          'Sepya',
+                          const Color(0xFF382B1E),
+                          setSheetState,
+                        ),
+                        _buildColorCard(
+                          ReaderTheme.dark,
+                          const Color(0xFF121214),
+                          'Gece',
+                          const Color(0xFFE6E6E6),
+                          setSheetState,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // YENİ GÖRSEL TİPOGRAFİ SEÇİM KARTLARI
+                    Row(
+                      children: [
+                        _buildFontCard(
+                          title: 'Kitap',
+                          subtitle: 'Klasik Roman',
+                          font: ReaderFont.serif,
+                          setSheetState: setSheetState,
+                        ),
+                        const SizedBox(width: 10),
+                        _buildFontCard(
+                          title: 'Modern',
+                          subtitle: 'Net & Düz',
+                          font: ReaderFont.sans,
+                          setSheetState: setSheetState,
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  // SEKME 2: SES & ANLATICI PERSONA SEÇİMİ
+                  if (selectedTab == 1) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Okuma Hızı', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _textColor)),
+                        Row(
+                          children: [
+                            _buildSpeedPill('0.5x', 0.35, setSheetState),
+                            const SizedBox(width: 6),
+                            _buildSpeedPill('0.75x', 0.45, setSheetState),
+                            const SizedBox(width: 6),
+                            _buildSpeedPill('1.0x', 0.55, setSheetState),
+                            const SizedBox(width: 6),
+                            _buildSpeedPill('1.25x', 0.65, setSheetState),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
+                    Column(
+                      children: profiles.map((p) {
+                        final isSelected = (activeProfile.id == p.id);
+                        
+                        String avatar = '👩';
+                        if (p.id == 'james') avatar = '👨';
+                        if (p.id == 'ava') avatar = '🎙️';
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: GestureDetector(
+                            onTap: () async {
+                              HapticFeedback.selectionClick();
+                              await TtsService.instance.applyProfile(p);
+                              setSheetState(() {});
+                              setState(() {});
+                              TtsService.instance.speakWord(p.displayName);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: isSelected ? _accentColor.withValues(alpha: 0.15) : _textColor.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isSelected ? _accentColor : _panelBorderColor,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(avatar, style: const TextStyle(fontSize: 22)),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          p.displayName,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
+                                            color: isSelected ? _accentColor : _textColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          p.description,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: _textColor.withValues(alpha: 0.65),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    Icon(Icons.check_circle_rounded, color: _accentColor, size: 22),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ],
               ),
-              Container(
-                decoration: BoxDecoration(
-                  color: _textColor.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _panelBorderColor),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- KUSURSUZ GÖRÜNÜR RENK KARTI ---
+  Widget _buildColorCard(
+    ReaderTheme theme,
+    Color bgPreviewColor,
+    String label,
+    Color fontColor,
+    StateSetter setSheetState,
+  ) {
+    final isSelected = (_currentTheme == theme);
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+        child: GestureDetector(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setSheetState(() => _currentTheme = theme);
+            setState(() => _currentTheme = theme);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: bgPreviewColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected ? _accentColor : Colors.grey.withValues(alpha: 0.4),
+                width: isSelected ? 2.5 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isSelected ? 0.14 : 0.04),
+                  blurRadius: isSelected ? 8 : 4,
+                  offset: const Offset(0, 2),
                 ),
-                padding: const EdgeInsets.all(3),
-                child: Row(
-                  children: [
-                    _buildFontTab('Kitap', ReaderFont.serif),
-                    _buildFontTab('Modern', ReaderFont.sans),
-                  ],
+              ],
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'Aa',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'serif',
+                    color: fontColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: fontColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- GÖRSEL TİPOGRAFİ SEÇİM KARTI ---
+  Widget _buildFontCard({
+    required String title,
+    required String subtitle,
+    required ReaderFont font,
+    required StateSetter setSheetState,
+  }) {
+    final isSelected = (_currentFont == font);
+    final isSerif = (font == ReaderFont.serif);
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setSheetState(() => _currentFont = font);
+          setState(() => _currentFont = font);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? _accentColor.withValues(alpha: 0.15) : _textColor.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? _accentColor : _panelBorderColor,
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Text(
+                'Aa',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: isSerif ? 'serif' : 'sans-serif',
+                  color: isSelected ? _accentColor : _textColor,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? _accentColor : _textColor,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: _textColor.withValues(alpha: 0.6),
                 ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildColorPill(ReaderTheme theme, Color bg, String label) {
-    final isSelected = _currentTheme == theme;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        setState(() => _currentTheme = theme);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? _accentColor : _panelBorderColor,
-            width: isSelected ? 2.5 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: _accentColor.withValues(alpha: 0.25),
-                    blurRadius: 6,
-                  )
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: theme == ReaderTheme.dark ? Colors.white70 : const Color(0xFF333333),
-          ),
         ),
       ),
     );
   }
 
-  Widget _buildFontTab(String label, ReaderFont font) {
-    final isSelected = _currentFont == font;
+  Widget _buildSpeedPill(String label, double val, StateSetter setSheetState) {
+    final isSelected = (_ttsSpeedMultiplier == val);
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
-        setState(() => _currentFont = font);
+        setSheetState(() => _ttsSpeedMultiplier = val);
+        setState(() => _ttsSpeedMultiplier = val);
+        TtsService.instance.setSpeed(val);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? _accentColor.withValues(alpha: 0.18) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? _accentColor : _textColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 11,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            fontFamily: font == ReaderFont.serif ? 'serif' : 'sans-serif',
-            color: isSelected ? _accentColor : _textColor,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? Colors.white : _textColor,
           ),
         ),
       ),
@@ -609,10 +1100,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
-                setState(() {
-                  _showControls = !_showControls;
-                  if (!_showControls) _showSettings = false;
-                });
+                setState(() => _showControls = !_showControls);
               },
               behavior: HitTestBehavior.opaque,
               child: PageView.builder(
@@ -620,6 +1108,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 itemCount: widget.book.totalPages,
                 onPageChanged: (pageIndex) {
                   HapticFeedback.selectionClick();
+                  if (_isPageReading) {
+                    TtsService.instance.stop();
+                    _isPageReading = false;
+                    _activeHighlightWordIndex = null;
+                  }
                   setState(() {
                     _currentPage = pageIndex;
                     widget.book.currentPage = pageIndex;
@@ -667,58 +1160,36 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   ],
                 ),
                 padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: _textColor),
-                          onPressed: _handleExit,
-                        ),
-                        Expanded(
-                          child: Text(
-                            widget.book.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _textColor),
-                          ),
-                        ),
-                        IconButton(
-                          icon: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: _showSettings ? _accentColor.withValues(alpha: 0.15) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: _showSettings ? _accentColor : _panelBorderColor,
-                              ),
-                            ),
-                            child: Text(
-                              'Aa',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                fontFamily: 'serif',
-                                color: _showSettings ? _accentColor : _textColor,
-                              ),
-                            ),
-                          ),
-                          onPressed: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => _showSettings = !_showSettings);
-                          },
-                        ),
-                      ],
+                    IconButton(
+                      icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: _textColor),
+                      onPressed: _handleExit,
                     ),
-                    if (_showSettings) _buildSettingsSheet(),
+                    Expanded(
+                      child: Text(
+                        widget.book.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _textColor),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        _isPageReading ? Icons.pause_circle_filled_rounded : Icons.headphones_rounded,
+                        color: _isPageReading ? Colors.green[600] : _textColor,
+                        size: 24,
+                      ),
+                      tooltip: _isPageReading ? 'Okumayı Durdur' : 'Sayfayı Dinle (Audiobook)',
+                      onPressed: _togglePageReading,
+                    ),
                   ],
                 ),
               ),
             ),
 
-            // Alt Bar
+            // Alt Bar (Scrubber + Başparmak Hizası 'Aa' Butonu)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOut,
@@ -737,7 +1208,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     ),
                   ],
                 ),
-                padding: EdgeInsets.fromLTRB(24, 10, 24, MediaQuery.of(context).padding.bottom + 8),
+                padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom + 8),
                 child: Row(
                   children: [
                     Text(
@@ -760,6 +1231,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           max: (widget.book.totalPages - 1).toDouble().clamp(0, double.infinity),
                           onChanged: (val) {
                             HapticFeedback.selectionClick();
+                            if (_isPageReading) {
+                              TtsService.instance.stop();
+                              _isPageReading = false;
+                              _activeHighlightWordIndex = null;
+                            }
                             final newPage = val.toInt();
                             _pageController.jumpToPage(newPage);
                           },
@@ -769,6 +1245,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     Text(
                       '${widget.book.totalPages}',
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _textColor.withValues(alpha: 0.6)),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      style: IconButton.styleFrom(
+                        backgroundColor: _accentColor.withValues(alpha: 0.14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                      icon: Text(
+                        'Aa',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          fontFamily: 'serif',
+                          color: _accentColor,
+                        ),
+                      ),
+                      onPressed: _openSettingsBottomSheet,
                     ),
                   ],
                 ),
