@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: Bağlamsal Canlı Selamlama, 5 Sekmeli Navigasyon & Dashboard
+// AÇIKLAMA: 5 Sekmeli Navigasyon ("Pratik" Sekmesi Dahil), Bağlamsal Canlı Koçluk & Dashboard
 // ============================================================================
 
 import 'dart:async';
@@ -119,7 +119,7 @@ class _RootScreenState extends State<RootScreen> {
         onNavigateToShop: () => _onTabTapped(3),
       ),
       const LibraryScreen(),
-      const FlashcardsScreen(),
+      const FlashcardsScreen(), // Pratik & Oyunlar Merkezi
       const ShopScreen(),
       const ProfileScreen(),
     ];
@@ -185,9 +185,9 @@ class _RootScreenState extends State<RootScreen> {
               label: 'Kitaplık',
             ),
             NavigationDestination(
-              icon: Icon(Icons.style_outlined),
-              selectedIcon: Icon(Icons.style_rounded, color: Color(0xFF4F46E5)),
-              label: 'Kartlar',
+              icon: Icon(Icons.bolt_outlined),
+              selectedIcon: Icon(Icons.bolt_rounded, color: Color(0xFF4F46E5)),
+              label: 'Pratik',
             ),
             NavigationDestination(
               icon: Icon(Icons.storefront_outlined),
@@ -998,9 +998,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         },
       ),
       _QuickAccessItemData(
-        title: 'Kelime Kartları',
-        subtitle: 'Hafıza & SRS',
-        icon: Icons.style_rounded,
+        title: 'Pratik & Oyunlar',
+        subtitle: 'Quiz & SRS Arenası',
+        icon: Icons.bolt_rounded,
         color: const Color(0xFFEC4899),
         onTap: () => _openRealScreenAndRefresh(context, const FlashcardsScreen()),
       ),
