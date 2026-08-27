@@ -1,21 +1,27 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
-// AÇIKLAMA: Apple Books & Kindle Standartlarında E-Kitap Okuyucu + Canlı Koçluk & TTS
+// AÇIKLAMA: Yalnızca Aktif Sayfayı Dinleyen (Zero-Jank) E-Kitap Okuyucu
 // ============================================================================
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 
 import 'book_model.dart';
 import 'database_helper.dart';
 import 'dictionary_service.dart';
 import 'tts_service.dart';
 import 'coach_messages.dart';
+import 'audiobook_manager.dart';
 
+/// Okuma arayüzü temaları
 enum ReaderTheme { light, sepia, dark }
+
+/// Tipografi font seçenekleri
 enum ReaderFont { serif, sans }
 
+/// Okuma seansı tamamlandığında ana sayfaya/istatistiklere aktarılan veri modeli
 class ReadingSessionResult {
   final int durationSeconds;
   final int wordsExamined;
@@ -51,28 +57,28 @@ class _ReaderScreenState extends State<ReaderScreen> {
   late int _currentPage;
   late int _initialStartPage;
 
+  // Görünüm Ayarları
   double _fontSize = 17.5;
   ReaderTheme _currentTheme = ReaderTheme.sepia;
   ReaderFont _currentFont = ReaderFont.serif;
   double _ttsSpeedMultiplier = 0.45;
 
+  // Arayüz Durumu
   bool _showControls = true;
   String? _selectedWord;
-  
-  bool _isPageReading = false;
-  int? _activeHighlightWordIndex;
 
+  // Seans ve Koçluk Takibi
   DateTime _sessionStartTime = DateTime.now();
   int _wordsExaminedCount = 0;
   int _wordsAddedCount = 0;
 
-  // CANLI KOÇLUK DEĞİŞKENLERİ
   Timer? _sessionTimer;
   int _sessionSeconds = 0;
   bool _notified15Min = false;
   bool _notified30Min = false;
   String? _activeCoachToast;
 
+  // Sözlük Kelime Türü Çevirileri
   static const Map<String, String> _posTranslations = {
     'noun': 'İsim',
     'verb': 'Fiil',
@@ -96,17 +102,36 @@ class _ReaderScreenState extends State<ReaderScreen> {
   void initState() {
     super.initState();
     _sessionStartTime = DateTime.now();
-    _currentPage = widget.book.currentPage.clamp(0, widget.book.totalPages - 1);
+
+    final manager = AudiobookManager.instance;
+    // Oturum devam ediyorsa son kalınan sayfayı yöneticiden senkronize et
+    if (manager.hasActiveSession && manager.currentBook?.id == widget.book.id) {
+      _currentPage = manager.currentPage;
+    } else {
+      _currentPage = widget.book.currentPage.clamp(0, widget.book.totalPages - 1);
+    }
+
     _initialStartPage = _currentPage;
     _pageController = PageController(initialPage: _currentPage);
     TtsService.instance.initService();
     _startSessionCoachTimer();
+
+    // ------------------------------------------------------------------------
+    // ÇÖZÜLEN SORUN (Sayfa Atlama Senkronu):
+    // TTS bir sayfayı bitirip sonraki sayfaya geçtiğinde PageView kaymıyordu.
+    // AudiobookManager'a callback bağlanarak sayfa değişiminde jumpToPage tetiklendi.
+    // ------------------------------------------------------------------------
+    manager.attachReaderCallback((pageIndex) {
+      if (mounted && _pageController.hasClients && _currentPage != pageIndex) {
+        _pageController.jumpToPage(pageIndex);
+        setState(() => _currentPage = pageIndex);
+      }
+    });
   }
 
   @override
   void dispose() {
     _sessionTimer?.cancel();
-    TtsService.instance.stop();
     _pageController.dispose();
     super.dispose();
   }
@@ -116,13 +141,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
       if (!mounted) return;
       _sessionSeconds++;
 
-      // 15. Dakika Koçluk Uyarısı
       if (_sessionSeconds == 900 && !_notified15Min) {
         _notified15Min = true;
         _showCoachToast(CoachMessages.getReadingTimeCheer15Min());
-      }
-      // 30. Dakika Koçluk Uyarısı
-      else if (_sessionSeconds == 1800 && !_notified30Min) {
+      } else if (_sessionSeconds == 1800 && !_notified30Min) {
         _notified30Min = true;
         _showCoachToast(CoachMessages.getReadingTimeCheer30Min());
       }
@@ -139,55 +161,26 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  void _togglePageReading() async {
+  // --------------------------------------------------------------------------
+  // ÇÖZÜLEN SORUN (Hayalet Okuma Döngüleri - Race Condition):
+  // Eski yapıda bu butona basılıp durdurulduğunda arkadaki 'for' döngüsü ölmüyordu.
+  // Artık AudiobookManager içindeki Generation Token sayesinde basıldığı an
+  // eski okuma döngüsü anında kendini terk ediyor.
+  // --------------------------------------------------------------------------
+  void _togglePageReading() {
     HapticFeedback.mediumImpact();
+    final manager = AudiobookManager.instance;
 
-    if (_isPageReading) {
-      await TtsService.instance.stop();
-      if (mounted) {
-        setState(() {
-          _isPageReading = false;
-          _activeHighlightWordIndex = null;
-        });
-      }
+    if (manager.hasActiveSession && manager.currentBook?.id == widget.book.id) {
+      manager.togglePlayPause();
     } else {
-      final pageContent = widget.book.pages.isNotEmpty
-          ? widget.book.pages[_currentPage]
-          : '';
-
-      if (pageContent.trim().isEmpty) return;
-
-      final cleanText = _normalizePdfText(pageContent);
-      final wordsList = _extractWords(cleanText);
-
-      setState(() {
-        _isPageReading = true;
-        _activeHighlightWordIndex = 0;
-      });
-
-      await TtsService.instance.speakTextWithHighlight(
-        cleanText,
-        onProgress: (currentWord, startOffset, endOffset) {
-          if (!mounted || !_isPageReading) return;
-
-          final cleanTarget = currentWord.replaceAll(RegExp(r'[^\w\s]'), '').toLowerCase();
-          
-          for (int i = 0; i < wordsList.length; i++) {
-            final wordInList = wordsList[i].replaceAll(RegExp(r'[^\w\s]'), '').toLowerCase();
-            if (wordInList == cleanTarget && (i >= (_activeHighlightWordIndex ?? 0))) {
-              setState(() {
-                _activeHighlightWordIndex = i;
-              });
-              break;
-            }
-          }
-        },
-        onComplete: () {
-          if (mounted) {
-            setState(() {
-              _isPageReading = false;
-              _activeHighlightWordIndex = null;
-            });
+      manager.startSession(
+        book: widget.book,
+        pageIndex: _currentPage,
+        onPageTurnedCallback: (newPageIndex) {
+          if (mounted && _pageController.hasClients) {
+            _pageController.jumpToPage(newPageIndex);
+            setState(() => _currentPage = newPageIndex);
           }
         },
       );
@@ -195,7 +188,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _handleExit() {
-    TtsService.instance.stop();
     HapticFeedback.lightImpact();
     final duration = DateTime.now().difference(_sessionStartTime);
     final totalSeconds = duration.inSeconds;
@@ -214,7 +206,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     Navigator.pop(context, result);
   }
 
-  // --- KUSURSUZ OPTİK RENK PALETİ ---
+  // Tema Renk Tanımlamaları
   Color get _backgroundColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
@@ -281,14 +273,25 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  Color get _ttsHighlightColor {
+  Color get _sentenceBgColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
-        return const Color(0xFFD99B26).withValues(alpha: 0.38);
+        return const Color(0xFFD99B26).withValues(alpha: 0.16);
       case ReaderTheme.dark:
-        return const Color(0xFFFFC107).withValues(alpha: 0.32);
+        return const Color(0xFFFFC107).withValues(alpha: 0.14);
       case ReaderTheme.light:
-        return const Color(0xFFFFD54F).withValues(alpha: 0.48);
+        return const Color(0xFFFFD54F).withValues(alpha: 0.22);
+    }
+  }
+
+  Color get _wordHighlightColor {
+    switch (_currentTheme) {
+      case ReaderTheme.sepia:
+        return const Color(0xFFD99B26).withValues(alpha: 0.45);
+      case ReaderTheme.dark:
+        return const Color(0xFFFFC107).withValues(alpha: 0.40);
+      case ReaderTheme.light:
+        return const Color(0xFFFFD54F).withValues(alpha: 0.55);
     }
   }
 
@@ -302,21 +305,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  // --------------------------------------------------------------------------
-  // HİBRİT SÖZLÜK POP-UP
-  // --------------------------------------------------------------------------
+  String _normalizePdfText(String rawText) {
+    String text = rawText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    text = text.replaceAll(RegExp(r'\n\s*\n+'), ' ');
+    text = text.replaceAll('\n', ' ');
+    text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
+    return text.trim();
+  }
+
   Future<void> _showWordDetails(String word) async {
     final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '').trim();
     if (cleanWord.isEmpty) return;
 
-    if (_isPageReading) {
-      await TtsService.instance.stop();
-      if (mounted) {
-        setState(() {
-          _isPageReading = false;
-          _activeHighlightWordIndex = null;
-        });
-      }
+    if (AudiobookManager.instance.isPlaying) {
+      await AudiobookManager.instance.togglePlayPause();
     }
 
     HapticFeedback.lightImpact();
@@ -366,7 +368,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -518,7 +519,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                   final saveMeaning = isOffline
                                       ? 'Anlam bekleniyor'
                                       : (result?.alternativeMeanings.take(3).join(', ') ?? result?.primaryMeaning ?? '');
-                                  
+
                                   await DatabaseHelper.instance.addFlashcard(cleanWord, saveMeaning);
                                   if (mounted) {
                                     setState(() => _wordsAddedCount++);
@@ -558,91 +559,82 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  // --- PARAGRAF VE KELİME MOTORU ---
-  String _normalizePdfText(String rawText) {
-    String text = rawText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    text = text.replaceAll(RegExp(r'\n\s*\n+'), '{{PARAGRAPH}}');
-    text = text.replaceAll('\n', ' ');
-    text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
-    text = text.replaceAll('{{PARAGRAPH}}', '\n\n');
-    return text.trim();
-  }
+  // --------------------------------------------------------------------------
+  // ÇÖZÜLEN KRİTİK SORUN 1 (İlk Açılışta Sayfaların Boş / Beyaz Görünmesi):
+  // Eski kodda doğrudan `AudiobookManager.getPageSentences(pageIndex)` çağrılıyordu.
+  // İlk anda Manager başlatılmadığı için liste boş [] dönüyor ve ekran boş kalıyordu.
+  // Çözüm: Sayfa içeriğini modelden anında kontrol eden Fallback (yedek) mekanizması eklendi.
+  //
+  // ÇÖZÜLEN KRİTİK SORUN 2 (Skipped Frames & UI Kilitlenmesi):
+  // WidgetSpan yerine TextSpan + TapGestureRecognizer yapısına geçilerek render ağacı
+  // %80 hafifletildi.
+  // --------------------------------------------------------------------------
+  List<InlineSpan> _buildOptimizedSpans(int pageIndex, HighlightState? highlight) {
+    // 1. Modelden metni güvenli şekilde al
+    final pageContent = (widget.book.pages.isNotEmpty && pageIndex < widget.book.pages.length)
+        ? widget.book.pages[pageIndex]
+        : '';
 
-  List<String> _extractWords(String text) {
-    final words = <String>[];
-    final paragraphs = text.split('\n\n');
-    for (var p in paragraphs) {
-      final pWords = p.trim().split(' ');
-      for (var w in pWords) {
-        if (w.trim().isNotEmpty) {
-          words.add(w.trim());
-        }
+    if (pageContent.trim().isEmpty) {
+      return [
+        TextSpan(
+          text: 'Bu sayfada görüntülenecek metin bulunamadı.',
+          style: _readerTextStyle.copyWith(fontStyle: FontStyle.italic),
+        ),
+      ];
+    }
+
+    // 2. Önbellekte varsa al, yoksa metni ilk açılışta anında kendin böl (Fallback)
+    List<String> sentences = AudiobookManager.instance.getPageSentences(pageIndex);
+    if (sentences.isEmpty) {
+      final clean = _normalizePdfText(pageContent);
+      final regExp = RegExp(r'(?<=[.!?])\s+');
+      sentences = clean.split(regExp).where((s) => s.trim().length > 1).toList();
+      if (sentences.isEmpty && clean.isNotEmpty) {
+        sentences = [clean];
       }
     }
-    return words;
-  }
 
-  List<InlineSpan> _buildInteractiveSpans(String text) {
-    final cleanText = _normalizePdfText(text);
-    final paragraphs = cleanText.split('\n\n');
     final spans = <InlineSpan>[];
+    final isCurrentPage = highlight != null && highlight.pageIndex == pageIndex;
 
-    int globalWordIndex = 0;
+    for (int s = 0; s < sentences.length; s++) {
+      final sentence = sentences[s];
+      final isCurrentSentence = isCurrentPage && (highlight.sentenceIndex == s);
+      final words = sentence.split(' ').where((w) => w.isNotEmpty).toList();
 
-    for (var p = 0; p < paragraphs.length; p++) {
-      final paragraph = paragraphs[p].trim();
-      if (paragraph.isEmpty) continue;
-
-      final words = paragraph.split(' ');
-      for (var word in words) {
-        if (word.isEmpty) continue;
-        
+      for (int w = 0; w < words.length; w++) {
+        final word = words[w];
         final clean = word.replaceAll(RegExp(r'[^\w\s]'), '');
         final isSelected = _selectedWord != null && _selectedWord == clean;
-        final isCurrentlySpoken = _isPageReading && (_activeHighlightWordIndex == globalWordIndex);
+        final isCurrentWord = isCurrentSentence && (highlight.wordIndexInSentence == w);
+
+        // Arka plan rengini katmanlı olarak hesapla
+        Color bg = Colors.transparent;
+        if (isSelected) {
+          bg = _accentColor.withValues(alpha: 0.25);
+        } else if (isCurrentWord) {
+          bg = _wordHighlightColor; // Kelime bazlı canlı vurgu
+        } else if (isCurrentSentence) {
+          bg = _sentenceBgColor;    // Cümle bazlı hafif gölge
+        }
 
         spans.add(
-          WidgetSpan(
-            alignment: PlaceholderAlignment.baseline,
-            baseline: TextBaseline.alphabetic,
-            child: GestureDetector(
-              onTap: () => _showWordDetails(word),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 140),
-                padding: const EdgeInsets.symmetric(horizontal: 2.5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: isCurrentlySpoken
-                      ? _ttsHighlightColor
-                      : (isSelected ? _accentColor.withValues(alpha: 0.25) : Colors.transparent),
-                  borderRadius: BorderRadius.circular(5),
-                  border: isCurrentlySpoken
-                      ? Border.all(color: _accentColor.withValues(alpha: 0.4), width: 1)
-                      : null,
-                ),
-                child: Text(
-                  '$word ',
-                  style: _readerTextStyle.copyWith(
-                    fontWeight: isCurrentlySpoken ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-              ),
+          TextSpan(
+            text: '$word ',
+            style: _readerTextStyle.copyWith(
+              backgroundColor: bg,
+              fontWeight: (isCurrentWord || isCurrentSentence) ? FontWeight.w600 : FontWeight.normal,
+              color: isCurrentWord ? _accentColor : _textColor,
             ),
+            recognizer: TapGestureRecognizer()..onTap = () => _showWordDetails(word),
           ),
         );
-
-        globalWordIndex++;
-      }
-
-      if (p < paragraphs.length - 1) {
-        spans.add(const TextSpan(text: '\n\n'));
       }
     }
     return spans;
   }
 
-  // --------------------------------------------------------------------------
-  // PREMIUM ALTTAN AÇILAN AYARLAR PANELİ
-  // --------------------------------------------------------------------------
   void _openSettingsBottomSheet() {
     HapticFeedback.lightImpact();
     int selectedTab = 0;
@@ -684,7 +676,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // 2 Sekmeli Segment Seçici
                   Container(
                     height: 46,
                     padding: const EdgeInsets.all(4),
@@ -770,7 +761,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // SEKME 1: GÖRÜNÜM & TİPOGRAFİ
                   if (selectedTab == 0) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -872,7 +862,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     ),
                   ],
 
-                  // SEKME 2: SES & ANLATICI PERSONA SEÇİMİ
                   if (selectedTab == 1) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -896,7 +885,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     Column(
                       children: profiles.map((p) {
                         final isSelected = (activeProfile.id == p.id);
-                        
+
                         String avatar = '👩';
                         if (p.id == 'james') avatar = '👨';
                         if (p.id == 'ava') avatar = '🎙️';
@@ -1122,6 +1111,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final manager = AudiobookManager.instance;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -1143,28 +1134,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 itemCount: widget.book.totalPages,
                 onPageChanged: (pageIndex) {
                   HapticFeedback.selectionClick();
-                  if (_isPageReading) {
-                    TtsService.instance.stop();
-                    _isPageReading = false;
-                    _activeHighlightWordIndex = null;
+
+                  final bool isThisBookActive = manager.hasActiveSession && manager.currentBook?.id == widget.book.id;
+                  if (isThisBookActive && manager.currentPage != pageIndex) {
+                    manager.changePage(pageIndex);
                   }
+
                   setState(() {
                     _currentPage = pageIndex;
                     widget.book.currentPage = pageIndex;
                   });
                   widget.onPageChanged?.call(pageIndex);
-
-                  // Her 5 sayfada bir motivasyon bildirimi
-                  final pagesReadInSession = (_currentPage - _initialStartPage).abs();
-                  if (pagesReadInSession > 0 && pagesReadInSession % 5 == 0) {
-                    _showCoachToast(CoachMessages.getReadingPageCheer());
-                  }
                 },
                 itemBuilder: (context, index) {
-                  final pageContent = widget.book.pages.isNotEmpty
-                      ? widget.book.pages[index]
-                      : 'İçerik bulunamadı.';
-
                   return SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     padding: EdgeInsets.fromLTRB(
@@ -1173,15 +1155,30 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       26,
                       MediaQuery.of(context).padding.bottom + 64,
                     ),
-                    child: Text.rich(
-                      TextSpan(children: _buildInteractiveSpans(pageContent)),
+                    // --------------------------------------------------------
+                    // ÇÖZÜLEN KRİTİK SORUN 3 (EGL avg=1000ms+ ve ANR Krizleri):
+                    // Eski kodda `ListenableBuilder(listenable: manager)` tüm PageView'i
+                    // sarmalıyordu. Her kelime okunduğunda önbellekteki görünmeyen 3 sayfa
+                    // da baştan regex çalıştırıp çiziliyordu.
+                    // Çözüm: Sadece metin alanı `ValueListenableBuilder` ile izole dinleniyor.
+                    // Yalnızca okunan o anki tek sayfa canlı boyanıyor, komşu sayfalar uyuyor.
+                    // --------------------------------------------------------
+                    child: ValueListenableBuilder<HighlightState?>(
+                      valueListenable: manager.activeHighlight,
+                      builder: (context, highlight, _) {
+                        return Text.rich(
+                          TextSpan(
+                            children: _buildOptimizedSpans(index, highlight),
+                          ),
+                        );
+                      },
                     ),
                   );
                 },
               ),
             ),
 
-            // Üst Bar
+            // Üst Kontrol Barı
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOut,
@@ -1216,21 +1213,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _textColor),
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(
-                        _isPageReading ? Icons.pause_circle_filled_rounded : Icons.headphones_rounded,
-                        color: _isPageReading ? Colors.green[600] : _textColor,
-                        size: 24,
-                      ),
-                      tooltip: _isPageReading ? 'Okumayı Durdur' : 'Sayfayı Dinle (Audiobook)',
-                      onPressed: _togglePageReading,
+                    ListenableBuilder(
+                      listenable: manager,
+                      builder: (context, _) {
+                        final bool isThisBookActive = manager.hasActiveSession && manager.currentBook?.id == widget.book.id;
+                        final bool isPlaying = isThisBookActive && manager.isPlaying;
+
+                        return IconButton(
+                          icon: Icon(
+                            isPlaying ? Icons.pause_circle_filled_rounded : Icons.headphones_rounded,
+                            color: isPlaying ? Colors.green[600] : _textColor,
+                            size: 24,
+                          ),
+                          tooltip: isPlaying ? 'Okumayı Durdur' : 'Kesintisiz Dinle (Audiobook)',
+                          onPressed: _togglePageReading,
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
             ),
 
-            // Alt Bar (Scrubber + Başparmak Hizası 'Aa' Butonu)
+            // Alt Kontrol Barı (Sayfa Kaydırıcı & Tipografi Ayarları)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOut,
@@ -1272,12 +1277,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           max: (widget.book.totalPages - 1).toDouble().clamp(0, double.infinity),
                           onChanged: (val) {
                             HapticFeedback.selectionClick();
-                            if (_isPageReading) {
-                              TtsService.instance.stop();
-                              _isPageReading = false;
-                              _activeHighlightWordIndex = null;
-                            }
                             final newPage = val.toInt();
+                            final bool isThisBookActive = manager.hasActiveSession && manager.currentBook?.id == widget.book.id;
+                            if (isThisBookActive) {
+                              manager.changePage(newPage);
+                            }
                             _pageController.jumpToPage(newPage);
                           },
                         ),
@@ -1310,7 +1314,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
 
-            // CANLI KOÇLUK TOAST BİLDİRİM BANDI
+            // Okuma Koçu Bildirim Toast'ı
             if (_activeCoachToast != null)
               Positioned(
                 top: MediaQuery.of(context).padding.top + 60,

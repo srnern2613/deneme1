@@ -32,6 +32,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     this.showStats = true,
   });
 
+  // Standart App Bar yüksekliği
   @override
   Size get preferredSize => const Size.fromHeight(74);
 
@@ -48,11 +49,11 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
           end: Alignment.bottomRight,
           colors: isDark
               ? [
-                  const Color(0xFF6366F1).withValues(alpha: 0.14), // Karanlıkta hafif mor/indigo buğu
+                  const Color(0xFF6366F1).withValues(alpha: 0.14), // Karanlık mod yumuşak indigo ışıltısı
                   const Color(0xFF090D16).withValues(alpha: 0.95),
                 ]
               : [
-                  const Color(0xFF818CF8).withValues(alpha: 0.10), // Aydınlıkta ferah lavanta ışıltısı
+                  const Color(0xFF818CF8).withValues(alpha: 0.10), // Aydınlık mod lavanta ışıltısı
                   const Color(0xFFF6F8FC),
                 ],
         ),
@@ -74,7 +75,12 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
               leading!,
               const SizedBox(width: 8),
             ],
-            // Başlık & Alt Başlık
+            // ----------------------------------------------------------------
+            // ÇÖZÜLEN SORUN (RenderFlex Overflow / Yazı Taşması):
+            // Başlık çok uzun olduğunda veya rozet emojisi eklendiğinde sağdaki
+            // elmas ve XP sayaçları ekrandan taşıp sarı-siyah hata şeridi veriyordu.
+            // Çözüm: Başlık alanı 'Expanded' + 'Flexible' ve 'ellipsis' ile sarıldı.
+            // ----------------------------------------------------------------
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

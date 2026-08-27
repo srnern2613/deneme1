@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: 5 Sekmeli Navigasyon, Taşmaları Önlenmiş Elastik Üst Bar & Dashboard
+// AÇIKLAMA: 5 Sekmeli Navigasyon, Dashboard, Kilit Ekranı Medya & Global Mini Oynatıcı
 // ============================================================================
 
 import 'dart:async';
@@ -19,9 +19,19 @@ import 'profile_screen.dart';
 import 'shop_screen.dart';
 import 'xp_shop_service.dart';
 import 'coach_messages.dart';
+import 'audio_handler.dart';
+import 'mini_player.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Kilit ekranı & bildirim paneli medya servisini başlat
+  try {
+    await MyAudioHandler.init();
+  } catch (e) {
+    debugPrint('AudioService başlatma hatası: $e');
+  }
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -139,23 +149,31 @@ class _RootScreenState extends State<RootScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.97, end: 1.0).animate(animation),
-              child: child,
+      body: Column(
+        children: [
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.97, end: 1.0).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey<int>(_currentIndex),
+                child: _screens[_currentIndex],
+              ),
             ),
-          );
-        },
-        child: KeyedSubtree(
-          key: ValueKey<int>(_currentIndex),
-          child: _screens[_currentIndex],
-        ),
+          ),
+          // YÜZEN MOR IŞILTILI AUDİOBOOK MİNİ OYNATICI
+          const GlobalMiniPlayer(),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

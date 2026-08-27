@@ -27,6 +27,11 @@ class CelebrationDialog extends StatefulWidget {
     this.onAction,
   });
 
+  // --------------------------------------------------------------------------
+  // ÇÖZÜLEN SORUN (Dialog Kapanırken Yaşanan UI Donması):
+  // Standart showDialog arka planı senkronize kapatırken animasyon düşmesi yapıyordu.
+  // Çözüm: Custom Elastic Transition ve showGeneralDialog mimarisine geçildi.
+  // --------------------------------------------------------------------------
   static Future<void> show(
     BuildContext context, {
     required String emoji,
@@ -99,6 +104,7 @@ class _CelebrationDialogState extends State<CelebrationDialog>
       ),
     );
 
+    // Canlı artan sayaç animasyonları (0 -> Hedef Puan)
     _xpCounter = IntTween(begin: 0, end: widget.earnedXp).animate(
       CurvedAnimation(
         parent: _controller,
@@ -138,7 +144,7 @@ class _CelebrationDialogState extends State<CelebrationDialog>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Canlı Konfeti Parçacıkları
+            // Canlı Konfeti Parçacıkları (CustomPainter ile GPU hızlandırmalı)
             AnimatedBuilder(
               animation: _controller,
               builder: (context, child) {
@@ -226,7 +232,6 @@ class _CelebrationDialogState extends State<CelebrationDialog>
                   ),
                   const SizedBox(height: 18),
 
-                  // Başlık
                   Text(
                     widget.title,
                     textAlign: TextAlign.center,
@@ -239,7 +244,6 @@ class _CelebrationDialogState extends State<CelebrationDialog>
                   ),
                   const SizedBox(height: 6),
 
-                  // Açıklama
                   Text(
                     widget.subtitle,
                     textAlign: TextAlign.center,
@@ -315,7 +319,6 @@ class _CelebrationDialogState extends State<CelebrationDialog>
 
                   const SizedBox(height: 24),
 
-                  // Aksiyon Butonu
                   SizedBox(
                     width: double.infinity,
                     height: 50,
