@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_exercise_screen.dart
-// AÇIKLAMA: Ses Destekli SRS Kartları & Canlı Koçluk
+// AÇIKLAMA: Ses Destekli SRS Kartları & Psikolojik Geri Bildirimli Pop-up
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -84,18 +84,41 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       _celebrationShown = true;
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!mounted) return;
-        CelebrationDialog.show(
-          context,
-          emoji: '📇',
-          title: 'Hafıza Egzersizi Tamam!',
-          subtitle: '$_initialTotal kelimeden $_knownCount tanesini eksiksiz bildin. Hafıza kasların güçleniyor!',
-          earnedXp: _knownCount * 5,
-          earnedGems: _knownCount == _initialTotal && _initialTotal >= 5 ? 5 : 0,
-          actionLabel: 'Süper!',
-          onAction: () => Navigator.of(context).pop(),
-        );
+        _finishSrs();
       });
     }
+  }
+
+  void _finishSrs() {
+    final feedback = CoachMessages.getFeedback(
+      exerciseType: 'srs',
+      score: _knownCount,
+      total: _initialTotal,
+    );
+
+    CelebrationDialog.show(
+      context,
+      emoji: feedback.emoji,
+      title: feedback.title,
+      subtitle: feedback.subtitle,
+      earnedXp: _knownCount * 5,
+      earnedGems: _knownCount == _initialTotal && _initialTotal >= 5 ? 5 : 0,
+      actionLabel: feedback.actionLabel,
+      onAction: () {
+        if (feedback.shouldOfferRetry) {
+          setState(() {
+            _remainingCards = List.from(widget.cards)..shuffle();
+            _knownCount = 0;
+            _reviewCount = 0;
+            _isFlipped = false;
+            _celebrationShown = false;
+            _consecutiveKnownStreak = 0;
+          });
+        } else {
+          Navigator.of(context).pop();
+        }
+      },
+    );
   }
 
   @override

@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/quiz_exercise_screen.dart
-// AÇIKLAMA: 10sn Süreli Zaman Barı, Hız/Seri Bonusu & 4 Şıklı Test Modu
+// AÇIKLAMA: 10sn Süreli Zaman Barı, Psikolojik Geri Bildirimli Hızlı Test
 // ============================================================================
 
 import 'dart:async';
@@ -33,7 +33,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   String? _cheerToast;
 
   Timer? _questionTimer;
-  double _timeRemaining = 10.0; // Soru başına 10 saniye
+  double _timeRemaining = 10.0;
 
   @override
   void initState() {
@@ -139,7 +139,6 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       _score++;
       _streak++;
 
-      // Hızlı cevap bonusu (+8 XP veya normal +6 XP)
       final earnedXp = _timeRemaining > 4.5 ? 8 : 6;
       _totalEarnedXp += earnedXp;
       await XpShopService.instance.addXp(earnedXp);
@@ -170,15 +169,34 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   }
 
   void _finishQuiz() {
+    final feedback = CoachMessages.getFeedback(
+      exerciseType: 'quiz',
+      score: _score,
+      total: _questions.length,
+    );
+
     CelebrationDialog.show(
       context,
-      emoji: '🎯',
-      title: 'Hızlı Test Tamamlandı!',
-      subtitle: '${_questions.length} sorudan $_score tanesini doğru yanıtladın. Reflekslerin harika çalışıyor!',
+      emoji: feedback.emoji,
+      title: feedback.title,
+      subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
       earnedGems: _score >= (_questions.length * 0.8) ? 5 : 0,
-      actionLabel: 'Süper, Devam Et!',
-      onAction: () => Navigator.of(context).pop(),
+      actionLabel: feedback.actionLabel,
+      onAction: () {
+        if (feedback.shouldOfferRetry) {
+          setState(() {
+            _currentIndex = 0;
+            _score = 0;
+            _streak = 0;
+            _totalEarnedXp = 0;
+            _questions.shuffle();
+            _loadOptionsForCurrent();
+          });
+        } else {
+          Navigator.of(context).pop();
+        }
+      },
     );
   }
 

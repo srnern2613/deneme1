@@ -1,9 +1,25 @@
 // ============================================================================
 // DOSYA ADI: lib/coach_messages.dart
-// AÇIKLAMA: Dinamik, Özgün, Zenginleştirilmiş Canlı Koçluk Metin Havuzu
+// AÇIKLAMA: Canlı Koçluk, Okuma Teşvikleri & Psikolojik Başarı Geri Bildirim Motoru
 // ============================================================================
 
 import 'dart:math';
+
+class ExerciseResultFeedback {
+  final String emoji;
+  final String title;
+  final String subtitle;
+  final String actionLabel;
+  final bool shouldOfferRetry;
+
+  ExerciseResultFeedback({
+    required this.emoji,
+    required this.title,
+    required this.subtitle,
+    required this.actionLabel,
+    this.shouldOfferRetry = false,
+  });
+}
 
 class CoachMessages {
   static final Random _rand = Random();
@@ -108,7 +124,7 @@ class CoachMessages {
     return null;
   }
 
-  // --- 3. ZENGİNLEŞTİRİLMİŞ YANLIŞ / HATA MORAL DESTEĞİ HAVUZU ---
+  // --- 3. YANLIŞ / HATA MORAL DESTEĞİ HAVUZU ---
   static String getWrongAnswerEncouragement() {
     final list = [
       '🧠 Zihin hata yaparak öğrenir, hiç sorun değil!',
@@ -123,12 +139,13 @@ class CoachMessages {
     return list[_rand.nextInt(list.length)];
   }
 
-  // --- 4. OKUMA SEANSI TOASTLARI ---
+  // --- 4. OKUMA SEANSI İÇİ TEŞVİKLER (ReaderScreen Uyumluluğu) ---
   static String getReadingPageCheer() {
     final list = [
       '📖 Harika bir akış, sayfalar su gibi akıyor.',
       '📖 Ritim muazzam! Zihnin tamamen adapte oldu.',
       '📖 Kitap kurdu modu aktif! Birkaç sayfa daha devrildi 🚀',
+      '📖 Sayfalar peş peşe akıyor, odaklanman çok iyi!',
     ];
     return list[_rand.nextInt(list.length)];
   }
@@ -137,6 +154,7 @@ class CoachMessages {
     final list = [
       '⏱️ 15 dakika derin odaklanma! Beynin yeni kalıplar örüyor.',
       '⏱️ Çeyrek saat geride kaldı! Zihinsel kondisyonun harika.',
+      '⏱️ 15 dakikalık akış modu! Dikkatin kusursuz seviyede.',
     ];
     return list[_rand.nextInt(list.length)];
   }
@@ -145,7 +163,70 @@ class CoachMessages {
     final list = [
       '🧠 30 dakikalık maraton! Gerçek bir kitap kurdu performansı.',
       '🧠 Yarım saat derin okuma devrildi! Tebrikler şefim.',
+      '🧠 30 dakikadır aralıksız zihin antrenmanı! Muazzam odak.',
     ];
     return list[_rand.nextInt(list.length)];
+  }
+
+  // --- 5. 3 KADEMELİ DİNAMİK BAŞARI & POP-UP MOTORU ---
+  static ExerciseResultFeedback getFeedback({
+    required String exerciseType,
+    required int score,
+    required int total,
+  }) {
+    final double ratio = total > 0 ? (score / total) : 0.0;
+    final randIdx = _rand.nextInt(3);
+
+    // 1. Kademe: Zirve / Mükemmel (%80 - %100)
+    if (ratio >= 0.8) {
+      final emojis = ['🎯', '👑', '⚡'];
+      final titles = ['Harika Performans!', 'Kusursuz Hakimiyet!', 'Zirve Performans!'];
+      final subtitles = [
+        '$total üzerinden $score doğru! Reflekslerin zirvede, kelimeler kalıcı hafızana geçti.',
+        '$score/$total doğru! Bugün zihinsel kondisyonun muazzam seviyede, durdurulamazsın.',
+        'Neredeyse sıfır hata ($score/$total)! Bu hızla kelime haznen hızla büyüyecek.',
+      ];
+      return ExerciseResultFeedback(
+        emoji: emojis[randIdx],
+        title: titles[randIdx],
+        subtitle: subtitles[randIdx],
+        actionLabel: 'Süper, Devam Et!',
+        shouldOfferRetry: false,
+      );
+    }
+
+    // 2. Kademe: Gelişme / İyi (%50 - %79)
+    if (ratio >= 0.5) {
+      final emojis = ['🧠', '📈', '💡'];
+      final titles = ['İyi İlerleme!', 'Güzel Mücadele!', 'Adım Adım Zirveye!'];
+      final subtitles = [
+        '$total sorudan $score tanesini doğru bildin. İyi bir ritim yakaladın, pratikle tam oturacak.',
+        '$score/$total doğru. Zihnin kelimeleri kavramaya başladı, tempoyu koru!',
+        'Fena bir tur değil ($score/$total doğru). Birkaç tekrarla bu kelimeleri tamamen ezberleyebilirsin.',
+      ];
+      return ExerciseResultFeedback(
+        emoji: emojis[randIdx],
+        title: titles[randIdx],
+        subtitle: subtitles[randIdx],
+        actionLabel: 'Devam Et',
+        shouldOfferRetry: false,
+      );
+    }
+
+    // 3. Kademe: Kurtarma / Düşük Skor (%0 - %49)
+    final emojis = ['🩹', '⏳', '🔄'];
+    final titles = ['Pratikle Güçleneceksin!', 'Zihin Hata Yaparak Öğrenir!', 'Tekrarla ve Zirveye Çık!'];
+    final subtitles = [
+      '$total üzerinden $score doğru. Bu tur biraz zorladı ama sorun yok; beyin yanılarak öğrenir!',
+      '$score/$total doğru. Kelimeler henüz zihninde taze; hemen bir tekrar yapıp puanını katlayalım mı?',
+      'Birkaç fire verdik ($score/$total) ama pes etmek yok! Hemen bir tur daha deneyip skorunu yükselt.',
+    ];
+    return ExerciseResultFeedback(
+      emoji: emojis[randIdx],
+      title: titles[randIdx],
+      subtitle: subtitles[randIdx],
+      actionLabel: 'Tekrar Dene 🚀',
+      shouldOfferRetry: true,
+    );
   }
 }

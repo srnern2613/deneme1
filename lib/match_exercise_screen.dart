@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/match_exercise_screen.dart
-// AÇIKLAMA: Kombo Çarpanlı & Süreli Kelime Eşleştirme Oyunu (Match Madness)
+// AÇIKLAMA: Kombo Çarpanlı, Süreli & Psikolojik Geri Bildirimli Eşleştirme
 // ============================================================================
 
 import 'dart:async';
@@ -52,7 +52,16 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
   @override
   void initState() {
     super.initState();
+    _restartGame();
+  }
+
+  void _restartGame() {
     _pool = List.from(widget.cards)..shuffle();
+    _score = 0;
+    _combo = 0;
+    _totalEarnedXp = 0;
+    _timeLeft = 45;
+    _selectedItem = null;
     _setupBoard();
     _startTimer();
   }
@@ -64,6 +73,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
   }
 
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       if (_timeLeft > 1) {
@@ -134,7 +144,6 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       _combo++;
       _score += 2;
 
-      // Kombo Çarpanı (+4, +6 veya +8 XP)
       final multiplier = _combo >= 6 ? 2 : 1;
       final earnedXp = 4 * multiplier;
       _totalEarnedXp += earnedXp;
@@ -167,15 +176,30 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
 
   void _finishGame() {
     _timer?.cancel();
+    final totalExpected = max(8, widget.cards.length * 2);
+    final feedback = CoachMessages.getFeedback(
+      exerciseType: 'match',
+      score: _score,
+      total: totalExpected,
+    );
+
     CelebrationDialog.show(
       context,
-      emoji: '🧩',
-      title: 'Eşleştirme Tamamlandı!',
-      subtitle: 'Süre bitti! Toplam $_score puan topladın. Hızlı düşünme reflekslerin harika çalışıyor!',
+      emoji: feedback.emoji,
+      title: feedback.title,
+      subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
       earnedGems: _score >= 16 ? 5 : 0,
-      actionLabel: 'Süper Devam Et!',
-      onAction: () => Navigator.of(context).pop(),
+      actionLabel: feedback.actionLabel,
+      onAction: () {
+        if (feedback.shouldOfferRetry) {
+          setState(() {
+            _restartGame();
+          });
+        } else {
+          Navigator.of(context).pop();
+        }
+      },
     );
   }
 

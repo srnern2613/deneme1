@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/spelling_exercise_screen.dart
-// AÇIKLAMA: Dinle & Yaz (💡 İpucu/Joker Desteği & Telaffuz Pratiği)
+// AÇIKLAMA: Dinle & Yaz (💡 İpucu/Joker Desteği & Psikolojik Geri Bildirim)
 // ============================================================================
 
 import 'dart:math';
@@ -195,15 +195,34 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   }
 
   void _finishSpelling() {
+    final feedback = CoachMessages.getFeedback(
+      exerciseType: 'spelling',
+      score: _score,
+      total: _questions.length,
+    );
+
     CelebrationDialog.show(
       context,
-      emoji: '🎧',
-      title: 'Dinle & Yaz Tamamlandı!',
-      subtitle: '${_questions.length} kelimeden $_score tanesini harf harf doğru yazdın. Telaffuz ve hafıza güçleniyor!',
+      emoji: feedback.emoji,
+      title: feedback.title,
+      subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
       earnedGems: _score >= (_questions.length * 0.8) ? 5 : 0,
-      actionLabel: 'Harika!',
-      onAction: () => Navigator.of(context).pop(),
+      actionLabel: feedback.actionLabel,
+      onAction: () {
+        if (feedback.shouldOfferRetry) {
+          setState(() {
+            _currentIndex = 0;
+            _score = 0;
+            _streak = 0;
+            _totalEarnedXp = 0;
+            _questions.shuffle();
+            _loadCurrentWord();
+          });
+        } else {
+          Navigator.of(context).pop();
+        }
+      },
     );
   }
 
@@ -441,11 +460,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                     child: Text(
                       _cheerToast!,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
                 ),
