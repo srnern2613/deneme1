@@ -1,6 +1,6 @@
 // ==============================================================
 // DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Dinamik Profil, Seri Kalkanı ve Eksiksiz Rozetler Odası
+// AÇIKLAMA: Dinamik Profil, İmza Başlık ve Eksiksiz Rozetler Odası
 // ==============================================================
 
 import 'package:flutter/material.dart';
@@ -14,6 +14,8 @@ import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
 import 'achievement_service.dart';
 import 'celebration_dialog.dart';
+import 'app_header.dart';
+import 'shop_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -167,57 +169,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final int totalWeeklyRead = _weeklyPages.reduce((a, b) => a + b);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil & Başarılar', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 6.0),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.cyan.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('💎', style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 3),
-                    Text(
-                      '$_userGems',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.cyan[700]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('⚡', style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 3),
-                    Text(
-                      '$_userTotalXp',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.amber),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+      appBar: AppHeader(
+        title: 'Profil',
+        subtitle: 'İlerleme & Başarı Odası',
+        badgeEmoji: '👤',
+        gems: _userGems,
+        xp: _userTotalXp,
+        onShopTap: () => _navigateTo(const ShopScreen()),
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -434,7 +392,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
 
             if (_selectedTab == 1) ...[
-              // 1. 🌱 Yeni Başlayanlar
               _buildBadgeCategory('🌱 Yeni Başlayanlar', [
                 _BadgeData('🐣', 'İlk Adım', 'Uygulamaya ilk adımı at', _unlockedBadgesMap['first_step'] ?? true),
                 _BadgeData('📕', 'Kütüphaneci Adayı', 'İlk kitabını yükle', _unlockedBadgesMap['librarian'] ?? true),
@@ -444,7 +401,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ], isDark),
               const SizedBox(height: 16),
 
-              // 2. 🌅 Zaman & Alışkanlık
               _buildBadgeCategory('🌅 Zaman & Alışkanlık', [
                 _BadgeData('🦉', 'Gece Baykuşu', '00:00 - 04:00 arası oku', _unlockedBadgesMap['night_owl'] ?? false),
                 _BadgeData('☕', 'Sabah Memuru', '05:00 - 08:00 arası oku', _unlockedBadgesMap['early_bird'] ?? false),
@@ -454,7 +410,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ], isDark),
               const SizedBox(height: 16),
 
-              // 3. 📚 Okuma Miktarları
               _buildBadgeCategory('📚 Okuma Miktarları', [
                 _BadgeData('📖', 'Sayfa Canavarı', 'Toplam 100 sayfa oku', _unlockedBadgesMap['page_monster'] ?? (totalWeeklyRead >= 100)),
                 _BadgeData('📜', 'Ciltli Alim', 'Toplam 500 sayfa oku', _unlockedBadgesMap['bound_scholar'] ?? false),
@@ -463,7 +418,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ], isDark),
               const SizedBox(height: 16),
 
-              // 4. 📇 Hafıza & SRS
               _buildBadgeCategory('📇 Hafıza & Kelime (SRS)', [
                 _BadgeData('🧠', 'Sinaps Ustası', 'Kelime havuzuna 25+ kart ekle', _unlockedBadgesMap['synapse_master'] ?? (_totalFlashcards >= 25)),
                 _BadgeData('💎', 'Elmas Hafıza', '50+ kelime kartı oluştur', _unlockedBadgesMap['diamond_memory'] ?? (_totalFlashcards >= 50)),
@@ -473,7 +427,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ], isDark),
               const SizedBox(height: 16),
 
-              // 5. 🕵️ Gizli & Prestij
               _buildBadgeCategory('🕵️ Gizli & Prestij', [
                 _BadgeData('⚡', 'Işık Hızı', '20+ dk odaklanarak oku', _unlockedBadgesMap['speed_of_light'] ?? (_totalReadMinutes >= 20)),
                 _BadgeData('🥷', 'Hayalet Okur', 'Toplam 30+ sayfa bitir', _unlockedBadgesMap['ghost_reader'] ?? (totalWeeklyRead >= 30)),

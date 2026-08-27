@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/shop_screen.dart
-// AÇIKLAMA: Canlı Kalkan Geri Sayım Sayaçlı & Tam Donanımlı Mağaza
+// AÇIKLAMA: Canlı Kalkan Geri Sayım Sayaçlı & İmza Başlıklı Mağaza
 // ============================================================================
 
 import 'dart:async';
@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'xp_shop_service.dart';
+import 'app_header.dart';
 
 class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
@@ -18,6 +19,7 @@ class ShopScreen extends StatefulWidget {
 
 class _ShopScreenState extends State<ShopScreen> {
   int _userGems = 50;
+  int _userTotalXp = 100;
   int _streakDays = 1;
   bool _hasFreezeShield = true;
   bool _isDoubleXpActive = false;
@@ -61,6 +63,7 @@ class _ShopScreenState extends State<ShopScreen> {
   Future<void> _loadShopData() async {
     final prefs = await SharedPreferences.getInstance();
     final gems = await XpShopService.instance.getGemsBalance();
+    final xp = await XpShopService.instance.getTotalXp();
     final shield = await XpShopService.instance.hasFreezeShield();
     final doubleXp = await XpShopService.instance.isDoubleXpActive();
     final crown = await XpShopService.instance.hasItem('golden_crown');
@@ -70,6 +73,7 @@ class _ShopScreenState extends State<ShopScreen> {
     if (!mounted) return;
     setState(() {
       _userGems = gems;
+      _userTotalXp = xp;
       _hasFreezeShield = shield;
       _isDoubleXpActive = doubleXp;
       _hasGoldenCrown = crown;
@@ -118,39 +122,12 @@ class _ShopScreenState extends State<ShopScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Başarı Mağazası', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.cyan.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.cyan.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('💎', style: TextStyle(fontSize: 14)),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$_userGems',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13,
-                        color: Colors.cyan[700],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+      appBar: AppHeader(
+        title: 'Mağaza',
+        subtitle: 'Güçlendiriciler & Özel Öğeler',
+        badgeEmoji: '💎',
+        gems: _userGems,
+        xp: _userTotalXp,
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -243,7 +220,6 @@ class _ShopScreenState extends State<ShopScreen> {
     );
   }
 
-  // --- CANLI GERİ SAYIM SAYACINA SAHİP KALKAN BANNERI ---
   Widget _buildShieldWarningBanner(bool isDark) {
     final timerString = _formatDuration(_timeUntilMidnight);
 

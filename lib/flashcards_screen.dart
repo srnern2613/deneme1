@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_screen.dart
-// AÇIKLAMA: Pratik & Oyunlar Merkezi (Quiz, SRS Kartları, Eşleştirme, Dinle & Yaz)
+// AÇIKLAMA: Pratik Merkezi (Quiz, SRS Kartları, Eşleştirme, Dinle & Yaz)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -11,6 +11,8 @@ import 'quiz_exercise_screen.dart';
 import 'match_exercise_screen.dart';
 import 'spelling_exercise_screen.dart';
 import 'xp_shop_service.dart';
+import 'app_header.dart';
+import 'shop_screen.dart';
 
 class FlashcardsScreen extends StatefulWidget {
   const FlashcardsScreen({super.key});
@@ -108,63 +110,25 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     );
   }
 
+  void _openShop() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const ShopScreen()),
+    ).then((_) => _loadCardsAndStats());
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pratik & Antrenman', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 6.0),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.cyan.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('💎', style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 3),
-                    Text(
-                      '$_userGems',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.cyan[700]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('⚡', style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 3),
-                    Text(
-                      '$_userTotalXp',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.amber),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+      appBar: AppHeader(
+        title: 'Pratik',
+        subtitle: 'Kelime Arenası & Oyunlar',
+        badgeEmoji: '⚡',
+        gems: _userGems,
+        xp: _userTotalXp,
+        onShopTap: _openShop,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

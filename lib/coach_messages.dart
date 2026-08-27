@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/coach_messages.dart
-// AÇIKLAMA: Yüksek Frekanslı, Dinamik ve Özgün Canlı Koçluk Metin Havuzu
+// AÇIKLAMA: Dinamik, Özgün, Zenginleştirilmiş Canlı Koçluk Metin Havuzu
 // ============================================================================
 
 import 'dart:math';
@@ -8,20 +8,19 @@ import 'dart:math';
 class CoachMessages {
   static final Random _rand = Random();
 
-  // --- 1. ANA EKRAN BAĞLAMSAL KARŞILAMA MESAJLARI (5'er Adet) ---
+  // --- 1. ANA EKRAN BAĞLAMSAL KARŞILAMA MESAJLARI ---
   static String getHomeGreeting({
     required int todayPages,
     required int targetPages,
     required bool hasShield,
   }) {
-    // Hedef Tamamlandıysa (%100)
     if (todayPages >= targetPages && todayPages > 0) {
       final completed = [
-        'Bugünkü görev tamam! Günün kahramanı ilan edildin 🚀',
+        'Bugünkü görev tamam! Günün kahramanısın 🚀',
         'Hedef %100! Günlük elmas sandığını hak ettin 🎉',
-        'Görev bitti, serin parlıyor! Kendine bir tebriği çok görme 🏆',
-        'Disiplinin bugün de kazandı. Yarın aynı saatte buradayız! ✨',
-        'Günün kotası doldu, zihnin devasa bir adım daha attı 🧠',
+        'Görev bitti, serin parlıyor! Tebrikler 🏆',
+        'Disiplinin kazandı. Yarın buradayız! ✨',
+        'Günün kotası doldu, zihnin dev adım attı 🧠',
       ];
       return completed[_rand.nextInt(completed.length)];
     }
@@ -31,11 +30,11 @@ class CoachMessages {
     // Gece Kuşu (23:00 - 04:00)
     if (hour >= 23 || hour < 4) {
       final night = [
-        'Gece sessizliği, yüksek odaklanma. Batman bile bu saatte okumuyor 🦉',
-        'Gece kuşu modu aktif! Bu saatte çalışanlar fark yaratır 🌙',
-        'Yıldızlar altında gece okuması... Seriyi kurtarmak için harika an! 🌌',
-        'Herkes uyurken sen kelimelerle dans ediyorsun. Saygılar şefim! ⚔️',
-        'Gece mesaisi başladı! Zihnin en berrak olduğu saatler 🕯️',
+        'Gece sessizliği, yüksek odaklanma 🦉',
+        'Gece kuşu modu aktif! Fark yaratıyorsun 🌙',
+        'Yıldızlar altında okuma... Harika an! 🌌',
+        'Herkes uyurken sen öğreniyorsun ⚔️',
+        'Zihnin en berrak olduğu saatler 🕯️',
       ];
       return night[_rand.nextInt(night.length)];
     }
@@ -43,11 +42,11 @@ class CoachMessages {
     // Sabah (05:00 - 10:00)
     if (hour >= 4 && hour < 11) {
       final morning = [
-        'Güneş doğarken zihnini besleyenler kazanır. Güne 1-0 önde başladın ☕',
-        'Güne zinde bir başlangıç! Erken kalkan yol alır, İngilizce öğrenir 🌅',
-        'Sabah kahvesi hazırsa ilk sayfaları açalım mı? ☕',
-        'Günün ilk zaferini kazanmak için harika bir sabah! ☀️',
-        'Zihnin sabah tazeliğinde! Birkaç sayfa okuyup güne damga vur 🚀',
+        'Güne zinde bir başlangıç! 🌅',
+        'Sabah kahvesi hazırsa sayfaları açalım ☕',
+        'Günün ilk zaferi için harika bir sabah! ☀️',
+        'Erken kalkan yol alır, İngilizce öğrenir 🚀',
+        'Zihnin sabah tazeliğinde! ☀️',
       ];
       return morning[_rand.nextInt(morning.length)];
     }
@@ -55,107 +54,97 @@ class CoachMessages {
     // Öğle / Öğleden Sonra (11:00 - 17:00)
     if (hour >= 11 && hour < 18) {
       final afternoon = [
-        'Kısa bir molayı İngilizceyle taçlandırmak mı? Mükemmel seçim 🥪',
-        'Günün temposunda zihnine güzel bir okuma molası ver 📖',
-        'Öğleden sonra hedeflerini tamamlamak için en verimli saatler! ☀️',
-        'Öğle kahvesi eşliğinde 2 sayfa? Hedefe adım adım yaklaşıyoruz 🎯',
-        'Günün yarısı bitti bile; hedefi erken tamamlayıp rahatla! ⏳',
+        'Kısa bir okuma molası harika gider 🥪',
+        'Günün temposunda zihnine mola ver 📖',
+        'Hedefleri tamamlamak için en verimli an! ☀️',
+        'Kahve eşliğinde 2 sayfa okuyalım mı? 🎯',
+        'Hedefe adım adım yaklaşıyoruz ⏳',
       ];
       return afternoon[_rand.nextInt(afternoon.length)];
     }
 
     // Akşam (18:00 - 22:00)
     final evening = [
-      'Günün yorgunluğunu birkaç sayfa okuyarak dağıtma zamanı 🌆',
-      'Akşam seansıyla serini güvenceye alalım mı? 🔥',
-      'Günü güzel bir okuma rekoruyla kapatmaya ne dersin? ✨',
-      'Akşam kahveni al, sayfaların arasında kaybolma vakti 🛋️',
-      'Geceye girmeden bugünün hedefini bitirip kalkanı dinlendir 🛡️',
+      'Günün yorgunluğunu sayfalarla dağıt 🌆',
+      'Akşam seansıyla serini güvenceye al 🔥',
+      'Günü güzel bir okumayla kapatalım ✨',
+      'Sayfaların arasında kaybolma vakti 🛋️',
+      'Bugünün hedefini bitirip kalkanı dinlendir 🛡️',
     ];
     return evening[_rand.nextInt(evening.length)];
   }
 
-  // --- 2. FLASHCARD EGZERSİZİ SERİ TOASTLARI (5'er Adet) ---
+  // --- 2. SERİ TOASTLARI ---
   static String? getFlashcardCheer(int streak) {
     if (streak == 3) {
       final s3 = [
-        '🔥 3\'te 3! Nöronlar ısınmaya başladı, ritmi yakaladın.',
-        '🔥 Üçte üç! Odaklanman tam yerinde, aynen böyle devam!',
-        '🔥 Harika ritim! Kelimeler tıkır tıkır oturuyor.',
-        '🔥 3 kelime peş peşe! Zihnin hızlandı.',
-        '🔥 Üçleme tamam! Akış modundasın.',
+        '🔥 3\'te 3! Ritim yakalandı, aynen böyle!',
+        '🔥 Harika odaklanma, devam et!',
+        '🔥 3 kelime peş peşe! Akıştasın.',
       ];
       return s3[_rand.nextInt(s3.length)];
     } else if (streak == 5) {
       final s5 = [
-        '⚡ 5 seri! Kelimeler zihninde kalıcı hafızaya taşınıyor.',
-        '⚡ 5 peş peşe! Hafıza kasların resmen şov yapıyor!',
-        '⚡ Beşte beş! Zihnin kelimeleri sünger gibi çekiyor.',
-        '⚡ Muhteşem ivme! Kelimeler senden kaçamaz.',
-        '⚡ 5 doğru birden! Tempoyu hiç düşürmüyorsun.',
+        '⚡ 5 seri! Kelimeler hafızana kazınıyor.',
+        '⚡ Beşte beş! Zihnin sünger gibi çekiyor.',
+        '⚡ Muhteşem ivme! Tempoyu düşürme.',
       ];
       return s5[_rand.nextInt(s5.length)];
     } else if (streak == 8) {
       final s8 = [
-        '🎯 8\'de 8! Zihnin kelimeleri fotoğraflıyor gibi, harikasın.',
-        '🎯 Sekiz kelime sıfır hata! Bugün odaklanma zirvede.',
-        '🎯 Muazzam seri! Beynindeki sinapslar parti veriyor.',
-        '🎯 8 doğru! Sözlükle aranda telepatik bir bağ var sanki.',
-        '🎯 Keskin nişancı gibisin! 8 hedef tam isabet.',
+        '🎯 8\'de 8! Sıfır hata ile gidiyorsun.',
+        '🎯 Muazzam seri! Odaklanman zirvede.',
+        '🎯 Tam isabet! Harika bir hafıza performansı.',
       ];
       return s8[_rand.nextInt(s8.length)];
     } else if (streak == 10) {
       final s10 = [
-        '👑 10 kelime hatasız! Bugün senin günün, durdurulamazsın.',
-        '👑 Çift haneli seri! Resmen hafıza sarayı inşa ediyorsun.',
-        '👑 On numara performans! Bu hızla koca sözlüğü yutarız.',
-        '👑 10\'da 10! Zihinsel kondisyonun muhteşem seviyede.',
-        '👑 Efsane seri! Kelimeler adeta havada uçuşuyor.',
+        '👑 10 kelime hatasız! Durdurulamazsın.',
+        '👑 Efsane seri! Hafıza sarayı inşa ediyorsun.',
+        '👑 10\'da 10! Zihinsel kondisyon muazzam.',
       ];
       return s10[_rand.nextInt(s10.length)];
     }
     return null;
   }
 
-  // --- 3. YANLIŞ YAPILDIĞINDA MORAL DESTEĞİ (5 Adet) ---
+  // --- 3. ZENGİNLEŞTİRİLMİŞ YANLIŞ / HATA MORAL DESTEĞİ HAVUZU ---
   static String getWrongAnswerEncouragement() {
     final list = [
-      '💪 Hiç sorun değil; beyin unutarak öğrenir. Bir sonrakini kapıyoruz!',
-      '🌱 Yanılmak öğrenmenin en hızlı yoludur. Yola devam!',
-      '🔄 Sorun yok! Bu kelimeyi bir dahaki turda affetmeyeceğiz.',
-      '🧠 Hafıza kası böyle gelişir; bir sonraki turda bu kelime senin!',
+      '🧠 Zihin hata yaparak öğrenir, hiç sorun değil!',
+      '🌱 Yanılmak öğrenmenin en hızlı yoludur. Devam!',
+      '💡 Bu kelime artık aklında yer etmeye başladı!',
+      '💪 Ufak bir kaza; odaklan ve bir sonrakini yakala!',
       '🎯 Hata yapmak ilerlemenin kanıtıdır. Ritmi bozma!',
+      '🔄 Bir sonraki turda bu kelime senin!',
+      '⚡ Nöronlar yeni bir bağlantı kurdu, yola devam!',
+      '🚀 Mükemmel olmak zorunda değilsin, pratik yaptıkça oturacak!',
     ];
     return list[_rand.nextInt(list.length)];
   }
 
-  // --- 4. OKUMA SEANSI İÇİ TOASTLAR (4'er Adet) ---
+  // --- 4. OKUMA SEANSI TOASTLARI ---
   static String getReadingPageCheer() {
     final list = [
-      '📖 Harika bir akış yakaladın, sayfalar su gibi akıyor.',
-      '📖 Sayfaları peş peşe deviriyorsun; hikayenin içine girdin!',
-      '📖 Ritim muazzam! Zihnin İngilizceye tamamen adapte oldu.',
-      '📖 Birkaç sayfa daha devrildi! Kitap kurdu modu aktif 🚀',
+      '📖 Harika bir akış, sayfalar su gibi akıyor.',
+      '📖 Ritim muazzam! Zihnin tamamen adapte oldu.',
+      '📖 Kitap kurdu modu aktif! Birkaç sayfa daha devrildi 🚀',
     ];
     return list[_rand.nextInt(list.length)];
   }
 
   static String getReadingTimeCheer15Min() {
     final list = [
-      '⏱️ 15 dakika derin odaklanma! Beynin şu an yeni kalıplar örüyor.',
-      '⏱️ Çeyrek saat geride kaldı! Zihinsel kondisyonun muazzam.',
-      '⏱️ 15 dakikalık akış modu (flow)! Dikkatin kusursuz seviyede.',
-      '⏱️ 15 dakika devrildi! Bugün İngilizce hanene büyük bir artı yazdın.',
+      '⏱️ 15 dakika derin odaklanma! Beynin yeni kalıplar örüyor.',
+      '⏱️ Çeyrek saat geride kaldı! Zihinsel kondisyonun harika.',
     ];
     return list[_rand.nextInt(list.length)];
   }
 
   static String getReadingTimeCheer30Min() {
     final list = [
-      '🧠 Yarım saatlik maraton! Gerçek bir kitap kurdu performansı.',
-      '🧠 30 dakikadır aralıksız zihin antrenmanı! Saygılar şefim.',
-      '🧠 Yarım saat devrildi! Bu odaklanma seviyesi seni zirveye taşır.',
-      '🧠 30 dakika derin okuma! Beyin hücreleri resmen bayram ediyor.',
+      '🧠 30 dakikalık maraton! Gerçek bir kitap kurdu performansı.',
+      '🧠 Yarım saat derin okuma devrildi! Tebrikler şefim.',
     ];
     return list[_rand.nextInt(list.length)];
   }

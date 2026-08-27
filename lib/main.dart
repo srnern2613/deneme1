@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: 5 Sekmeli Navigasyon ("Pratik" Sekmesi Dahil), Bağlamsal Canlı Koçluk & Dashboard
+// AÇIKLAMA: 5 Sekmeli Navigasyon, Taşmaları Önlenmiş Elastik Üst Bar & Dashboard
 // ============================================================================
 
 import 'dart:async';
@@ -119,7 +119,7 @@ class _RootScreenState extends State<RootScreen> {
         onNavigateToShop: () => _onTabTapped(3),
       ),
       const LibraryScreen(),
-      const FlashcardsScreen(), // Pratik & Oyunlar Merkezi
+      const FlashcardsScreen(), // Pratik Merkezi
       const ShopScreen(),
       const ProfileScreen(),
     ];
@@ -402,13 +402,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Row(
                 children: [
-                  Text(
-                    'Merhaba, $_userName',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5,
-                      color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                  Flexible(
+                    child: Text(
+                      'Merhaba, $_userName',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                        color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (_hasGoldenCrown) ...[
@@ -431,6 +434,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
+        const SizedBox(width: 8),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -500,7 +504,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             IconButton(
               visualDensity: VisualDensity.compact,
               icon: Icon(

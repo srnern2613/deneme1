@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Kitaplık Ekranı (FAB Kaldırıldı & Liste Taşması Düzeltildi)
+// AÇIKLAMA: Kitaplık Ekranı (Yeni İmza Bar & Modern Tipografi)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -15,6 +15,7 @@ import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
 import 'shop_screen.dart';
 import 'celebration_dialog.dart';
+import 'app_header.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -423,68 +424,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('İngilizce Kitaplık', style: TextStyle(fontWeight: FontWeight.bold)),
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 6.0),
-            child: Center(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: _openShopScreen,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.cyan.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('💎', style: TextStyle(fontSize: 13)),
-                      const SizedBox(width: 3),
-                      Text(
-                        '$_userGems',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.cyan[700]),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('⚡', style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 3),
-                    Text(
-                      '$_userTotalXp',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.amber),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+      appBar: AppHeader(
+        title: 'Kitaplık',
+        subtitle: 'Kişisel Kütüphane & Okuma',
+        badgeEmoji: '📚',
+        gems: _userGems,
+        xp: _userTotalXp,
+        onShopTap: _openShopScreen,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             _buildReadingDashboard(colors),
             
             const SizedBox(height: 16),
