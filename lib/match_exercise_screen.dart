@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/match_exercise_screen.dart
-// AÇIKLAMA: Süreli & Kombolu Kelime Eşleştirme Oyunu (Match Madness)
+// AÇIKLAMA: Kombo Çarpanlı & Süreli Kelime Eşleştirme Oyunu (Match Madness)
 // ============================================================================
 
 import 'dart:async';
@@ -44,7 +44,8 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
   MatchItem? _selectedItem;
   int _score = 0;
   int _combo = 0;
-  int _timeLeft = 45; // 45 saniyelik maraton
+  int _totalEarnedXp = 0;
+  int _timeLeft = 45;
   Timer? _timer;
   String? _cheerToast;
 
@@ -128,12 +129,16 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       return;
     }
 
-    // Eşleşme Kontrolü
     if (_selectedItem!.pairId == item.pairId && _selectedItem!.isEnglish != item.isEnglish) {
       HapticFeedback.mediumImpact();
-      _score += 2;
       _combo++;
-      await XpShopService.instance.addXp(4);
+      _score += 2;
+
+      // Kombo Çarpanı (+4, +6 veya +8 XP)
+      final multiplier = _combo >= 6 ? 2 : 1;
+      final earnedXp = 4 * multiplier;
+      _totalEarnedXp += earnedXp;
+      await XpShopService.instance.addXp(earnedXp);
 
       setState(() {
         _selectedItem!.isMatched = true;
@@ -145,7 +150,6 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
         _triggerCheer(CoachMessages.getFlashcardCheer(_combo) ?? '🔥 Harika Kombo!');
       }
 
-      // Tahtadaki tüm eşler bittiğinde yeni parti çek
       if (_activeItems.every((i) => i.isMatched)) {
         if (_pool.isNotEmpty) {
           _setupBoard();
@@ -168,8 +172,9 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       emoji: '🧩',
       title: 'Eşleştirme Tamamlandı!',
       subtitle: 'Süre bitti! Toplam $_score puan topladın. Hızlı düşünme reflekslerin harika çalışıyor!',
-      earnedXp: _score * 2,
-      actionLabel: 'Süper!',
+      earnedXp: _totalEarnedXp,
+      earnedGems: _score >= 16 ? 5 : 0,
+      actionLabel: 'Süper Devam Et!',
       onAction: () => Navigator.of(context).pop(),
     );
   }
@@ -253,7 +258,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                         final isSelected = (_selectedItem?.id == item.id);
 
                         if (item.isMatched) {
-                          return const SizedBox.shrink(); // Eşleşen kutu kaybolur
+                          return const SizedBox.shrink();
                         }
 
                         return InkWell(

@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/spelling_exercise_screen.dart
-// AÇIKLAMA: Dinle & Yaz (Harf Blokları ile Kelime İnşa Etme & Telaffuz Pratiği)
+// AÇIKLAMA: Dinle & Yaz (💡 İpucu/Joker Desteği & Telaffuz Pratiği)
 // ============================================================================
 
 import 'dart:math';
@@ -37,6 +37,8 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   int _currentIndex = 0;
   int _score = 0;
   int _streak = 0;
+  int _hintsUsedInWord = 0;
+  int _totalEarnedXp = 0;
 
   List<LetterBlock> _availableLetters = [];
   List<LetterBlock> _placedLetters = [];
@@ -54,6 +56,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   void _loadCurrentWord() {
     if (_questions.isEmpty || _currentIndex >= _questions.length) return;
 
+    _hintsUsedInWord = 0;
     final rawWord = (_questions[_currentIndex]['word'] ?? '').toString().trim().toUpperCase();
     final cleanWord = rawWord.replaceAll(RegExp(r'[^A-Z]'), '');
 
@@ -62,7 +65,6 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       blocks.add(LetterBlock(id: i, letter: cleanWord[i]));
     }
 
-    // Ekstra 2-3 yanıltıcı harf ekleyerek pratik zorluğunu dengele
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     final rand = Random();
     final extraCount = min(3, 8 - min(blocks.length, 5));
@@ -91,6 +93,37 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
         setState(() => _cheerToast = null);
       }
     });
+  }
+
+  void _useHint() {
+    if (_isAnswerChecked) return;
+
+    final targetWord = (_questions[_currentIndex]['word'] ?? '')
+        .toString()
+        .trim()
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z]'), '');
+
+    final int targetIndex = _placedLetters.length;
+    if (targetIndex >= targetWord.length) return;
+
+    final String requiredChar = targetWord[targetIndex];
+
+    final matchingBlock = _availableLetters.firstWhere(
+      (b) => !b.isUsed && b.letter == requiredChar,
+      orElse: () => _availableLetters.first,
+    );
+
+    HapticFeedback.selectionClick();
+    setState(() {
+      _hintsUsedInWord++;
+      matchingBlock.isUsed = true;
+      _placedLetters.add(matchingBlock);
+    });
+
+    if (_placedLetters.length == targetWord.length) {
+      _checkAnswer(targetWord);
+    }
   }
 
   void _onLetterTap(LetterBlock block) {
@@ -136,7 +169,9 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       HapticFeedback.mediumImpact();
       _score++;
       _streak++;
-      await XpShopService.instance.addXp(8);
+      final earnedXp = _hintsUsedInWord > 0 ? 5 : 8;
+      _totalEarnedXp += earnedXp;
+      await XpShopService.instance.addXp(earnedXp);
 
       final cheer = CoachMessages.getFlashcardCheer(_streak);
       if (cheer != null) {
@@ -164,8 +199,9 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       context,
       emoji: '🎧',
       title: 'Dinle & Yaz Tamamlandı!',
-      subtitle: '${_questions.length} kelimeden $_score tanesini harf harf doğru yazdın. Telaffuz ve hafıza mükemmel!',
-      earnedXp: _score * 8,
+      subtitle: '${_questions.length} kelimeden $_score tanesini harf harf doğru yazdın. Telaffuz ve hafıza güçleniyor!',
+      earnedXp: _totalEarnedXp,
+      earnedGems: _score >= (_questions.length * 0.8) ? 5 : 0,
       actionLabel: 'Harika!',
       onAction: () => Navigator.of(context).pop(),
     );
@@ -187,7 +223,6 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
     final meaning = currentCard['meaning'] ?? 'Tanım yok';
     final currentWordText = currentCard['word'] ?? '';
     final progress = (_currentIndex + 1) / _questions.length;
-
     final targetWord = currentWordText.toString().trim().toUpperCase().replaceAll(RegExp(r'[^A-Z]'), '');
 
     return Scaffold(
@@ -198,6 +233,13 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
           icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.lightbulb_outline_rounded, color: Colors.amber),
+            tooltip: 'İpucu Al',
+            onPressed: _useHint,
+          ),
+        ],
       ),
       body: SafeArea(
         child: Stack(
@@ -233,11 +275,11 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
                   // Ses ve İpucu Kartı
                   Container(
-                    padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0xFF131B2E) : Colors.white,
                       borderRadius: BorderRadius.circular(24),
@@ -257,21 +299,21 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                         IconButton.filled(
                           style: IconButton.styleFrom(
                             backgroundColor: colors.primary,
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(14),
                           ),
-                          icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 30),
+                          icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 28),
                           tooltip: 'Tekrar Dinle',
                           onPressed: () {
                             HapticFeedback.selectionClick();
                             TtsService.instance.speakWord(currentWordText);
                           },
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 10),
                         Text(
                           '“$meaning”',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 15.5,
                             fontWeight: FontWeight.bold,
                             color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
                           ),
@@ -279,9 +321,9 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // Harf Yuvaları / Yazılan Harfler
+                  // Harf Yuvaları
                   Wrap(
                     alignment: WrapAlignment.center,
                     spacing: 8,
@@ -399,7 +441,11 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                     child: Text(
                       _cheerToast!,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),

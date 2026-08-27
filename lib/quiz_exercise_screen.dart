@@ -1,8 +1,9 @@
 // ============================================================================
 // DOSYA ADI: lib/quiz_exercise_screen.dart
-// AÇIKLAMA: 4 Şıklı Çoktan Seçmeli Hızlı Kelime Testi & Canlı XP/Ödül Sistemi
+// AÇIKLAMA: 10sn Süreli Zaman Barı, Hız/Seri Bonusu & 4 Şıklı Test Modu
 // ============================================================================
 
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,16 +26,55 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   int _currentIndex = 0;
   int _score = 0;
   int _streak = 0;
+  int _totalEarnedXp = 0;
   String? _selectedOption;
   bool _answered = false;
   List<String> _currentOptions = [];
   String? _cheerToast;
+
+  Timer? _questionTimer;
+  double _timeRemaining = 10.0; // Soru başına 10 saniye
 
   @override
   void initState() {
     super.initState();
     _questions = List.from(widget.cards)..shuffle();
     _loadOptionsForCurrent();
+  }
+
+  @override
+  void dispose() {
+    _questionTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _questionTimer?.cancel();
+    _timeRemaining = 10.0;
+    _questionTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted) return;
+      if (_timeRemaining > 0.1) {
+        setState(() => _timeRemaining -= 0.1);
+      } else {
+        _questionTimer?.cancel();
+        _timeOut();
+      }
+    });
+  }
+
+  void _timeOut() {
+    if (_answered) return;
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _answered = true;
+      _streak = 0;
+    });
+    _triggerCheer('⏳ Süre doldu! Odaklan ve devam et.');
+
+    Future.delayed(const Duration(milliseconds: 1300), () {
+      if (!mounted) return;
+      _nextQuestionOrFinish();
+    });
   }
 
   void _loadOptionsForCurrent() {
@@ -70,11 +110,12 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
     final currentWord = currentCard['word'] ?? '';
     TtsService.instance.speakWord(currentWord);
+    _startTimer();
   }
 
   void _triggerCheer(String msg) {
     setState(() => _cheerToast = msg);
-    Future.delayed(const Duration(milliseconds: 2000), () {
+    Future.delayed(const Duration(milliseconds: 1800), () {
       if (mounted && _cheerToast == msg) {
         setState(() => _cheerToast = null);
       }
@@ -83,6 +124,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
   void _selectOption(String option) async {
     if (_answered) return;
+    _questionTimer?.cancel();
 
     final correctAnswer = _questions[_currentIndex]['meaning'] ?? '';
     final isCorrect = (option == correctAnswer);
@@ -96,7 +138,11 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       HapticFeedback.mediumImpact();
       _score++;
       _streak++;
-      await XpShopService.instance.addXp(6);
+
+      // Hızlı cevap bonusu (+8 XP veya normal +6 XP)
+      final earnedXp = _timeRemaining > 4.5 ? 8 : 6;
+      _totalEarnedXp += earnedXp;
+      await XpShopService.instance.addXp(earnedXp);
 
       final cheer = CoachMessages.getFlashcardCheer(_streak);
       if (cheer != null) {
@@ -110,13 +156,17 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (!mounted) return;
-      if (_currentIndex + 1 < _questions.length) {
-        setState(() => _currentIndex++);
-        _loadOptionsForCurrent();
-      } else {
-        _finishQuiz();
-      }
+      _nextQuestionOrFinish();
     });
+  }
+
+  void _nextQuestionOrFinish() {
+    if (_currentIndex + 1 < _questions.length) {
+      setState(() => _currentIndex++);
+      _loadOptionsForCurrent();
+    } else {
+      _finishQuiz();
+    }
   }
 
   void _finishQuiz() {
@@ -124,8 +174,9 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       context,
       emoji: '🎯',
       title: 'Hızlı Test Tamamlandı!',
-      subtitle: '${_questions.length} sorudan $_score tanesini doğru yanıtladın. Reflekslerin harika!',
-      earnedXp: _score * 6,
+      subtitle: '${_questions.length} sorudan $_score tanesini doğru yanıtladın. Reflekslerin harika çalışıyor!',
+      earnedXp: _totalEarnedXp,
+      earnedGems: _score >= (_questions.length * 0.8) ? 5 : 0,
       actionLabel: 'Süper, Devam Et!',
       onAction: () => Navigator.of(context).pop(),
     );
@@ -145,7 +196,6 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
     final currentWord = _questions[_currentIndex]['word'] ?? '';
     final correctAnswer = _questions[_currentIndex]['meaning'] ?? '';
-    final progress = (_currentIndex + 1) / _questions.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -160,7 +210,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
         child: Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -173,28 +223,35 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                       ),
                       Row(
                         children: [
-                          const Icon(Icons.bolt_rounded, color: Colors.amber, size: 18),
+                          const Text('🔥', style: TextStyle(fontSize: 14)),
                           const SizedBox(width: 4),
-                          Text('$_score Doğru', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('$_streak Seri', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 12),
+                          const Icon(Icons.bolt_rounded, color: Colors.amber, size: 18),
+                          Text('$_score', style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
+
+                  // Dinamik Zaman Barı
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                     child: LinearProgressIndicator(
-                      value: progress,
+                      value: (_timeRemaining / 10.0).clamp(0.0, 1.0),
                       minHeight: 6,
                       backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                      valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        _timeRemaining > 3.0 ? const Color(0xFF10B981) : Colors.redAccent,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
                   // Kelime Kartı
                   Container(
-                    padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                    padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0xFF131B2E) : Colors.white,
                       borderRadius: BorderRadius.circular(24),
@@ -215,7 +272,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                           currentWord,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 32,
+                            fontSize: 30,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.5,
                             color: isDark ? Colors.white : const Color(0xFF0F172A),
@@ -233,14 +290,14 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
                   // 4 Seçenek
                   Expanded(
                     child: ListView.separated(
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _currentOptions.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      separatorBuilder: (context, index) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final option = _currentOptions[index];
                         final isSelected = (_selectedOption == option);
@@ -266,28 +323,31 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                           borderRadius: BorderRadius.circular(18),
                           onTap: _answered ? null : () => _selectOption(option),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
                             decoration: BoxDecoration(
                               color: bgColor,
                               borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: borderColor, width: isSelected || (_answered && isCorrect) ? 2 : 1),
+                              border: Border.all(
+                                color: borderColor,
+                                width: isSelected || (_answered && isCorrect) ? 2 : 1,
+                              ),
                             ),
                             child: Row(
                               children: [
                                 CircleAvatar(
-                                  radius: 14,
+                                  radius: 13,
                                   backgroundColor: borderColor.withValues(alpha: 0.2),
                                   child: Text(
                                     ['A', 'B', 'C', 'D'][index],
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: textColor),
                                   ),
                                 ),
-                                const SizedBox(width: 14),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     option,
                                     style: TextStyle(
-                                      fontSize: 15,
+                                      fontSize: 14.5,
                                       fontWeight: FontWeight.w700,
                                       color: textColor,
                                     ),

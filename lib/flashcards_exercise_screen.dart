@@ -1,8 +1,7 @@
-// ==============================================================
-// flashcards_exercise_screen.dart
-// --------------------------------------------------------------
-// SES DESTEKLİ SRS EGZERSİZİ + CANLI KOÇLUK MESAJLARI (STREAK CHEERS)
-// ==============================================================
+// ============================================================================
+// DOSYA ADI: lib/flashcards_exercise_screen.dart
+// AÇIKLAMA: Ses Destekli SRS Kartları & Canlı Koçluk
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -57,7 +56,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     TtsService.instance.stop();
     if (direction == DismissDirection.startToEnd) {
       await XpShopService.instance.addXp(5);
-      
+
       _consecutiveKnownStreak++;
       final cheer = CoachMessages.getFlashcardCheer(_consecutiveKnownStreak);
       if (cheer != null) {
@@ -87,11 +86,13 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         if (!mounted) return;
         CelebrationDialog.show(
           context,
-          emoji: '🎯',
-          title: 'Kelime Egzersizi Tamam!',
+          emoji: '📇',
+          title: 'Hafıza Egzersizi Tamam!',
           subtitle: '$_initialTotal kelimeden $_knownCount tanesini eksiksiz bildin. Hafıza kasların güçleniyor!',
           earnedXp: _knownCount * 5,
-          actionLabel: 'Harika!',
+          earnedGems: _knownCount == _initialTotal && _initialTotal >= 5 ? 5 : 0,
+          actionLabel: 'Süper!',
+          onAction: () => Navigator.of(context).pop(),
         );
       });
     }
@@ -104,7 +105,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kelime Egzersizi'),
+        title: const Text('SRS Hafıza Kartları', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
@@ -115,10 +116,9 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         child: Stack(
           children: [
             _remainingCards.isEmpty
-                ? _buildCompletionView(colors, textStyles)
+                ? const Center(child: CircularProgressIndicator())
                 : _buildExerciseView(colors, textStyles),
 
-            // CANLI KOÇLUK BANNERI
             if (_cheerMessage != null)
               Positioned(
                 top: 10,
@@ -203,7 +203,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
               key: ValueKey(currentCard['id'] ?? currentWord),
               direction: DismissDirection.horizontal,
               onDismissed: _handleCardDismiss,
-              
               background: Container(
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -222,7 +221,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   ],
                 ),
               ),
-
               secondaryBackground: Container(
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -242,7 +240,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   ],
                 ),
               ),
-
               child: GestureDetector(
                 onTap: () => setState(() => _isFlipped = !_isFlipped),
                 child: Container(
@@ -369,106 +366,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCompletionView(ColorScheme colors, TextTheme textStyles) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 48,
-              backgroundColor: isDark ? const Color(0xFF064E3B) : Colors.green[100],
-              child: Icon(Icons.emoji_events_rounded, size: 54, color: isDark ? Colors.green[300] : Colors.green[700]),
-            ),
-            const SizedBox(height: 24),
-            Text('Tebrikler! 🎉', style: textStyles.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(
-              'Egzersiz tamamlandı. XP seviyen yükseldi!',
-              style: TextStyle(color: colors.onSurface.withValues(alpha: 0.6)),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 28),
-
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF131B2E) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF1E293B) : colors.outlineVariant.withValues(alpha: 0.4),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildResultStat('Toplam', '$_initialTotal', colors.primary, isDark),
-                  _buildResultStat('Bildim', '$_knownCount', Colors.green[600]!, isDark),
-                  _buildResultStat('Tekrar', '$_reviewCount', colors.error, isDark),
-                  _buildResultStat('Kazanılan XP', '+${_knownCount * 5} ⚡', Colors.amber[800]!, isDark),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                icon: const Icon(Icons.replay_rounded),
-                label: const Text('Egzersizi Tekrarla'),
-                onPressed: () {
-                  setState(() {
-                    _remainingCards = List.from(widget.cards)..shuffle();
-                    _knownCount = 0;
-                    _reviewCount = 0;
-                    _isFlipped = false;
-                    _celebrationShown = false;
-                    _consecutiveKnownStreak = 0;
-                  });
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: const Text('Kartlarıma Dön'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResultStat(String label, String value, Color color, bool isDark) {
-    return Column(
-      children: [
-        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? const Color(0xFF94A3B8) : Colors.grey,
-          ),
-        ),
-      ],
     );
   }
 }
