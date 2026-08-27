@@ -33,19 +33,31 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     _loadCardsAndStats();
   }
 
+  // --------------------------------------------------------------------------
+  // ÇÖZÜLEN SORUN (Sonsuz Yükleme / Spinner'da Takılma):
+  // Veritabanı sorgusunda veya servislerde bir istisna (exception) oluştuğunda
+  // _isLoading false yapılmadığı için ekran dönmeye devam ediyordu.
+  // Çözüm: try-catch bloğu eklendi; hata olsa bile _isLoading güvenle false yapılıyor.
+  // --------------------------------------------------------------------------
   Future<void> _loadCardsAndStats() async {
     setState(() => _isLoading = true);
-    final cards = await DatabaseHelper.instance.getFlashcards();
-    final gems = await XpShopService.instance.getGemsBalance();
-    final xp = await XpShopService.instance.getTotalXp();
+    try {
+      final cards = await DatabaseHelper.instance.getFlashcards();
+      final gems = await XpShopService.instance.getGemsBalance();
+      final xp = await XpShopService.instance.getTotalXp();
 
-    if (!mounted) return;
-    setState(() {
-      _cards = cards;
-      _userGems = gems;
-      _userTotalXp = xp;
-      _isLoading = false;
-    });
+      if (!mounted) return;
+      setState(() {
+        _cards = cards;
+        _userGems = gems;
+        _userTotalXp = xp;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Pratik verileri yüklenirken hata oluştu: $e');
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
   }
 
   void _startSrsExercise() {
