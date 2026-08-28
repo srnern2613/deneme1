@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_exercise_screen.dart
-// AÇIKLAMA: Ses Destekli SRS Kartları & Psikolojik Geri Bildirimli Pop-up
+// AÇIKLAMA: Ses Destekli SRS Kartları & Psikolojik Geri Bildirimli Pop-up (Düzeltilmiş)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -287,6 +287,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                     padding: const EdgeInsets.all(28.0),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center, // <--- Düzeltilen Satır
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

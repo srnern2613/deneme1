@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Entegre HUD'lu, Clash Royale / Duolingo Standardında Kitaplık Ekranı
+// AÇIKLAMA: Sözlük / Kelime Defteri Kancası Eklenmiş Kitaplık Ekranı
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -18,6 +18,7 @@ import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
 import 'shop_screen.dart';
 import 'celebration_dialog.dart';
+import 'dictionary_screen.dart'; // <--- Çevrimdışı Sözlük İçe Aktarıldı[cite: 10]
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -263,6 +264,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
     ).then((_) => _loadAllData());
   }
 
+  void _openDictionary() {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const DictionaryScreen()),
+    ).then((_) => _loadAllData());
+  }
+
   String _formatLastRead(DateTime? date) {
     if (date == null) return 'Henüz okunmadı';
     final diff = DateTime.now().difference(date);
@@ -272,9 +280,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return '${diff.inDays} gün önce';
   }
 
-  // ==========================================================================
-  // WIDGET: Okuma İvmesi & İstatistik Paneli
-  // ==========================================================================
   Widget _buildReadingDashboard() {
     return Container(
       width: double.infinity,
@@ -429,20 +434,54 @@ class _LibraryScreenState extends State<LibraryScreen> {
       backgroundColor: const Color(0xFF070B14),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 110), // Alt bar payı
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- 1. MODERN ENTEGRE BAŞLIK VE KAYNAK HUD ---
               _buildModernHeader(),
               const SizedBox(height: 18),
 
-              // --- 2. HAFTALIK İSTATİSTİK KARNESİ ---
               _buildReadingDashboard(),
+              const SizedBox(height: 14),
+
+              // --- ÇEVRİMİÇİ / ÇEVRİMDIŞI SÖZLÜK HIZLI ERİŞİM BUTONU ---
+              InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: _openDictionary,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35), width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(PhosphorIcons.bookBookmarkBold, color: Color(0xFF0F172A), size: 17),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          'Çevrimdışı Sözlük & Kelime Defteri',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: Colors.white),
+                        ),
+                      ),
+                      const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF34D399), size: 18),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
               
-              const SizedBox(height: 16),
-              
-              // --- 3. KİTAP EKLEME BUTONU ---
+              // --- YENİ KİTAP EKLEME BUTONU ---
               InkWell(
                 borderRadius: BorderRadius.circular(18),
                 onTap: _isLoading ? null : () {
@@ -451,7 +490,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 },
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                   decoration: BoxDecoration(
                     color: const Color(0xFF38BDF8).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(18),
@@ -460,9 +499,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF38BDF8),
+                        padding: const EdgeInsets.all(7),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF38BDF8),
                           shape: BoxShape.circle,
                         ),
                         child: _isLoading
@@ -471,7 +510,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                 height: 16,
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)),
                               )
-                            : const Icon(PhosphorIcons.plusBold, color: Color(0xFF0F172A), size: 18),
+                            : const Icon(PhosphorIcons.plusBold, color: Color(0xFF0F172A), size: 17),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -486,7 +525,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
               ),
               
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               Text(
                 'Kitaplarım (${_books.length})',
                 style: GoogleFonts.outfit(
@@ -496,9 +535,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   letterSpacing: -0.3,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               
-              // --- 4. KİTAP LİSTESİ ---
               Expanded(
                 child: ListView.separated(
                   physics: const BouncingScrollPhysics(),
@@ -593,9 +631,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Modern Entegre Başlık & Kaynak Paneli (HUD)
-  // ==========================================================================
   Widget _buildModernHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
