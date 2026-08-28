@@ -1,9 +1,10 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: Bottom Bar ve Sekme Geçişleri Düzeltilmiş Ana Mimari ve Lobi Ekranı
+// AÇIKLAMA: Nihai Oyunlaştırma Mimarisi - 3D Aksiyon Kristali & Neon Alt Göstergeli Bar
 // ============================================================================
 
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,7 +25,6 @@ import 'mini_player.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Ses yöneticisi servisinin başlatılması
   try {
     await MyAudioHandler.init();
   } catch (e) {
@@ -34,7 +34,7 @@ void main() async {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
+      statusBarIconBrightness: Brightness.light,
     ),
   );
   runApp(const MyApp());
@@ -48,9 +48,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.dark;
 
-  // Tema değiştirme mekanizması (Koyu / Açık Mod)
   void _toggleTheme() {
     HapticFeedback.lightImpact();
     setState(() {
@@ -95,8 +94,7 @@ class _MyAppState extends State<MyApp> {
 }
 
 // ============================================================================
-// SINIF: RootScreen
-// AÇIKLAMA: 5 Sekmeli Alt Navigasyon ve Ekran Geçiş Yöneticisi
+// SINIF: RootScreen (Ana Navigasyon Yöneticisi)
 // ============================================================================
 class RootScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -114,7 +112,6 @@ class _RootScreenState extends State<RootScreen> {
   @override
   void initState() {
     super.initState();
-    // 5 Ana Sekmenin Tanımlanması
     _screens = [
       DashboardScreen(
         key: _dashboardKey,
@@ -128,9 +125,9 @@ class _RootScreenState extends State<RootScreen> {
     ];
   }
 
-  // Bottom Bar Üzerinden Sekme Değiştirme ve Yenileme Tetikleyicisi
   void _onTabTapped(int index) {
-    HapticFeedback.selectionClick();
+    if (_currentIndex == index) return;
+    HapticFeedback.lightImpact();
     setState(() {
       _currentIndex = index;
     });
@@ -141,75 +138,235 @@ class _RootScreenState extends State<RootScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
-      body: Column(
+      backgroundColor: const Color(0xFF070B14),
+      body: Stack(
         children: [
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.97, end: 1.0).animate(animation),
-                    child: child,
+          // 1. KATMAN: Ekranlar
+          Positioned.fill(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: _screens,
+            ),
+          ),
+
+          // 2. KATMAN: Mini Player
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 84,
+            child: GlobalMiniPlayer(),
+          ),
+
+          // 3. KATMAN: Yüzen Nihai Oyunlaştırma Alt Barı
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: 12,
+            child: _buildUltimateBottomBar(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUltimateBottomBar() {
+    return SizedBox(
+      height: 72,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          // Arka Buzlu Cam Gövde
+          ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                height: 60,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    width: 1.2,
                   ),
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey<int>(_currentIndex),
-                child: _screens[_currentIndex],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(
+                      index: 0,
+                      icon: PhosphorIcons.compassBold,
+                      label: 'Keşfet',
+                      activeColor: const Color(0xFF38BDF8),
+                    ),
+                    _buildNavItem(
+                      index: 1,
+                      icon: PhosphorIcons.booksBold,
+                      label: 'Kitaplık',
+                      activeColor: const Color(0xFF34D399),
+                    ),
+                    
+                    // Orta buton yerleşim boşluğu
+                    const SizedBox(width: 54),
+
+                    _buildNavItem(
+                      index: 3,
+                      icon: PhosphorIcons.storefrontBold,
+                      label: 'Mağaza',
+                      activeColor: const Color(0xFFEC4899),
+                      hasBadge: true,
+                    ),
+                    _buildNavItem(
+                      index: 4,
+                      icon: PhosphorIcons.userBold,
+                      label: 'Profil',
+                      activeColor: const Color(0xFFA855F7),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          const GlobalMiniPlayer(),
+
+          // Merkez: 3D Aksiyon & Düello Kristal Butonu
+          Positioned(
+            top: 2,
+            child: _buildCenterActionCrystal(),
+          ),
         ],
       ),
-      bottomNavigationBar: Container(
+    );
+  }
+
+  Widget _buildCenterActionCrystal() {
+    final isSelected = _currentIndex == 2;
+
+    return GestureDetector(
+      onTap: () => _onTabTapped(2),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutBack,
+        width: isSelected ? 58 : 54,
+        height: isSelected ? 58 : 54,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0F172A) : Colors.white,
-          border: Border(
-            top: BorderSide(
-              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-              width: 1,
+          // Mor / İndigo Aksiyon Kristali Gradyanı
+          gradient: LinearGradient(
+            colors: isSelected
+                ? [const Color(0xFF818CF8), const Color(0xFF4F46E5)]
+                : [const Color(0xFF6366F1), const Color(0xFF3730A3)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isSelected ? Colors.white : const Color(0xFFA5B4FC),
+            width: isSelected ? 2.5 : 2.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6366F1).withValues(alpha: isSelected ? 0.65 : 0.4),
+              blurRadius: isSelected ? 20 : 12,
+              spreadRadius: isSelected ? 3 : 1,
+              offset: const Offset(0, 4),
             ),
+          ],
+        ),
+        child: Center(
+          child: Icon(
+            PhosphorIcons.swordBold,
+            color: Colors.white,
+            size: isSelected ? 28 : 25,
           ),
         ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: _onTabTapped,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          indicatorColor: isDark ? const Color(0xFF312E81) : const Color(0xFFEEF2FF),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF4F46E5)),
-              label: 'Keşfet',
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required IconData icon,
+    required String label,
+    required Color activeColor,
+    bool hasBadge = false,
+  }) {
+    final isSelected = _currentIndex == index;
+
+    return GestureDetector(
+      onTap: () => _onTabTapped(index),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AnimatedScale(
+                  scale: isSelected ? 1.15 : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutBack,
+                  child: Icon(
+                    icon,
+                    size: 21,
+                    color: isSelected ? activeColor : const Color(0xFF64748B),
+                  ),
+                ),
+                if (hasBadge && !isSelected)
+                  Positioned(
+                    right: -3,
+                    top: -2,
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEC4899),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFEC4899).withValues(alpha: 0.8),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.auto_stories_outlined),
-              selectedIcon: Icon(Icons.auto_stories_rounded, color: Color(0xFF4F46E5)),
-              label: 'Kitaplık',
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                color: isSelected ? Colors.white : const Color(0xFF64748B),
+              ),
             ),
-            NavigationDestination(
-              icon: Icon(Icons.bolt_outlined),
-              selectedIcon: Icon(Icons.bolt_rounded, color: Color(0xFF4F46E5)),
-              label: 'Pratik',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.storefront_outlined),
-              selectedIcon: Icon(Icons.storefront_rounded, color: Color(0xFF4F46E5)),
-              label: 'Mağaza',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded, color: Color(0xFF4F46E5)),
-              label: 'Profil',
+            const SizedBox(height: 2),
+            // Şık Neon Alt Çizgi İndikatörü
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: isSelected ? 12 : 0,
+              height: 2.5,
+              decoration: BoxDecoration(
+                color: isSelected ? activeColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+                boxShadow: isSelected
+                    ? [BoxShadow(color: activeColor.withValues(alpha: 0.8), blurRadius: 4, spreadRadius: 0.5)]
+                    : null,
+              ),
             ),
           ],
         ),
@@ -220,7 +377,6 @@ class _RootScreenState extends State<RootScreen> {
 
 // ============================================================================
 // SINIF: DashboardScreen (Ana Lobi / Keşfet Sekmesi)
-// AÇIKLAMA: Oyunlaştırılmış istatistikler, arena kartları ve psikolojik tetikleyiciler
 // ============================================================================
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -247,7 +403,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     refreshReadingStats();
   }
 
-  // Kullanıcının okuma verilerini ve elmas dengesini güncelleyen fonksiyon
   Future<void> refreshReadingStats() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -289,7 +444,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: const Color(0xFF070B14),
       body: Stack(
         children: [
-          // --- ATMOSFERİK ARKAPLAN IŞIK SIZINTILARI (Derinlik Efekti) ---
           Positioned(
             top: -50,
             right: -50,
@@ -322,19 +476,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
 
           SafeArea(
+            bottom: false,
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+              padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 105.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- 1. ÜST HUD & STATÜ PANELI (Elmas ve Seri Sayaçları) ---
+                  // --- 1. ÜST HUD & STATÜ PANELI ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          // Elmas Butonu (Mağaza Kancası)
                           InkWell(
                             borderRadius: BorderRadius.circular(20),
                             onTap: widget.onNavigateToShop,
@@ -361,7 +515,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          // Seri Butonu (Alışkanlık Takipçisi Kancası)
                           InkWell(
                             borderRadius: BorderRadius.circular(20),
                             onTap: () {
@@ -407,7 +560,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   
                   const SizedBox(height: 18),
 
-                  // --- 2. ARENA / LİG KARTI (Rekabet ve Sosyal Kanıt) ---
+                  // --- 2. ARENA / LİG KARTI ---
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -479,7 +632,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   const SizedBox(height: 14),
 
-                  // --- 3. GÜNLÜK GİZEMLİ SANDIK (Değişken Ödül Mekaniği) ---
+                  // --- 3. GÜNLÜK GİZEMLİ SANDIK ---
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -525,7 +678,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 2),
-                                  Text('$_todayPages / $_readingTargetPages sayfa okundu (Açılmasına az kaldı!)', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5)),
+                                  Text('$_todayPages / $_readingTargetPages sayfa okundu', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5)),
                                 ],
                               ),
                             ),
@@ -548,7 +701,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   const SizedBox(height: 14),
 
-                  // --- 4. HIZLI AKSİYON IZGARASI (Kelime Düellosu & Kitaplık) ---
+                  // --- 4. HIZLI AKSİYON IZGARASI ---
                   Row(
                     children: [
                       Expanded(
@@ -637,7 +790,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   const SizedBox(height: 18),
 
-                  // --- 5. ANA ÇAĞRI BUTONU (CTA - Clash Royale Savaş Tuşu Hissi) ---
+                  // --- 5. ANA ÇAĞRI BUTONU ---
                   Column(
                     children: [
                       SizedBox(
