@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Kitaplık Ekranı (Yeni İmza Bar & Modern Tipografi)
+// AÇIKLAMA: Entegre HUD'lu, Clash Royale / Duolingo Standardında Kitaplık Ekranı
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -8,6 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+
 import 'book_model.dart';
 import 'reader_screen.dart';
 import 'achievement_service.dart';
@@ -15,7 +18,6 @@ import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
 import 'shop_screen.dart';
 import 'celebration_dialog.dart';
-import 'app_header.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -270,21 +272,27 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return '${diff.inDays} gün önce';
   }
 
-  Widget _buildReadingDashboard(ColorScheme colors) {
+  // ==========================================================================
+  // WIDGET: Okuma İvmesi & İstatistik Paneli
+  // ==========================================================================
+  Widget _buildReadingDashboard() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            colors.primaryContainer.withValues(alpha: 0.6),
-            colors.surfaceContainerHighest.withValues(alpha: 0.4),
+            const Color(0xFF1E1B4B).withValues(alpha: 0.9),
+            const Color(0xFF0F172A).withValues(alpha: 0.9),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
+        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5), width: 1.5),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.15), blurRadius: 16, offset: const Offset(0, 4)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,58 +300,52 @@ class _LibraryScreenState extends State<LibraryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
-                child: Row(
-                  children: [
-                    Icon(Icons.insights_rounded, size: 20, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'Haftalık Karne',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+              Row(
+                children: [
+                  const Icon(PhosphorIcons.chartLineUpBold, size: 18, color: Color(0xFF38BDF8)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Haftalık Karne',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 14.5, color: Colors.white),
+                  ),
+                ],
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _hasFreezeShield ? Colors.blue.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.15),
+                      color: (_hasFreezeShield ? const Color(0xFF38BDF8) : Colors.grey).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _hasFreezeShield ? const Color(0xFF38BDF8) : Colors.grey),
                     ),
                     child: Row(
                       children: [
-                        Text(_hasFreezeShield ? '🛡️' : '⏳', style: const TextStyle(fontSize: 11)),
+                        Text(_hasFreezeShield ? '🛡️' : '⏳', style: const TextStyle(fontSize: 10)),
                         const SizedBox(width: 3),
                         Text(
                           _hasFreezeShield ? 'Kalkan' : 'Yok',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: _hasFreezeShield ? Colors.blue : Colors.grey),
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 10, color: _hasFreezeShield ? const Color(0xFF93C5FD) : Colors.grey),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 5),
+                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.orange.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
                     ),
                     child: Row(
                       children: [
-                        const Text('🔥', style: TextStyle(fontSize: 11)),
+                        const Icon(PhosphorIcons.fireBold, size: 12, color: Colors.orange),
                         const SizedBox(width: 3),
                         Text(
                           '$_streakDays G.',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.deepOrange),
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.orange),
                         ),
                       ],
                     ),
@@ -352,28 +354,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             children: [
               _buildStatMetric(
-                icon: Icons.timer_outlined,
+                icon: PhosphorIcons.timerBold,
                 label: 'Okuma Süresi',
                 value: '$_totalReadMinutes dk',
-                accentColor: colors.primary,
+                accentColor: const Color(0xFF38BDF8),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               _buildStatMetric(
-                icon: Icons.search_rounded,
+                icon: PhosphorIcons.magnifyingGlassBold,
                 label: 'İncelenen',
                 value: '$_totalWordsExamined Kelime',
-                accentColor: Colors.teal,
+                accentColor: const Color(0xFF10B981),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               _buildStatMetric(
-                icon: Icons.bookmark_added_outlined,
+                icon: PhosphorIcons.cardsBold,
                 label: 'Kartlara Eklenen',
                 value: '$_totalWordsSaved Kelime',
-                accentColor: Colors.purple,
+                accentColor: const Color(0xFFA855F7),
               ),
             ],
           ),
@@ -392,9 +394,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+          color: const Color(0xFF070B14),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+          border: Border.all(color: const Color(0xFF1F2937)),
         ),
         child: Column(
           children: [
@@ -402,16 +404,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
             const SizedBox(height: 6),
             Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12.5, color: Colors.white),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 2),
             Text(
               label,
-              style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+              style: GoogleFonts.inter(fontSize: 9.5, color: const Color(0xFF94A3B8)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -421,106 +425,108 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
     return Scaffold(
-      appBar: AppHeader(
-        title: 'Kitaplık',
-        subtitle: 'Kişisel Kütüphane & Okuma',
-        badgeEmoji: '📚',
-        gems: _userGems,
-        xp: _userTotalXp,
-        onShopTap: _openShopScreen,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 12),
-            _buildReadingDashboard(colors),
-            
-            const SizedBox(height: 16),
-            InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: _isLoading ? null : () {
-                HapticFeedback.lightImpact();
-                _pickAndProcessFile();
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colors.primary.withValues(alpha: 0.25)),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: colors.primary,
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : Icon(Icons.add_rounded, color: colors.onPrimary, size: 20),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        _isLoading ? 'Kitap İşleniyor...' : 'Yeni PDF veya TXT Kitap Ekle',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: colors.onSurface),
-                      ),
-                    ),
-                    Icon(Icons.chevron_right_rounded, color: colors.primary, size: 20),
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 20),
-            Text(
-              'Kitaplarım (${_books.length})',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: colors.onSurface.withValues(alpha: 0.85),
-              ),
-            ),
-            const SizedBox(height: 10),
-            
-            Expanded(
-              child: ListView.separated(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 24),
-                itemCount: _books.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final book = _books[index];
-                  final readMinutes = (book.totalReadSeconds / 60).round();
+      backgroundColor: const Color(0xFF070B14),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 110), // Alt bar payı
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --- 1. MODERN ENTEGRE BAŞLIK VE KAYNAK HUD ---
+              _buildModernHeader(),
+              const SizedBox(height: 18),
 
-                  return Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.35)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14.0),
+              // --- 2. HAFTALIK İSTATİSTİK KARNESİ ---
+              _buildReadingDashboard(),
+              
+              const SizedBox(height: 16),
+              
+              // --- 3. KİTAP EKLEME BUTONU ---
+              InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: _isLoading ? null : () {
+                  HapticFeedback.lightImpact();
+                  _pickAndProcessFile();
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35), width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF38BDF8),
+                          shape: BoxShape.circle,
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)),
+                              )
+                            : const Icon(PhosphorIcons.plusBold, color: Color(0xFF0F172A), size: 18),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          _isLoading ? 'Kitap İşleniyor...' : 'Yeni PDF veya TXT Kitap Ekle',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: Colors.white),
+                        ),
+                      ),
+                      const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF38BDF8), size: 18),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              Text(
+                'Kitaplarım (${_books.length})',
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              // --- 4. KİTAP LİSTESİ ---
+              Expanded(
+                child: ListView.separated(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: _books.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final book = _books[index];
+                    final readMinutes = (book.totalReadSeconds / 60).round();
+
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111827).withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+                      ),
                       child: Row(
                         children: [
                           Container(
-                            width: 52,
-                            height: 68,
+                            width: 50,
+                            height: 64,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: colors.primaryContainer.withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(12),
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            child: Text(book.icon, style: const TextStyle(fontSize: 26)),
+                            child: Text(book.icon, style: const TextStyle(fontSize: 24)),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -531,49 +537,122 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                   book.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.white),
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
                                   '${book.author} • ${book.totalPages} Sayfa',
-                                  style: TextStyle(fontSize: 11, color: colors.onSurface.withValues(alpha: 0.6)),
+                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
                                   'Son okuma: ${_formatLastRead(book.lastReadDate)}${readMinutes > 0 ? ' • $readMinutes dk' : ''}',
-                                  style: TextStyle(fontSize: 10, color: colors.primary, fontWeight: FontWeight.w500),
+                                  style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF34D399), fontWeight: FontWeight.bold),
                                 ),
-                                const SizedBox(height: 6),
-                                LinearProgressIndicator(
-                                  value: book.progress,
+                                const SizedBox(height: 8),
+                                ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
-                                  minHeight: 5,
+                                  child: LinearProgressIndicator(
+                                    value: book.progress,
+                                    minHeight: 5,
+                                    backgroundColor: const Color(0xFF1F2937),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          FilledButton.tonal(
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          const SizedBox(width: 12),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4F46E5),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
                             ),
                             onPressed: () {
                               HapticFeedback.selectionClick();
                               _openReader(book);
                             },
-                            child: Text(book.currentPage > 0 ? 'Devam Et' : 'Oku', style: const TextStyle(fontSize: 12)),
+                            child: Text(
+                              book.currentPage > 0 ? 'Devam Et' : 'Oku',
+                              style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // WIDGET: Modern Entegre Başlık & Kaynak Paneli (HUD)
+  // ==========================================================================
+  Widget _buildModernHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Kitaplık',
+              style: GoogleFonts.outfit(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+            ),
+            Text(
+              'Kişisel Kütüphane & Okuma',
+              style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: _openShopScreen,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111827).withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.5), width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
+                    const SizedBox(width: 5),
+                    Text('$_userGems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111827).withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.5), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(PhosphorIcons.lightningBold, color: Colors.orange, size: 15),
+                  const SizedBox(width: 4),
+                  Text('$_userTotalXp', style: GoogleFonts.outfit(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)),
+                ],
               ),
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 }
