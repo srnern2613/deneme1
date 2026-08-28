@@ -1,7 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/shop_screen.dart
-// AÇIKLAMA: Çift Uçuşlu (Elmas & XP), Hedefe Çarptıkça Artan Sayaçlı ve
-//           Clash Royale/Duolingo Standartlarında Dopamin Mağazası
+// AÇIKLAMA: Akıcı Uçuş Hızı, Kozmik Arka Plan & "Bugün Alınanlar" Envanter Çubuklu Mağaza
 // ============================================================================
 
 import 'dart:async';
@@ -31,6 +30,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   bool _isDoubleXpActive = false;
   bool _hasGoldenCrown = false;
   bool _isWagerActive = false;
+  bool _hasUsedRepairToday = false;
+  int _chestsOpenedToday = 0;
   int _wagerProgressDays = 3;
 
   Timer? _countdownTimer;
@@ -81,6 +82,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     final crown = await XpShopService.instance.hasItem('golden_crown');
     final streak = prefs.getInt('current_streak_days') ?? 1;
     final wager = prefs.getBool('is_wager_active') ?? false;
+    final repairUsed = prefs.getBool('streak_repair_used_today') ?? false;
+    final chestsCount = prefs.getInt('chests_opened_today') ?? 0;
+    final wagerDays = prefs.getInt('wager_progress_days') ?? 3;
 
     if (!mounted) return;
     setState(() {
@@ -91,6 +95,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       _hasGoldenCrown = crown;
       _streakDays = streak;
       _isWagerActive = wager;
+      _hasUsedRepairToday = repairUsed;
+      _chestsOpenedToday = chestsCount;
+      _wagerProgressDays = wagerDays;
     });
   }
 
@@ -122,6 +129,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     await prefs.setBool('item_neon_theme', false);
     await prefs.setBool('neon_theme', false);
     await prefs.setBool('is_wager_active', false);
+    await prefs.setBool('streak_repair_used_today', false);
+    await prefs.setInt('chests_opened_today', 0);
+    await prefs.setInt('wager_progress_days', 3);
 
     await _loadShopData();
     if (!mounted) return;
@@ -153,6 +163,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       await prefs.setBool('neon_theme', false);
     } else if (itemKey == 'wager') {
       await prefs.setBool('is_wager_active', false);
+    } else if (itemKey == 'repair') {
+      await prefs.setBool('streak_repair_used_today', false);
     }
 
     await _loadShopData();
@@ -168,7 +180,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   // ==========================================================================
-  // ÇİFT UÇUŞ (ELMAS VE XP) + ÇARPTIKÇA ARTAN CANLI SAYAÇ EFEKTİ
+  // DOĞAL AKIŞ HIZINDA ÇİFT UÇUŞ (ELMAS VE XP) + ÇARPTIKÇA ARTAN CANLI SAYAÇ
   // ==========================================================================
   void _triggerDualFlyToHudEffect({
     required Offset startPosition,
@@ -198,19 +210,19 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             // Uçan Elmaslar
             ...List.generate(particleCount, (index) {
               return _DualFlyingParticle(
-                start: startPosition + Offset(Random().nextDouble() * 40 - 20, Random().nextDouble() * 30 - 15),
+                start: startPosition + Offset(Random().nextDouble() * 30 - 15, Random().nextDouble() * 20 - 10),
                 end: gemsTarget,
-                curveLift: 70.0 + (index * 6),
+                curveLift: 60.0 + (index * 5),
                 icon: PhosphorIcons.diamondBold,
                 color: const Color(0xFF38BDF8),
-                delay: Duration(milliseconds: index * 45),
+                delay: Duration(milliseconds: index * 65),
                 onImpact: () {
                   HapticFeedback.selectionClick();
                   setState(() {
                     _userGems += gemIncrementPerHit;
-                    _gemsScale = 1.35;
+                    _gemsScale = 1.3;
                   });
-                  Future.delayed(const Duration(milliseconds: 90), () {
+                  Future.delayed(const Duration(milliseconds: 100), () {
                     if (mounted) setState(() => _gemsScale = 1.0);
                   });
                   completedParticles++;
@@ -224,19 +236,19 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             // Uçan Enerjiler (XP)
             ...List.generate(particleCount, (index) {
               return _DualFlyingParticle(
-                start: startPosition + Offset(Random().nextDouble() * 40 - 20, Random().nextDouble() * 30 - 15),
+                start: startPosition + Offset(Random().nextDouble() * 30 - 15, Random().nextDouble() * 20 - 10),
                 end: xpTarget,
-                curveLift: -70.0 - (index * 6),
+                curveLift: -60.0 - (index * 5),
                 icon: PhosphorIcons.lightningBold,
                 color: const Color(0xFFF59E0B),
-                delay: Duration(milliseconds: (index * 45) + 120),
+                delay: Duration(milliseconds: (index * 65) + 160),
                 onImpact: () {
                   HapticFeedback.selectionClick();
                   setState(() {
                     _userTotalXp += xpIncrementPerHit;
-                    _xpScale = 1.35;
+                    _xpScale = 1.3;
                   });
-                  Future.delayed(const Duration(milliseconds: 90), () {
+                  Future.delayed(const Duration(milliseconds: 100), () {
                     if (mounted) setState(() => _xpScale = 1.0);
                   });
                   completedParticles++;
@@ -256,7 +268,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   // ==========================================================================
-  // OYUNLAŞTIRMA ODAKLI ŞIK YETERSİZ BAKİYE DİYALOĞU (SARI ÇİZGİLERDEN ARINMIŞ)
+  // ŞIK YETERSİZ BAKİYE DİYALOĞU (HATASIZ TİPOGRAFİ)
   // ==========================================================================
   void _showInsufficientGemsDialog(int requiredGems) {
     HapticFeedback.vibrate();
@@ -316,7 +328,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Kitap okuyarak veya günlük hedefleri tamamlayarak hemen elmas toplayabilirsin!',
+                      'Kitap okuyarak veya hedefleri tamamlayarak hemen elmas toplayabilirsin!',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12, decoration: TextDecoration.none),
                     ),
@@ -418,10 +430,14 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             isJackpot: isJackpot,
             onCollect: (screenCenter) async {
               Navigator.pop(context);
-              // Servise hemen yaz
+              
+              final prefs = await SharedPreferences.getInstance();
+              final currentChests = prefs.getInt('chests_opened_today') ?? 0;
+              await prefs.setInt('chests_opened_today', currentChests + 1);
+
               await XpShopService.instance.addGems(earnedGems);
               await XpShopService.instance.addXp(earnedXp);
-              // Canlı çift parçacık uçuşunu başlat
+
               _triggerDualFlyToHudEffect(
                 startPosition: screenCenter,
                 addedGems: earnedGems,
@@ -560,6 +576,98 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     }
   }
 
+  // ==========================================================================
+  // BUGÜNÜN AKTİF ENVANTER VE GÜÇLERİ ÇUBUĞU (SAHİPLİK ETKİSİ)
+  // ==========================================================================
+  Widget _buildTodayActiveInventoryBar() {
+    final List<Widget> activePills = [];
+
+    if (_hasFreezeShield) {
+      activePills.add(_buildActivePill(
+        icon: PhosphorIcons.shieldCheckBold,
+        label: 'Seri Kalkanı Aktif',
+        color: const Color(0xFF38BDF8),
+      ));
+    }
+    if (_isDoubleXpActive) {
+      activePills.add(_buildActivePill(
+        icon: PhosphorIcons.lightningBold,
+        label: 'Çift XP Aktif (2x)',
+        color: const Color(0xFFF59E0B),
+      ));
+    }
+    if (_hasUsedRepairToday) {
+      activePills.add(_buildActivePill(
+        icon: PhosphorIcons.arrowCounterClockwiseBold,
+        label: 'Seri İhya Kullanıldı',
+        color: const Color(0xFF10B981),
+      ));
+    }
+    if (_chestsOpenedToday > 0) {
+      activePills.add(_buildActivePill(
+        icon: PhosphorIcons.treasureChestBold,
+        label: '$_chestsOpenedToday Sandık Açıldı',
+        color: const Color(0xFFEC4899),
+      ));
+    }
+
+    if (activePills.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF38BDF8).withValues(alpha: 0.08), blurRadius: 16),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(PhosphorIcons.sparkleBold, color: Color(0xFF38BDF8), size: 14),
+              const SizedBox(width: 6),
+              Text(
+                'BUGÜNÜN AKTİF GÜÇLERİ',
+                style: GoogleFonts.outfit(color: const Color(0xFF93C5FD), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.8),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: activePills,
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1, end: 0);
+  }
+
+  Widget _buildActivePill({required IconData icon, required String label, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 5),
+          Text(label, style: GoogleFonts.outfit(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -598,10 +706,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                       ),
                       Row(
                         children: [
-                          // CANLI ELMAS KUTUSU (ÇARPTIĞINDA ZIPLAR)
+                          // CANLI ELMAS KUTUSU
                           AnimatedScale(
                             scale: _gemsScale,
-                            duration: const Duration(milliseconds: 90),
+                            duration: const Duration(milliseconds: 100),
                             curve: Curves.easeOutBack,
                             child: Container(
                               key: _hudGemsKey,
@@ -644,10 +752,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          // CANLI XP KUTUSU (ÇARPTIĞINDA ZIPLAR)
+                          // CANLI XP KUTUSU
                           AnimatedScale(
                             scale: _xpScale,
-                            duration: const Duration(milliseconds: 90),
+                            duration: const Duration(milliseconds: 100),
                             curve: Curves.easeOutBack,
                             child: Container(
                               key: _hudXpKey,
@@ -673,7 +781,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
+                  _buildTodayActiveInventoryBar(),
                   _buildShieldWarningBanner(),
                   const SizedBox(height: 16),
                   _buildWagerCard(),
@@ -737,6 +846,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     desc: 'Dün kaçırdığın ve yanan serini anında geri kurtarır.',
                     fullDesc: 'Dün tamamlayamadığın okuma hedefini telafi eder ve serini kurtarır.',
                     price: 60,
+                    isOwned: _hasUsedRepairToday,
+                    ownedLabel: 'Kurtarıldı',
                     onBuy: () => _buyItem(
                       title: 'Seri İhya',
                       price: 60,
@@ -744,8 +855,12 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                       iconColor: const Color(0xFF10B981),
                       categoryTag: 'ZAMAN SİHRİ',
                       perkText: 'Yanan dünkü serin mucizevi bir şekilde geri getirildi!',
-                      onPurchased: () async {},
+                      onPurchased: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('streak_repair_used_today', true);
+                      },
                     ),
+                    onRevoke: () => _revokeItem('repair', 'Seri İhya'),
                   ),
                   const SizedBox(height: 20),
                   _buildSectionHeader('Statü & Prestij'),
@@ -1328,7 +1443,7 @@ class _ItemUnlockVictoryView extends StatelessWidget {
 }
 
 // ============================================================================
-// WIDGET: _ChestOpeningDialog (3 Kademeli Çatlama & Jackpot Şovu)
+// WIDGET: _ChestOpeningDialog (Kozmik Gece Işıltılı & 3 Kademeli Sandık)
 // ============================================================================
 class _ChestOpeningDialog extends StatefulWidget {
   final int earnedGems;
@@ -1431,6 +1546,22 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
         body: Stack(
           alignment: Alignment.center,
           children: [
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 1.1,
+                    colors: [
+                      const Color(0xFF311042).withValues(alpha: 0.85),
+                      const Color(0xFF110726).withValues(alpha: 0.95),
+                      const Color(0xFF030712).withValues(alpha: 0.98),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
             if (_crackStage >= 3)
               Positioned.fill(
                 child: CustomPaint(
@@ -1653,7 +1784,7 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
 }
 
 // ============================================================================
-// FLY-TO-HUD: Parabolik Çift Uçan Parçacık (Elmas & XP İçin)
+// DUAL FLY-TO-HUD: İki Ayrı Hedefe Sıvı Akış Hızında Parçacık Hareketi
 // ============================================================================
 class _DualFlyingParticle extends StatefulWidget {
   final Offset start;
@@ -1686,7 +1817,7 @@ class _DualFlyingParticleState extends State<_DualFlyingParticle> with SingleTic
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 550));
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 750));
     _curveAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
 
     Future.delayed(widget.delay, () {
@@ -1723,17 +1854,17 @@ class _DualFlyingParticleState extends State<_DualFlyingParticle> with SingleTic
           left: currentX,
           top: currentY,
           child: Transform.scale(
-            scale: 1.1 - (t * 0.35),
+            scale: 1.05 - (t * 0.3),
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
                 color: widget.color,
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(color: widget.color.withValues(alpha: 0.9), blurRadius: 14, spreadRadius: 3),
+                  BoxShadow(color: widget.color.withValues(alpha: 0.9), blurRadius: 12, spreadRadius: 3),
                 ],
               ),
-              child: Icon(widget.icon, color: Colors.white, size: 16),
+              child: Icon(widget.icon, color: Colors.white, size: 15),
             ),
           ),
         );
