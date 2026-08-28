@@ -45,6 +45,9 @@ dependencies:
   flutter_tts: ^4.2.5
   audioplayers: ^6.8.1
   audio_service: ^0.18.19
+  google_fonts: ^8.2.1
+  phosphoricons_flutter: ^1.0.0
+  flutter_animate: ^4.5.2
 
 dev_dependencies:
   flutter_test:
