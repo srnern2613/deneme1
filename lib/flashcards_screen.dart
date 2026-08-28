@@ -1,17 +1,19 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_screen.dart
-// AÇIKLAMA: Pratik Merkezi (Quiz, SRS Kartları, Eşleştirme, Dinle & Yaz)
+// AÇIKLAMA: Entegre Kaynak HUD'lu, Clash Royale / Duolingo Standardında Pratik Merkezi
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+
 import 'database_helper.dart';
 import 'flashcards_exercise_screen.dart';
 import 'quiz_exercise_screen.dart';
 import 'match_exercise_screen.dart';
 import 'spelling_exercise_screen.dart';
 import 'xp_shop_service.dart';
-import 'app_header.dart';
 import 'shop_screen.dart';
 
 class FlashcardsScreen extends StatefulWidget {
@@ -33,12 +35,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     _loadCardsAndStats();
   }
 
-  // --------------------------------------------------------------------------
-  // ÇÖZÜLEN SORUN (Sonsuz Yükleme / Spinner'da Takılma):
-  // Veritabanı sorgusunda veya servislerde bir istisna (exception) oluştuğunda
-  // _isLoading false yapılmadığı için ekran dönmeye devam ediyordu.
-  // Çözüm: try-catch bloğu eklendi; hata olsa bile _isLoading güvenle false yapılıyor.
-  // --------------------------------------------------------------------------
   Future<void> _loadCardsAndStats() async {
     setState(() => _isLoading = true);
     try {
@@ -130,149 +126,199 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
-      appBar: AppHeader(
-        title: 'Pratik',
-        subtitle: 'Kelime Arenası & Oyunlar',
-        badgeEmoji: '⚡',
-        gems: _userGems,
-        xp: _userTotalXp,
-        onShopTap: _openShop,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Üst Bilgi Bannerı
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [colors.primary, colors.secondary],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+      backgroundColor: const Color(0xFF070B14),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+            : SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // --- 1. MODERN ENTEGRE BAŞLIK VE KAYNAK HUD ---
+                    _buildModernHeader(),
+                    const SizedBox(height: 18),
+
+                    // --- 2. KELİME ARENASI BİLGİ BANNERI ---
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.18), blurRadius: 20, offset: const Offset(0, 6)),
+                        ],
                       ),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(PhosphorIcons.swordBold, color: Color(0xFF818CF8), size: 28),
                           ),
-                          child: const Text('🧠', style: TextStyle(fontSize: 30)),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Kelime Arenası',
-                                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${_cards.length} Kayıtlı Kelime • Her gün pratik yap!',
-                                style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
-                              ),
-                            ],
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Kelime Arenası',
+                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${_cards.length} Kayıtlı Kelime • Zihnini canlı tut!',
+                                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                  const Text(
-                    'Öğrenme & Oyun Modları',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.3),
-                  ),
-                  const SizedBox(height: 12),
+                    Text(
+                      'Öğrenme & Oyun Modları',
+                      style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3),
+                    ),
+                    const SizedBox(height: 14),
 
-                  // 1. DÖRT ŞIKLI HIZLI QUIZ
-                  _buildPracticeCard(
-                    emoji: '⚡',
-                    title: '4 Şıklı Hızlı Test',
-                    desc: 'Kelimenin doğru Türkçe karşılığını 4 seçenek arasından yakala.',
-                    reward: '+6 XP',
-                    badgeColor: Colors.amber,
-                    isDark: isDark,
-                    onTap: _startQuizExercise,
-                  ),
-                  const SizedBox(height: 12),
+                    // --- 3. OYUN MODU KARTLARI ---
+                    _buildPracticeCard(
+                      icon: PhosphorIcons.lightningBold,
+                      title: '4 Şıklı Hızlı Test',
+                      desc: 'Kelimenin doğru Türkçe karşılığını 4 seçenek arasından yakala.',
+                      reward: '+6 XP',
+                      accentColor: const Color(0xFFF59E0B),
+                      onTap: _startQuizExercise,
+                    ),
+                    const SizedBox(height: 12),
 
-                  // 2. KLASİK SRS HAFIZA KARTLARI
-                  _buildPracticeCard(
-                    emoji: '📇',
-                    title: 'SRS Hafıza Kartları',
-                    desc: 'Aralıklı tekrar algoritmasıyla kartları çevir ve hafızanı tazele.',
-                    reward: '+5 XP',
-                    badgeColor: Colors.green,
-                    isDark: isDark,
-                    onTap: _startSrsExercise,
-                  ),
-                  const SizedBox(height: 12),
+                    _buildPracticeCard(
+                      icon: PhosphorIcons.cardsBold,
+                      title: 'SRS Hafıza Kartları',
+                      desc: 'Aralıklı tekrar algoritmasıyla kartları çevir ve hafızanı tazele.',
+                      reward: '+5 XP',
+                      accentColor: const Color(0xFF10B981),
+                      onTap: _startSrsExercise,
+                    ),
+                    const SizedBox(height: 12),
 
-                  // 3. KELİME EŞLEŞTİRME (Match Madness)
-                  _buildPracticeCard(
-                    emoji: '🧩',
-                    title: 'Kelime Eşleştirme',
-                    desc: 'İngilizce ve Türkçe kelime bloklarını eşleştirerek tahtayı temizle.',
-                    reward: '+10 XP',
-                    badgeColor: Colors.purple,
-                    isDark: isDark,
-                    onTap: _startMatchExercise,
-                  ),
-                  const SizedBox(height: 12),
+                    _buildPracticeCard(
+                      icon: PhosphorIcons.puzzlePieceBold,
+                      title: 'Kelime Eşleştirme',
+                      desc: 'İngilizce ve Türkçe kelime bloklarını eşleştirerek tahtayı temizle.',
+                      reward: '+10 XP',
+                      accentColor: const Color(0xFFA855F7),
+                      onTap: _startMatchExercise,
+                    ),
+                    const SizedBox(height: 12),
 
-                  // 4. DİNLE & YAZ (Spelling)
-                  _buildPracticeCard(
-                    emoji: '🎧',
-                    title: 'Dinle & Yaz (Spelling)',
-                    desc: 'Telaffuzu dinle, karışık harfler arasından doğru kelimeyi kur.',
-                    reward: '+8 XP',
-                    badgeColor: Colors.blue,
-                    isDark: isDark,
-                    onTap: _startSpellingExercise,
-                  ),
-                  const SizedBox(height: 30),
+                    _buildPracticeCard(
+                      icon: PhosphorIcons.headphonesBold,
+                      title: 'Dinle & Yaz (Spelling)',
+                      desc: 'Telaffuzu dinle, karışık harfler arasından doğru kelimeyi kur.',
+                      reward: '+8 XP',
+                      accentColor: const Color(0xFF38BDF8),
+                      onTap: _startSpellingExercise,
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildModernHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Pratik',
+              style: GoogleFonts.outfit(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+            ),
+            Text(
+              'Kelime Arenası & Oyunlar',
+              style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: _openShop,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111827).withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.5), width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
+                    const SizedBox(width: 5),
+                    Text('$_userGems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111827).withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.5), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(PhosphorIcons.lightningBold, color: Colors.orange, size: 15),
+                  const SizedBox(width: 4),
+                  Text('$_userTotalXp', style: GoogleFonts.outfit(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)),
                 ],
               ),
             ),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildPracticeCard({
-    required String emoji,
+    required IconData icon,
     required String title,
     required String desc,
     required String reward,
-    required Color badgeColor,
-    required bool isDark,
+    required Color accentColor,
     required VoidCallback onTap,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF131B2E) : Colors.white,
+        color: const Color(0xFF111827).withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-        ),
+        border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -289,10 +335,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.12),
+                    color: accentColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Text(emoji, style: const TextStyle(fontSize: 26)),
+                  child: Icon(icon, color: accentColor, size: 24),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -304,20 +350,20 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                           Flexible(
                             child: Text(
                               title,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14.5),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                             decoration: BoxDecoration(
-                              color: badgeColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
+                              color: accentColor.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               reward,
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor),
+                              style: GoogleFonts.outfit(fontSize: 10.5, fontWeight: FontWeight.w900, color: accentColor),
                             ),
                           ),
                         ],
@@ -325,16 +371,13 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       const SizedBox(height: 4),
                       Text(
                         desc,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                        ),
+                        style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 22),
+                const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 18),
               ],
             ),
           ),
