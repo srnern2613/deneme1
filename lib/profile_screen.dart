@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Ayrı Üst Bar Kaldırılmış, Entegre HUD ve Kusursuz Hiyerarşili Profil
+// AÇIKLAMA: Kalıcı Hafıza (Mastery) Kartı Entegre Edilmiş Profil Ekranı
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -19,6 +19,7 @@ import 'xp_shop_service.dart';
 import 'achievement_service.dart';
 import 'celebration_dialog.dart';
 import 'shop_screen.dart';
+import 'dictionary_screen.dart'; // <--- Kelime Defteri / Sözlük Erişimi
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -32,17 +33,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
   int _totalFlashcards = 0;
+  int _masteredFlashcardsCount = 0; // 🏆 Kalıcı Hafızaya Geçen Kelime Sayısı
   int _streakDays = 1;
   bool _hasFreezeShield = true;
   int _userTotalXp = 100;
   int _userGems = 50;
   int _selectedTab = 0;
 
-  // Kozmetik & Mağaza Eşyaları Durumu
   bool _hasGoldenCrown = false;
   bool _hasFlameBorder = false;
 
-  // 70 Günlük (10 Hafta) Isı Haritası Verisi
   List<int> _heatmapDailyPages = [];
   Map<String, bool> _unlockedBadgesMap = {};
 
@@ -55,13 +55,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfileData() async {
     final prefs = await SharedPreferences.getInstance();
     final cards = await DatabaseHelper.instance.getFlashcards();
+    
+    // Güvenli Ustalaşma Sayımı (is_mastered == 1)
+    int masteredCount = 0;
+    for (var card in cards) {
+      if ((card['is_mastered'] as int? ?? 0) == 1) {
+        masteredCount++;
+      }
+    }
+
     final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
     final xp = await XpShopService.instance.getTotalXp();
     final gems = await XpShopService.instance.getGemsBalance();
     final crown = await XpShopService.instance.hasItem('golden_crown');
     final flame = prefs.getBool('item_flame_border') ?? false;
 
-    // 70 Günlük Okuma Verisinin Çekilmesi (GitHub Tarzı Matris İçin)
     final List<int> heatmapData = [];
     final now = DateTime.now();
     for (int i = 69; i >= 0; i--) {
@@ -88,6 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
       _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
       _totalFlashcards = cards.length;
+      _masteredFlashcardsCount = masteredCount;
       _streakDays = streakResult['streakDays'];
       _hasFreezeShield = streakResult['hasFreezeShield'];
       _heatmapDailyPages = heatmapData;
@@ -164,19 +173,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. ÜST BAR YERİNE MODERN ENTEGRE BAŞLIK VE KAYNAK HUD
               _buildModernProfileHeader(),
               const SizedBox(height: 18),
 
-              // 2. LİG DERECESİ & SEZON KARTI
+              // YENİ: Kalıcı Hafıza (Mastery) İlerleme Vitrini Kartı
+              _buildMasteryProgressBanner(),
+              const SizedBox(height: 18),
+
               _buildLeagueRankCard(),
               const SizedBox(height: 18),
 
-              // 3. SEKMELER (İstatistikler / Başarılar)
               _buildTabSelector(),
               const SizedBox(height: 18),
 
-              // 4. SEÇİLİ SEKME İÇERİĞİ
               if (_selectedTab == 0) ...[
                 _buildReadingHeatmapCard(),
                 const SizedBox(height: 16),
@@ -192,8 +201,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ==========================================================================
-  // WIDGET: Modern Profil Başlığı & Kaynak Paneli (HUD)
+  // WIDGET: Kalıcı Hafıza (Mastery) İlerleme Vitrini
   // ==========================================================================
+  Widget _buildMasteryProgressBanner() {
+    final double percentage = _totalFlashcards > 0 
+        ? (_masteredFlashcardsCount / _totalFlashcards).clamp(0.0, 1.0) 
+        : 0.0;
+    final int percentInt = (percentage * 100).round();
+
+    return GestureDetector(
+      onTap: () => _navigateTo(const DictionaryScreen()),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E1B4B), Color(0xFF111827)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.amber.withValues(alpha: 0.5), width: 1.5),
+          boxShadow: [
+            BoxShadow(color: Colors.amber.withValues(alpha: 0.12), blurRadius: 16, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Text('🏆', style: TextStyle(fontSize: 20)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Kalıcı Hafıza (Mastery)',
+                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    '%$percentInt Hafıza',
+                    style: GoogleFonts.outfit(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11.5),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Toplam $_totalFlashcards kelimeden $_masteredFlashcardsCount tanesinde ustalaştın.',
+              style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: percentage,
+                minHeight: 7,
+                backgroundColor: const Color(0xFF1F2937),
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildModernProfileHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,7 +298,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             Row(
               children: [
-                // Elmas Sayaç Kapsülü
                 InkWell(
                   borderRadius: BorderRadius.circular(20),
                   onTap: () => _navigateTo(const ShopScreen()),
@@ -237,7 +318,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // XP Sayaç Kapsülü
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
@@ -259,7 +339,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Eren'in Hero Kartı ve Kalkan Durumu
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
@@ -337,7 +416,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-              // Kalkan Durumu / Mağaza Yönlendirmesi
               GestureDetector(
                 onTap: () => _navigateTo(const ShopScreen()),
                 child: Container(
@@ -378,9 +456,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Lig Derecesi ve Sezon Rozeti Kartı
-  // ==========================================================================
   Widget _buildLeagueRankCard() {
     return Container(
       width: double.infinity,
@@ -419,9 +494,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Sekme Seçici
-  // ==========================================================================
   Widget _buildTabSelector() {
     return Container(
       height: 50,
@@ -495,9 +567,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Isı Haritası
-  // ==========================================================================
   Widget _buildReadingHeatmapCard() {
     final totalRead70Days = _heatmapDailyPages.fold(0, (sum, pages) => sum + pages);
 
@@ -596,9 +665,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: 4'lü Hızlı İstatistik Grid'i
-  // ==========================================================================
   Widget _buildStatsGrid() {
     return GridView.count(
       crossAxisCount: 2,
@@ -649,9 +715,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Başarılar Odası
-  // ==========================================================================
   Widget _buildBadgesRoom() {
     return Column(
       children: [
