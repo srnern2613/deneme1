@@ -1,22 +1,26 @@
 // ============================================================================
 // DOSYA ADI: lib/coach_messages.dart
-// AÇIKLAMA: Canlı Koçluk, Okuma Teşvikleri & Psikolojik Başarı Geri Bildirim Motoru
+// AÇIKLAMA: Çoklu Varyasyonlu, Büyüme Odaklı ve Başarı Seviyesine Göre 
+//           Dinamik Renk/Tema Destekli Koçluk Mesaj Motoru
 // ============================================================================
 
 import 'dart:math';
+import 'package:flutter/material.dart';
 
-class ExerciseResultFeedback {
+class CoachFeedback {
   final String emoji;
   final String title;
   final String subtitle;
   final String actionLabel;
+  final Color themeColor; // Dinamik başarı teması rengi
   final bool shouldOfferRetry;
 
-  ExerciseResultFeedback({
+  CoachFeedback({
     required this.emoji,
     required this.title,
     required this.subtitle,
     required this.actionLabel,
+    required this.themeColor,
     this.shouldOfferRetry = false,
   });
 }
@@ -24,73 +28,137 @@ class ExerciseResultFeedback {
 class CoachMessages {
   static final Random _rand = Random();
 
-  // --- 1. ANA EKRAN BAĞLAMSAL KARŞILAMA MESAJLARI ---
-  static String getHomeGreeting({
-    required int todayPages,
-    required int targetPages,
-    required bool hasShield,
+  // 1. KADEME: %90 ve Üzeri (Kusursuz / Yüksek Başarı) -> Canlı Altın Sarısı
+  static final List<Map<String, String>> _tierHighSuccess = [
+    {
+      'emoji': '🎉',
+      'title': 'Mükemmel İlerleme!',
+      'subtitle': 'Kelimeler hafızana sağlam şekilde yerleşiyor. Kitapta karşılaştığında çok daha rahat anlayacaksın.',
+    },
+    {
+      'emoji': '🏆',
+      'title': 'Zihnin Zirvede!',
+      'subtitle': 'Neredeyse hiç takılmadan tamamladın. Kelime dağarcığın adım adım genişliyor.',
+    },
+    {
+      'emoji': '✨',
+      'title': 'Harika Bir Odaklanma!',
+      'subtitle': 'Kelimeleri çok hızlı ve net hatırladın. Bugünkü tekrar görevini başarıyla tamamladın.',
+    },
+    {
+      'emoji': '🚀',
+      'title': 'Kalıcı Hafıza Devrede!',
+      'subtitle': 'Bu kelimeler artık uzun süreli hafızana taşınıyor. Okuma akıcılığın belirgin şekilde artacak.',
+    },
+  ];
+
+  // 2. KADEME: %70 - %89 (Güçlü / İyi İlerleme) -> Zümrüt Yeşili
+  static final List<Map<String, String>> _tierGoodSuccess = [
+    {
+      'emoji': '💪',
+      'title': 'Harika Gidiyorsun!',
+      'subtitle': 'Bugünkü kelimelerin büyük kısmı zihninde pekişti. Hafızan adım adım güçleniyor.',
+    },
+    {
+      'emoji': '⚡',
+      'title': 'Güçlü Bir Seans!',
+      'subtitle': 'Kelimelerin çoğunu rahatça hatırladın. Kalanlar da bir sonraki tekrarda oturacaktır.',
+    },
+    {
+      'emoji': '🎯',
+      'title': 'Hedefe Çok Yakınsın!',
+      'subtitle': 'Zihnin kelimeleri kavramaya başladı. Düzenli pratikle hepsi kalıcı hale gelecek.',
+    },
+    {
+      'emoji': '🌟',
+      'title': 'Gözle Görülür İlerleme!',
+      'subtitle': 'Zorlandığın birkaç kelime oldu ama genel akışın harikaydı. Öğrenme döngün tıkır tıkır işliyor.',
+    },
+  ];
+
+  // 3. KADEME: %50 - %69 (Orta / Gelişen Seviye) -> Elektrik Mavisi
+  static final List<Map<String, String>> _tierModerateSuccess = [
+    {
+      'emoji': '🧠',
+      'title': 'İyi Bir Pratik Oldu!',
+      'subtitle': 'Kelimeler zihninde tazelendi. Algoritma bunları kalıcı yapmak için doğru zamanda tekrar getirecek.',
+    },
+    {
+      'emoji': '📚',
+      'title': 'Hafıza Çalışıyor!',
+      'subtitle': 'Beyin yeni kelimeleri bağlarken efor sarf eder. Tam olarak bu çaba kalıcılığı sağlar.',
+    },
+    {
+      'emoji': '🧩',
+      'title': 'Taşlar Yerine Oturuyor!',
+      'subtitle': 'Bazı kelimeler netleşti, bazıları biraz daha tekrar istiyor. Süreç gayet doğal ilerliyor.',
+    },
+    {
+      'emoji': '⏳',
+      'title': 'Adım Adım Gelişim!',
+      'subtitle': 'Bugün bu kelimelerle temas ettin. Bir dahaki sefere hatırlamak çok daha kolay olacak.',
+    },
+  ];
+
+  // 4. KADEME: %50 Altı (Zorlanılan Seans) -> Sıcak Mor / Indigo
+  static final List<Map<String, String>> _tierNeedPractice = [
+    {
+      'emoji': '🌱',
+      'title': 'Pratikle Güçlenecek!',
+      'subtitle': 'Yeni kelimeleri kalıcı hafızaya almak zaman ister. Beyin tam da zorlandığı bu anlarda öğrenir.',
+    },
+    {
+      'emoji': '💡',
+      'title': 'Öğrenme Tam Olarak Bu!',
+      'subtitle': 'Takılmak sürecin en doğal parçası. Bu kelimeler yarınki tekrarlarda zihninde çok daha rahat oturacak.',
+    },
+    {
+      'emoji': '🛡️',
+      'title': 'Algoritma Devrede!',
+      'subtitle': 'Zorlandığın kelimeleri not aldık. Seni yormadan, tam unutma eşiğinde tekrar karşına çıkaracağız.',
+    },
+    {
+      'emoji': '📖',
+      'title': 'Temas Kurmak En Önemlisiydi!',
+      'subtitle': 'Bugün kelimeleri zihninde uyandırdın. Kitabına dönüp onları bağlam içinde gördüğünde anlam pekişecek.',
+    },
+  ];
+
+  /// Başarı oranına göre varyasyonlu ve dinamik renk temalı koçluk sonucu üretir
+  static CoachFeedback getFeedback({
+    required String exerciseType,
+    required int score,
+    required int total,
   }) {
-    if (todayPages >= targetPages && todayPages > 0) {
-      final completed = [
-        'Bugünkü görev tamam! Günün kahramanısın 🚀',
-        'Hedef %100! Günlük elmas sandığını hak ettin 🎉',
-        'Görev bitti, serin parlıyor! Tebrikler 🏆',
-        'Disiplinin kazandı. Yarın buradayız! ✨',
-        'Günün kotası doldu, zihnin dev adım attı 🧠',
-      ];
-      return completed[_rand.nextInt(completed.length)];
+    final double ratio = total > 0 ? (score / total) : 1.0;
+    Map<String, String> selected;
+    Color themeColor;
+
+    if (ratio >= 0.90) {
+      selected = _tierHighSuccess[_rand.nextInt(_tierHighSuccess.length)];
+      themeColor = const Color(0xFFF59E0B); // Canlı Amber Altın
+    } else if (ratio >= 0.70) {
+      selected = _tierGoodSuccess[_rand.nextInt(_tierGoodSuccess.length)];
+      themeColor = const Color(0xFF10B981); // Zümrüt Yeşili
+    } else if (ratio >= 0.50) {
+      selected = _tierModerateSuccess[_rand.nextInt(_tierModerateSuccess.length)];
+      themeColor = const Color(0xFF06B6D4); // Camgöbeği / Elektrik Mavisi
+    } else {
+      selected = _tierNeedPractice[_rand.nextInt(_tierNeedPractice.length)];
+      themeColor = const Color(0xFF8B5CF6); // Sıcak Lavanta / Mor
     }
 
-    final hour = DateTime.now().hour;
-
-    // Gece Kuşu (23:00 - 04:00)
-    if (hour >= 23 || hour < 4) {
-      final night = [
-        'Gece sessizliği, yüksek odaklanma 🦉',
-        'Gece kuşu modu aktif! Fark yaratıyorsun 🌙',
-        'Yıldızlar altında okuma... Harika an! 🌌',
-        'Herkes uyurken sen öğreniyorsun ⚔️',
-        'Zihnin en berrak olduğu saatler 🕯️',
-      ];
-      return night[_rand.nextInt(night.length)];
-    }
-
-    // Sabah (05:00 - 10:00)
-    if (hour >= 4 && hour < 11) {
-      final morning = [
-        'Güne zinde bir başlangıç! 🌅',
-        'Sabah kahvesi hazırsa sayfaları açalım ☕',
-        'Günün ilk zaferi için harika bir sabah! ☀️',
-        'Erken kalkan yol alır, İngilizce öğrenir 🚀',
-        'Zihnin sabah tazeliğinde! ☀️',
-      ];
-      return morning[_rand.nextInt(morning.length)];
-    }
-
-    // Öğle / Öğleden Sonra (11:00 - 17:00)
-    if (hour >= 11 && hour < 18) {
-      final afternoon = [
-        'Kısa bir okuma molası harika gider 🥪',
-        'Günün temposunda zihnine mola ver 📖',
-        'Hedefleri tamamlamak için en verimli an! ☀️',
-        'Kahve eşliğinde 2 sayfa okuyalım mı? 🎯',
-        'Hedefe adım adım yaklaşıyoruz ⏳',
-      ];
-      return afternoon[_rand.nextInt(afternoon.length)];
-    }
-
-    // Akşam (18:00 - 22:00)
-    final evening = [
-      'Günün yorgunluğunu sayfalarla dağıt 🌆',
-      'Akşam seansıyla serini güvenceye al 🔥',
-      'Günü güzel bir okumayla kapatalım ✨',
-      'Sayfaların arasında kaybolma vakti 🛋️',
-      'Bugünün hedefini bitirip kalkanı dinlendir 🛡️',
-    ];
-    return evening[_rand.nextInt(evening.length)];
+    return CoachFeedback(
+      emoji: selected['emoji'] ?? '🎉',
+      title: selected['title'] ?? 'Pratik Tamamlandı!',
+      subtitle: selected['subtitle'] ?? 'Tebrikler, bugünkü tekrarını tamamladın.',
+      actionLabel: 'Kitaba Dön 📖',
+      themeColor: themeColor,
+      shouldOfferRetry: false,
+    );
   }
 
-  // --- 2. SERİ TOASTLARI ---
+  // --- FLASHCARD İÇİ TOASTLAR ---
   static String? getFlashcardCheer(int streak) {
     if (streak == 3) {
       final s3 = [
@@ -124,28 +192,76 @@ class CoachMessages {
     return null;
   }
 
-  // --- 3. YANLIŞ / HATA MORAL DESTEĞİ HAVUZU ---
   static String getWrongAnswerEncouragement() {
     final list = [
-      '🧠 Zihin hata yaparak öğrenir, hiç sorun değil!',
-      '🌱 Yanılmak öğrenmenin en hızlı yoludur. Devam!',
-      '💡 Bu kelime artık aklında yer etmeye başladı!',
-      '💪 Ufak bir kaza; odaklan ve bir sonrakini yakala!',
-      '🎯 Hata yapmak ilerlemenin kanıtıdır. Ritmi bozma!',
-      '🔄 Bir sonraki turda bu kelime senin!',
+      '🌱 Sorun yok! Beyin hatırlamaya çalışırken öğrenir.',
+      '💡 Algoritma bunu senin için not aldı.',
+      '📚 Bir sonraki tekrarda çok daha kolay olacak.',
       '⚡ Nöronlar yeni bir bağlantı kurdu, yola devam!',
-      '🚀 Mükemmel olmak zorunda değilsin, pratik yaptıkça oturacak!',
+      '🔄 Zihin pratikle güçlenir, ritmi bozma!',
     ];
     return list[_rand.nextInt(list.length)];
   }
 
-  // --- 4. OKUMA SEANSI İÇİ TEŞVİKLER (ReaderScreen Uyumluluğu) ---
+  // --- ANA EKRAN VE OKUYUCU MESAJLARI ---
+  static String getHomeGreeting({
+    required int todayPages,
+    required int targetPages,
+    required bool hasShield,
+  }) {
+    if (todayPages >= targetPages && todayPages > 0) {
+      final completed = [
+        'Bugünkü görev tamam! Günün kahramanısın 🚀',
+        'Hedef %100! Günlük elmas sandığını hak ettin 🎉',
+        'Görev bitti, serin parlıyor! Tebrikler 🏆',
+        'Disiplinin kazandı. Yarın buradayız! ✨',
+        'Günün kotası doldu, zihnin dev adım attı 🧠',
+      ];
+      return completed[_rand.nextInt(completed.length)];
+    }
+
+    final hour = DateTime.now().hour;
+    if (hour >= 23 || hour < 4) {
+      final night = [
+        'Gece sessizliği, yüksek odaklanma 🦉',
+        'Gece kuşu modu aktif! Fark yaratıyorsun 🌙',
+        'Yıldızlar altında okuma... Harika an! 🌌',
+        'Herkes uyurken sen öğreniyorsun ⚔️',
+      ];
+      return night[_rand.nextInt(night.length)];
+    }
+
+    if (hour >= 4 && hour < 11) {
+      final morning = [
+        'Güne zinde bir başlangıç! 🌅',
+        'Sabah kahvesi hazırsa sayfaları açalım ☕',
+        'Günün ilk zaferi için harika bir sabah! ☀️',
+      ];
+      return morning[_rand.nextInt(morning.length)];
+    }
+
+    if (hour >= 11 && hour < 18) {
+      final afternoon = [
+        'Kısa bir okuma molası harika gider 🥪',
+        'Günün temposunda zihnine mola ver 📖',
+        'Hedefleri tamamlamak için en verimli an! ☀️',
+      ];
+      return afternoon[_rand.nextInt(afternoon.length)];
+    }
+
+    final evening = [
+      'Günün yorgunluğunu sayfalarla dağıt 🌆',
+      'Akşam seansıyla serini güvenceye al 🔥',
+      'Günü güzel bir okumayla kapatalım ✨',
+    ];
+    return evening[_rand.nextInt(evening.length)];
+  }
+
   static String getReadingPageCheer() {
     final list = [
       '📖 Harika bir akış, sayfalar su gibi akıyor.',
       '📖 Ritim muazzam! Zihnin tamamen adapte oldu.',
       '📖 Kitap kurdu modu aktif! Birkaç sayfa daha devrildi 🚀',
-      '📖 Sayfalar peş peşe akıyor, odaklanman çok iyi!',
     ];
     return list[_rand.nextInt(list.length)];
   }
@@ -154,7 +270,6 @@ class CoachMessages {
     final list = [
       '⏱️ 15 dakika derin odaklanma! Beynin yeni kalıplar örüyor.',
       '⏱️ Çeyrek saat geride kaldı! Zihinsel kondisyonun harika.',
-      '⏱️ 15 dakikalık akış modu! Dikkatin kusursuz seviyede.',
     ];
     return list[_rand.nextInt(list.length)];
   }
@@ -162,71 +277,8 @@ class CoachMessages {
   static String getReadingTimeCheer30Min() {
     final list = [
       '🧠 30 dakikalık maraton! Gerçek bir kitap kurdu performansı.',
-      '🧠 Yarım saat derin okuma devrildi! Tebrikler şefim.',
-      '🧠 30 dakikadır aralıksız zihin antrenmanı! Muazzam odak.',
+      '🧠 Yarım saat derin okuma devrildi! Tebrikler.',
     ];
     return list[_rand.nextInt(list.length)];
-  }
-
-  // --- 5. 3 KADEMELİ DİNAMİK BAŞARI & POP-UP MOTORU ---
-  static ExerciseResultFeedback getFeedback({
-    required String exerciseType,
-    required int score,
-    required int total,
-  }) {
-    final double ratio = total > 0 ? (score / total) : 0.0;
-    final randIdx = _rand.nextInt(3);
-
-    // 1. Kademe: Zirve / Mükemmel (%80 - %100)
-    if (ratio >= 0.8) {
-      final emojis = ['🎯', '👑', '⚡'];
-      final titles = ['Harika Performans!', 'Kusursuz Hakimiyet!', 'Zirve Performans!'];
-      final subtitles = [
-        '$total üzerinden $score doğru! Reflekslerin zirvede, kelimeler kalıcı hafızana geçti.',
-        '$score/$total doğru! Bugün zihinsel kondisyonun muazzam seviyede, durdurulamazsın.',
-        'Neredeyse sıfır hata ($score/$total)! Bu hızla kelime haznen hızla büyüyecek.',
-      ];
-      return ExerciseResultFeedback(
-        emoji: emojis[randIdx],
-        title: titles[randIdx],
-        subtitle: subtitles[randIdx],
-        actionLabel: 'Süper, Devam Et!',
-        shouldOfferRetry: false,
-      );
-    }
-
-    // 2. Kademe: Gelişme / İyi (%50 - %79)
-    if (ratio >= 0.5) {
-      final emojis = ['🧠', '📈', '💡'];
-      final titles = ['İyi İlerleme!', 'Güzel Mücadele!', 'Adım Adım Zirveye!'];
-      final subtitles = [
-        '$total sorudan $score tanesini doğru bildin. İyi bir ritim yakaladın, pratikle tam oturacak.',
-        '$score/$total doğru. Zihnin kelimeleri kavramaya başladı, tempoyu koru!',
-        'Fena bir tur değil ($score/$total doğru). Birkaç tekrarla bu kelimeleri tamamen ezberleyebilirsin.',
-      ];
-      return ExerciseResultFeedback(
-        emoji: emojis[randIdx],
-        title: titles[randIdx],
-        subtitle: subtitles[randIdx],
-        actionLabel: 'Devam Et',
-        shouldOfferRetry: false,
-      );
-    }
-
-    // 3. Kademe: Kurtarma / Düşük Skor (%0 - %49)
-    final emojis = ['🩹', '⏳', '🔄'];
-    final titles = ['Pratikle Güçleneceksin!', 'Zihin Hata Yaparak Öğrenir!', 'Tekrarla ve Zirveye Çık!'];
-    final subtitles = [
-      '$total üzerinden $score doğru. Bu tur biraz zorladı ama sorun yok; beyin yanılarak öğrenir!',
-      '$score/$total doğru. Kelimeler henüz zihninde taze; hemen bir tekrar yapıp puanını katlayalım mı?',
-      'Birkaç fire verdik ($score/$total) ama pes etmek yok! Hemen bir tur daha deneyip skorunu yükselt.',
-    ];
-    return ExerciseResultFeedback(
-      emoji: emojis[randIdx],
-      title: titles[randIdx],
-      subtitle: subtitles[randIdx],
-      actionLabel: 'Tekrar Dene 🚀',
-      shouldOfferRetry: true,
-    );
   }
 }

@@ -1,6 +1,8 @@
 // ============================================================================
 // DOSYA ADI: lib/database_helper.dart
-// AÇIKLAMA: Eksik Tablo (cacheObject, highlights) Güvenceli SQLite Yöneticisi
+// AÇIKLAMA: SQLite Veritabanı Yöneticisi
+//           - Çevrimdışı 20.000 Kelimelik Sözlük Destekli (POS & Phonetic)
+//           - Flashcard, Highlight ve SRS Şemaları
 // ============================================================================
 
 import 'package:sqflite/sqflite.dart';
@@ -24,18 +26,21 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7, // Tüm eksik tabloların oluşturulması için sürüm 7'ye yükseltildi
+      version: 9,
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
     );
   }
 
   Future _createDB(Database db, int version) async {
+    // 1. GENİŞLETİLMİŞ SÖZLÜK TABLOSU
     await db.execute('''
       CREATE TABLE dictionary (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         word TEXT NOT NULL COLLATE NOCASE,
         meaning TEXT NOT NULL,
+        pos TEXT,
+        phonetic TEXT,
         example TEXT
       )
     ''');
@@ -44,16 +49,21 @@ class DatabaseHelper {
       CREATE INDEX idx_dictionary_word ON dictionary(word COLLATE NOCASE)
     ''');
 
+    // 2. GELİŞMİŞ FLASHCARD TABLOSU (Bağlam & Kitap Destekli)
     await db.execute('''
       CREATE TABLE flashcards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         word TEXT NOT NULL COLLATE NOCASE,
         meaning TEXT NOT NULL,
         interval INTEGER DEFAULT 1,
-        repetitions INTEGER DEFAULT 0
+        repetitions INTEGER DEFAULT 0,
+        context_sentence TEXT,
+        book_title TEXT,
+        chapter_info TEXT
       )
     ''');
 
+    // 3. FOSFORLU KALEM (HIGHLIGHTS) TABLOSU
     await db.execute('''
       CREATE TABLE highlights (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +75,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Hata Logundaki 'no such table: cacheObject' sorununu çözen eksik tablo
+    // 4. ÖNBELLEK TABLOSU
     await db.execute('''
       CREATE TABLE IF NOT EXISTS cacheObject (
         key TEXT PRIMARY KEY,
@@ -74,18 +84,10 @@ class DatabaseHelper {
       )
     ''');
 
-    final sampleWords = [
-      {'word': 'Habit', 'meaning': 'Alışkanlık', 'example': 'Good habits make time your ally.'},
-      {'word': 'Improve', 'meaning': 'Geliştirmek', 'example': 'Read every day to improve yourself.'},
-    ];
-
-    for (var item in sampleWords) {
-      await db.insert('dictionary', item);
-    }
+    await _insertInitialWords(db);
   }
 
   Future _onUpgradeDB(Database db, int oldVersion, int newVersion) async {
-    // Sürüm ne olursa olsun eksik tabloları güvenle oluşturur (Crash önleyici)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS highlights (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,9 +106,86 @@ class DatabaseHelper {
         expiry_date TEXT
       )
     ''');
+
+    if (oldVersion < 8) {
+      try {
+        await db.execute('ALTER TABLE flashcards ADD COLUMN context_sentence TEXT');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE flashcards ADD COLUMN book_title TEXT');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE flashcards ADD COLUMN chapter_info TEXT');
+      } catch (_) {}
+    }
+
+    if (oldVersion < 9) {
+      try {
+        await db.execute('ALTER TABLE dictionary ADD COLUMN pos TEXT');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE dictionary ADD COLUMN phonetic TEXT');
+      } catch (_) {}
+    }
   }
 
-  // --- HIGHLIGHT İŞLEMLERİ ---
+  Future<void> _insertInitialWords(Database db) async {
+    final sampleWords = [
+      {'word': 'Habit', 'meaning': 'Alışkanlık', 'pos': 'noun', 'phonetic': '/ˈhæb.ɪt/', 'example': 'Good habits make time your ally.'},
+      {'word': 'Improve', 'meaning': 'Geliştirmek, iyileştirmek', 'pos': 'verb', 'phonetic': '/ɪmˈpruːv/', 'example': 'Read every day to improve yourself.'},
+    ];
+
+    for (var item in sampleWords) {
+      await db.insert('dictionary', item, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+  }
+
+  // --- SÖZLÜK METOTLARI ---
+
+  Future<Map<String, dynamic>?> getWordDefinition(String word) async {
+    final db = await database;
+    final clean = word.trim().toLowerCase();
+    final result = await db.query(
+      'dictionary',
+      where: 'word = ? COLLATE NOCASE',
+      whereArgs: [clean],
+      limit: 1,
+    );
+    return result.isNotEmpty ? result.first : null;
+  }
+
+  Future<void> saveWordDefinition({
+    required String word,
+    required String meaning,
+    String? pos,
+    String? phonetic,
+    String? example,
+  }) async {
+    final db = await database;
+    await db.insert(
+      'dictionary',
+      {
+        'word': word.trim().toLowerCase(),
+        'meaning': meaning.trim(),
+        'pos': pos?.trim(),
+        'phonetic': phonetic?.trim(),
+        'example': example?.trim(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> searchWord(String query) async {
+    final db = await database;
+    return await db.query(
+      'dictionary',
+      where: 'word LIKE ? OR meaning LIKE ?',
+      whereArgs: ['%$query%', '%$query%'],
+      limit: 20,
+    );
+  }
+
+  // --- HIGHLIGHT METOTLARI ---
 
   Future<void> addHighlightRange({
     required String bookId,
@@ -157,18 +236,7 @@ class DatabaseHelper {
     await db.delete('highlights', where: 'book_id = ?', whereArgs: [bookId]);
   }
 
-  // Standart Sözlük ve Flashcard Metotları
-  Future<Map<String, dynamic>?> getWordDefinition(String word) async {
-    final db = await database;
-    final clean = word.trim().toLowerCase();
-    final result = await db.query('dictionary', where: 'word = ? COLLATE NOCASE', whereArgs: [clean], limit: 1);
-    return result.isNotEmpty ? result.first : null;
-  }
-
-  Future<List<Map<String, dynamic>>> searchWord(String query) async {
-    final db = await database;
-    return await db.query('dictionary', where: 'word LIKE ? OR meaning LIKE ?', whereArgs: ['%$query%', '%$query%'], limit: 20);
-  }
+  // --- FLASHCARD METOTLARI ---
 
   Future<bool> isWordInFlashcards(String word) async {
     final db = await database;
@@ -177,9 +245,27 @@ class DatabaseHelper {
     return result.isNotEmpty;
   }
 
-  Future<int> addFlashcard(String word, String meaning) async {
+  Future<int> addFlashcard(
+    String word, 
+    String meaning, {
+    String? contextSentence,
+    String? bookTitle,
+    String? chapterInfo,
+  }) async {
     final db = await database;
-    return await db.insert('flashcards', {'word': word.trim(), 'meaning': meaning.trim(), 'interval': 1, 'repetitions': 0});
+    return await db.insert(
+      'flashcards',
+      {
+        'word': word.trim(),
+        'meaning': meaning.trim(),
+        'interval': 1,
+        'repetitions': 0,
+        'context_sentence': contextSentence?.trim(),
+        'book_title': bookTitle?.trim(),
+        'chapter_info': chapterInfo?.trim(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<int> removeFlashcardByWord(String word) async {
@@ -195,5 +281,24 @@ class DatabaseHelper {
   Future<int> deleteFlashcard(int id) async {
     final db = await database;
     return await db.delete('flashcards', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // --- SRS METODU ---
+
+  Future<void> updateFlashcardSrsProgress({
+    required int cardId,
+    required int repetitions,
+    required int interval,
+  }) async {
+    final db = await database;
+    await db.update(
+      'flashcards',
+      {
+        'repetitions': repetitions,
+        'interval': interval,
+      },
+      where: 'id = ?',
+      whereArgs: [cardId],
+    );
   }
 }

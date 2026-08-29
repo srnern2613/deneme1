@@ -1,7 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
 // AÇIKLAMA: Akıllı Okuma, Tırnak/Sembol Korumalı Regex,
-//           Bağlam (Context) Yakalama & Güvenli Kayıt
+//           Bağlam (Context) & Kitap Bilgisiyle Birlikte Kelime Kaydetme
 // ============================================================================
 
 import 'dart:async';
@@ -91,16 +91,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return _posTranslations[clean] ?? pos.toUpperCase();
   }
 
-  /// Gelişmiş Kelime Temizleme & Sembol Koruması:
-  /// Başındaki/sonundaki tırnak (“ ” " ‘ ’), parantez ve noktalama işaretlerini siler[cite: 6].
-  /// Eğer geriye harf kalmadıysa (yalnızca tırnak vb. sembolden ibaretse) boş string döner ve tıklanmasını engeller.
+  /// Tırnak, sembol ve noktalama işaretlerini filtreler
   String _cleanWordText(String raw) {
     var cleaned = raw.replaceAll(
       RegExp(r'''^[\s"“”'‘’\(\)\[\]\{\}\.,;:!?\-—_]+|[\s"“”'‘’\(\)\[\]\{\}\.,;:!?\-—_]+$'''), 
       '',
     ).trim();
 
-    // İçinde en az bir Latin harfi barındırmayan girişleri ele
     if (!RegExp(r'[a-zA-Z]').hasMatch(cleaned)) {
       return '';
     }
@@ -346,7 +343,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     String contextSentence,
   ) async {
     final cleanWord = _cleanWordText(word);
-    // Eğer metin yalnızca sembol/tırnak ise bottom sheet açılmasını engelle
     if (cleanWord.isEmpty) return;
 
     HapticFeedback.lightImpact();
@@ -553,6 +549,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                           const SizedBox(height: 14),
 
+                          // Okunan Cümlenin Önizlemesi
                           if (contextSentence.trim().isNotEmpty)
                             Container(
                               width: double.infinity,
@@ -646,6 +643,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                           const SizedBox(height: 14),
 
+                          // Kelime Kartlarına Ekle Butonu (Bağlam ve Kitap Bilgisiyle)
                           SizedBox(
                             width: double.infinity,
                             height: 46,
@@ -684,7 +682,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                       ? rawMeaning 
                                       : 'kelime anlamı';
 
-                                  await DatabaseHelper.instance.addFlashcard(cleanWord, saveMeaning);
+                                  // Bağlam cümlesi, kitap adı ve sayfa bilgisi ile birlikte kaydediyoruz
+                                  await DatabaseHelper.instance.addFlashcard(
+                                    cleanWord, 
+                                    saveMeaning,
+                                    contextSentence: contextSentence.trim(),
+                                    bookTitle: widget.book.title,
+                                    chapterInfo: 'Sayfa ${pageIndex + 1}',
+                                  );
+
                                   setSheetState(() => isSaved = true);
                                   if (mounted) {
                                     setState(() => _wordsAddedCount++);
@@ -974,7 +980,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
 
-            // Üst Kontrol Barı
+            // Üst Bar
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOut,
@@ -1009,7 +1015,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
 
-            // Alt Kontrol Barı
+            // Alt Bar
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOut,
@@ -1064,7 +1070,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
 
-            // Toast Bildirimi
+            // Koçluk Toast Bildirimi
             if (_activeCoachToast != null)
               Positioned(
                 top: MediaQuery.of(context).padding.top + 60,
