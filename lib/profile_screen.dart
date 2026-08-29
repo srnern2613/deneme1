@@ -1,13 +1,10 @@
 // ============================================================================
 // DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Faz 2 - Öğrenme Kimliği & Kademeli Okur Rütbeleri (Reader Level)
+// AÇIKLAMA: Faz 4 - Öğrenme Kimliği & Lig Arenası Yönlendirmeli Profil
 // GÖREVLER & DÜZELTMELER:
-//   1. getAllBooks hatası giderildi (Kitaplar flashcards tablosundaki benzersiz 'book_title' üzerinden sayıldı)[cite: 2, 4]
-//   2. Column mainAxisSize hatası giderildi (MainAxisSize.min uygulandı)[cite: 4]
-//   3. Madde 10: Mastered Kelimeleri Kalıcı Başarı Vitrinine Dönüştürme[cite: 4]
-//   4. Madde 34: Profilde "Öğrenme Kimliği" Oluşturma (Word Explorer, Kalıcı Başarılar)[cite: 4]
-//   5. Madde 35: Kademeli "Reader Level" Rütbe Basamakları (Beginner -> Literary Master)
-//   6. Sıfır Çökme / Null Güvenliği ve UX Akıcılığı (Temayı Birebir Koruyarak)[cite: 4]
+//   1. Lig Kartı Yönlendirmesi: _buildLeagueRankCard artık LeaderboardScreen'e tıklandığında geçiş sağlar.
+//   2. getBooks Güvenliği: Kitaplar benzersiz book_title üzerinden hesaplanır.
+//   3. Madde 10, 34, 35 standartları korunmuştur.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -27,6 +24,7 @@ import 'achievement_service.dart';
 import 'celebration_dialog.dart';
 import 'shop_screen.dart';
 import 'dictionary_screen.dart';
+import 'leaderboard_screen.dart'; // <--- YENİ EKLENEN LİG EKRANI
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -37,23 +35,20 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Kullanıcı istatistikleri[cite: 4]
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
   int _totalFlashcards = 0;
-  int _masteredFlashcardsCount = 0; // 🏆 Kalıcı Hafızaya Geçen Kelime Sayısı[cite: 4]
-  int _totalBooksCount = 0;         // Toplam eklenen/okunan kitap sayısı
+  int _masteredFlashcardsCount = 0;
+  int _totalBooksCount = 0;
   int _streakDays = 1;
   bool _hasFreezeShield = true;
   int _userTotalXp = 100;
   int _userGems = 50;
   int _selectedTab = 0;
 
-  // Kozmetik mağaza envanter durumları[cite: 4]
   bool _hasGoldenCrown = false;
   bool _hasFlameBorder = false;
 
-  // Isı haritası ve rozet verileri[cite: 4]
   List<int> _heatmapDailyPages = [];
   Map<String, bool> _unlockedBadgesMap = {};
 
@@ -63,13 +58,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadProfileData();
   }
 
-  /// Profil verilerini veritabanı ve SharedPreferences üzerinden eksiksiz yükler[cite: 4]
   Future<void> _loadProfileData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cards = await DatabaseHelper.instance.getFlashcards();
       
-      // Güvenli Kitap Sayımı: Kartlardaki benzersiz kitap başlıklarını topla veya varsayılan 1 ata[cite: 2, 4]
       final uniqueBooks = <String>{};
       for (var card in cards) {
         final title = (card['book_title'] as String?)?.trim();
@@ -81,7 +74,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? uniqueBooks.length 
           : (prefs.getInt('stats_total_books_added') ?? 1);
       
-      // Güvenli Ustalaşma Sayımı (is_mastered == 1)[cite: 4]
       int masteredCount = 0;
       for (var card in cards) {
         if ((card['is_mastered'] as int? ?? 0) == 1) {
@@ -95,7 +87,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final crown = await XpShopService.instance.hasItem('golden_crown');
       final flame = prefs.getBool('item_flame_border') ?? false;
 
-      // Son 70 günlük okuma ısı haritası verilerini topla[cite: 4]
       final List<int> heatmapData = [];
       final now = DateTime.now();
       for (int i = 69; i >= 0; i--) {
@@ -104,7 +95,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         heatmapData.add(prefs.getInt(key) ?? 0);
       }
 
-      // Başarı rozetlerinin kilit durumunu sorgula[cite: 4]
       final badgeKeys = [
         'first_step', 'librarian', 'first_curiosity', 'first_spark', 'apprentice_reader',
         'night_owl', 'early_bird', 'shield_master', 'weekend_warrior', 'time_bender',
@@ -137,7 +127,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {}
   }
 
-  /// Ekran geçişlerini tetikleyen ve dönüşte profil istatistiklerini tazeleyen metot[cite: 4]
   void _navigateTo(Widget screen) {
     HapticFeedback.selectionClick();
     Navigator.of(context).push(
@@ -145,7 +134,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ).then((_) => _loadProfileData());
   }
 
-  /// Okuma süresi ve kelime ustalaşmasına göre kademeli "Reader Level" unvanını belirler
   Map<String, dynamic> _getReaderLevelInfo() {
     if (_masteredFlashcardsCount >= 200 || _totalReadMinutes >= 600) {
       return {
@@ -203,7 +191,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  /// Rozet detay penceresini veya kilitli uyarı modalını açar[cite: 4]
   void _showBadgeDetailModal(_BadgeData badge) {
     HapticFeedback.selectionClick();
     if (badge.isUnlocked) {
@@ -273,6 +260,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildMasteryProgressBanner(),
               const SizedBox(height: 16),
 
+              // 3. GÜNCELLENDİ: LİG ARENASINA YÖNLENDİREN LİG KARTI
               _buildLeagueRankCard(),
               const SizedBox(height: 18),
 
@@ -293,9 +281,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Madde 34 & 35 - Öğrenme Kimliği & Reader Level Rütbe Kartı
-  // ==========================================================================
   Widget _buildLearningIdentityCard() {
     final levelInfo = _getReaderLevelInfo();
     final Color levelColor = levelInfo['color'] as Color;
@@ -400,9 +385,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Madde 10 - Kalıcı Hafıza (Mastery) İlerleme Vitrini[cite: 4]
-  // ==========================================================================
   Widget _buildMasteryProgressBanner() {
     final double percentage = _totalFlashcards > 0 
         ? (_masteredFlashcardsCount / _totalFlashcards).clamp(0.0, 1.0) 
@@ -656,40 +638,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // GÜNCELLENDİ: Tıklanabilir ve doğrudan LeaderboardScreen açan Lig Kartı
   Widget _buildLeagueRankCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF111827).withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.15), shape: BoxShape.circle),
-            child: const Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 26),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('12. Arena: Kelime Ustası', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
-                    Text('#4 Sırada', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 12)),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text('Lider ile aranda sadece 50 XP fark var!', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5)),
-              ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: () => _navigateTo(const LeaderboardScreen()),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF111827).withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.15), shape: BoxShape.circle),
+              child: const Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 26),
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('12. Arena: Kelime Ustası', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                      Text('#4 Sırada', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 12)),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text('Lider ile aranda sadece 50 XP fark var!', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 16),
+          ],
+        ),
       ),
     );
   }

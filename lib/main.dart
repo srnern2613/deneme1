@@ -1,3 +1,12 @@
+// ============================================================================
+// DOSYA ADI: lib/main.dart
+// AÇIKLAMA: Faz 4 - Dinamik Lig & Leaderboard Entegrasyonu Yapılmış Ana Lobi
+// GÖREVLER & DÜZELTMELER:
+//   1. Lig Kartı Yönlendirmesi: "12. Arena" kartı doğrudan LeaderboardScreen'e bağlandı.
+//   2. Dönüşte Veri Yenileme: Ligden XP/Elmas toplanıp dönüldüğünde sayaçlar anında güncellenir.
+//   3. Alt Bar & Mini Player Katman Hizalaması ve Çift Tıklama Korumaları.
+// ============================================================================
+
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -13,6 +22,7 @@ import 'flashcards_exercise_screen.dart';
 import 'habit_tracker_screen.dart';
 import 'profile_screen.dart';
 import 'shop_screen.dart';
+import 'leaderboard_screen.dart'; // <--- YENİ EKLENEN LİG EKRANI
 import 'xp_shop_service.dart';
 import 'database_helper.dart';
 import 'audio_handler.dart';
@@ -518,7 +528,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           InkWell(
                             borderRadius: BorderRadius.circular(20),
                             onTap: () {
-                              Navigator.of(context).push(MaterialPageRoute(builder: (context) => const HabitTrackerScreen()));
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
+                              ).then((_) => refreshDashboardStats());
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -751,18 +763,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  
+                  // GÜNCELLENDİ: Doğrudan LeaderboardScreen sayfasına yönlendirir
                   InkWell(
                     borderRadius: BorderRadius.circular(18),
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ProfileScreen()));
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const LeaderboardScreen()),
+                      ).then((_) => refreshDashboardStats());
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                       decoration: BoxDecoration(
                         color: const Color(0xFF111827).withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFF1F2937)),
+                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
@@ -789,19 +805,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                                        color: const Color(0xFF10B981).withValues(alpha: 0.2),
                                         borderRadius: BorderRadius.circular(5),
                                       ),
                                       child: Text(
-                                        '3. İLE 35 XP',
-                                        style: GoogleFonts.outfit(color: const Color(0xFFFCA5A5), fontWeight: FontWeight.w900, fontSize: 8.5),
+                                        'GÖREVLERİ GÖR',
+                                        style: GoogleFonts.outfit(color: const Color(0xFF34D399), fontWeight: FontWeight.w900, fontSize: 8.5),
                                       ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '1 test çözerek üst sıraya tırman',
+                                  'Meydan okumaları tamamla ve ligde yüksel',
                                   style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11),
                                 ),
                               ],
