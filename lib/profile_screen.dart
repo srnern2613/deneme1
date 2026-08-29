@@ -1,6 +1,13 @@
 // ============================================================================
 // DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Kalıcı Hafıza (Mastery) Kartı Entegre Edilmiş Profil Ekranı
+// AÇIKLAMA: Faz 2 - Öğrenme Kimliği & Kademeli Okur Rütbeleri (Reader Level)
+// GÖREVLER & DÜZELTMELER:
+//   1. getAllBooks hatası giderildi (Kitaplar flashcards tablosundaki benzersiz 'book_title' üzerinden sayıldı)[cite: 2, 4]
+//   2. Column mainAxisSize hatası giderildi (MainAxisSize.min uygulandı)[cite: 4]
+//   3. Madde 10: Mastered Kelimeleri Kalıcı Başarı Vitrinine Dönüştürme[cite: 4]
+//   4. Madde 34: Profilde "Öğrenme Kimliği" Oluşturma (Word Explorer, Kalıcı Başarılar)[cite: 4]
+//   5. Madde 35: Kademeli "Reader Level" Rütbe Basamakları (Beginner -> Literary Master)
+//   6. Sıfır Çökme / Null Güvenliği ve UX Akıcılığı (Temayı Birebir Koruyarak)[cite: 4]
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -19,7 +26,7 @@ import 'xp_shop_service.dart';
 import 'achievement_service.dart';
 import 'celebration_dialog.dart';
 import 'shop_screen.dart';
-import 'dictionary_screen.dart'; // <--- Kelime Defteri / Sözlük Erişimi
+import 'dictionary_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -30,19 +37,23 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  // Kullanıcı istatistikleri[cite: 4]
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
   int _totalFlashcards = 0;
-  int _masteredFlashcardsCount = 0; // 🏆 Kalıcı Hafızaya Geçen Kelime Sayısı
+  int _masteredFlashcardsCount = 0; // 🏆 Kalıcı Hafızaya Geçen Kelime Sayısı[cite: 4]
+  int _totalBooksCount = 0;         // Toplam eklenen/okunan kitap sayısı
   int _streakDays = 1;
   bool _hasFreezeShield = true;
   int _userTotalXp = 100;
   int _userGems = 50;
   int _selectedTab = 0;
 
+  // Kozmetik mağaza envanter durumları[cite: 4]
   bool _hasGoldenCrown = false;
   bool _hasFlameBorder = false;
 
+  // Isı haritası ve rozet verileri[cite: 4]
   List<int> _heatmapDailyPages = [];
   Map<String, bool> _unlockedBadgesMap = {};
 
@@ -52,62 +63,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadProfileData();
   }
 
+  /// Profil verilerini veritabanı ve SharedPreferences üzerinden eksiksiz yükler[cite: 4]
   Future<void> _loadProfileData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cards = await DatabaseHelper.instance.getFlashcards();
-    
-    // Güvenli Ustalaşma Sayımı (is_mastered == 1)
-    int masteredCount = 0;
-    for (var card in cards) {
-      if ((card['is_mastered'] as int? ?? 0) == 1) {
-        masteredCount++;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cards = await DatabaseHelper.instance.getFlashcards();
+      
+      // Güvenli Kitap Sayımı: Kartlardaki benzersiz kitap başlıklarını topla veya varsayılan 1 ata[cite: 2, 4]
+      final uniqueBooks = <String>{};
+      for (var card in cards) {
+        final title = (card['book_title'] as String?)?.trim();
+        if (title != null && title.isNotEmpty) {
+          uniqueBooks.add(title);
+        }
       }
-    }
+      final booksCount = uniqueBooks.isNotEmpty 
+          ? uniqueBooks.length 
+          : (prefs.getInt('stats_total_books_added') ?? 1);
+      
+      // Güvenli Ustalaşma Sayımı (is_mastered == 1)[cite: 4]
+      int masteredCount = 0;
+      for (var card in cards) {
+        if ((card['is_mastered'] as int? ?? 0) == 1) {
+          masteredCount++;
+        }
+      }
 
-    final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
-    final xp = await XpShopService.instance.getTotalXp();
-    final gems = await XpShopService.instance.getGemsBalance();
-    final crown = await XpShopService.instance.hasItem('golden_crown');
-    final flame = prefs.getBool('item_flame_border') ?? false;
+      final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
+      final xp = await XpShopService.instance.getTotalXp();
+      final gems = await XpShopService.instance.getGemsBalance();
+      final crown = await XpShopService.instance.hasItem('golden_crown');
+      final flame = prefs.getBool('item_flame_border') ?? false;
 
-    final List<int> heatmapData = [];
-    final now = DateTime.now();
-    for (int i = 69; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
-      final key = 'daily_pages_${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      heatmapData.add(prefs.getInt(key) ?? 0);
-    }
+      // Son 70 günlük okuma ısı haritası verilerini topla[cite: 4]
+      final List<int> heatmapData = [];
+      final now = DateTime.now();
+      for (int i = 69; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        final key = 'daily_pages_${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        heatmapData.add(prefs.getInt(key) ?? 0);
+      }
 
-    final badgeKeys = [
-      'first_step', 'librarian', 'first_curiosity', 'first_spark', 'apprentice_reader',
-      'night_owl', 'early_bird', 'shield_master', 'weekend_warrior', 'time_bender',
-      'page_monster', 'bound_scholar', 'marathoner', 'text_detective',
-      'synapse_master', 'diamond_memory', 'voice_guide', 'curious_mind', 'word_collector',
-      'speed_of_light', 'ghost_reader', 'legendary_scholar',
-    ];
+      // Başarı rozetlerinin kilit durumunu sorgula[cite: 4]
+      final badgeKeys = [
+        'first_step', 'librarian', 'first_curiosity', 'first_spark', 'apprentice_reader',
+        'night_owl', 'early_bird', 'shield_master', 'weekend_warrior', 'time_bender',
+        'page_monster', 'bound_scholar', 'marathoner', 'text_detective',
+        'synapse_master', 'diamond_memory', 'voice_guide', 'curious_mind', 'word_collector',
+        'speed_of_light', 'ghost_reader', 'legendary_scholar',
+      ];
 
-    final Map<String, bool> badgeStatus = {};
-    for (var k in badgeKeys) {
-      badgeStatus[k] = await AchievementService.instance.isBadgeUnlocked(k);
-    }
+      final Map<String, bool> badgeStatus = {};
+      for (var k in badgeKeys) {
+        badgeStatus[k] = await AchievementService.instance.isBadgeUnlocked(k);
+      }
 
-    if (!mounted) return;
-    setState(() {
-      _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
-      _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
-      _totalFlashcards = cards.length;
-      _masteredFlashcardsCount = masteredCount;
-      _streakDays = streakResult['streakDays'];
-      _hasFreezeShield = streakResult['hasFreezeShield'];
-      _heatmapDailyPages = heatmapData;
-      _userTotalXp = xp;
-      _userGems = gems;
-      _hasGoldenCrown = crown;
-      _hasFlameBorder = flame;
-      _unlockedBadgesMap = badgeStatus;
-    });
+      if (!mounted) return;
+      setState(() {
+        _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
+        _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
+        _totalFlashcards = cards.length;
+        _masteredFlashcardsCount = masteredCount;
+        _totalBooksCount = booksCount;
+        _streakDays = streakResult['streakDays'] ?? 1;
+        _hasFreezeShield = streakResult['hasFreezeShield'] ?? false;
+        _heatmapDailyPages = heatmapData;
+        _userTotalXp = xp;
+        _userGems = gems;
+        _hasGoldenCrown = crown;
+        _hasFlameBorder = flame;
+        _unlockedBadgesMap = badgeStatus;
+      });
+    } catch (_) {}
   }
 
+  /// Ekran geçişlerini tetikleyen ve dönüşte profil istatistiklerini tazeleyen metot[cite: 4]
   void _navigateTo(Widget screen) {
     HapticFeedback.selectionClick();
     Navigator.of(context).push(
@@ -115,6 +145,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ).then((_) => _loadProfileData());
   }
 
+  /// Okuma süresi ve kelime ustalaşmasına göre kademeli "Reader Level" unvanını belirler
+  Map<String, dynamic> _getReaderLevelInfo() {
+    if (_masteredFlashcardsCount >= 200 || _totalReadMinutes >= 600) {
+      return {
+        'title': 'Literary Master',
+        'stage': 'Kademeli Rütbe V',
+        'color': const Color(0xFFF59E0B),
+        'icon': PhosphorIcons.crownBold,
+        'nextRequirement': 'Zirve Rütbeye Ulaşıldı! 👑',
+        'progress': 1.0,
+      };
+    } else if (_masteredFlashcardsCount >= 100 || _totalReadMinutes >= 300) {
+      final double progress = (_masteredFlashcardsCount / 200).clamp(0.0, 1.0);
+      final remaining = 200 - _masteredFlashcardsCount;
+      return {
+        'title': 'Advanced Reader',
+        'stage': 'Kademeli Rütbe IV',
+        'color': const Color(0xFFA855F7),
+        'icon': PhosphorIcons.sparkleBold,
+        'nextRequirement': '$remaining Mastered Kelime → Literary Master',
+        'progress': progress,
+      };
+    } else if (_masteredFlashcardsCount >= 40 || _totalReadMinutes >= 120) {
+      final double progress = (_masteredFlashcardsCount / 100).clamp(0.0, 1.0);
+      final remaining = 100 - _masteredFlashcardsCount;
+      return {
+        'title': 'Book Reader',
+        'stage': 'Kademeli Rütbe III',
+        'color': const Color(0xFF38BDF8),
+        'icon': PhosphorIcons.booksBold,
+        'nextRequirement': '$remaining Mastered Kelime → Advanced Reader',
+        'progress': progress,
+      };
+    } else if (_masteredFlashcardsCount >= 10 || _totalReadMinutes >= 30) {
+      final double progress = (_masteredFlashcardsCount / 40).clamp(0.0, 1.0);
+      final remaining = 40 - _masteredFlashcardsCount;
+      return {
+        'title': 'Word Explorer',
+        'stage': 'Kademeli Rütbe II',
+        'color': const Color(0xFF10B981),
+        'icon': PhosphorIcons.compassBold,
+        'nextRequirement': '$remaining Mastered Kelime → Book Reader',
+        'progress': progress,
+      };
+    } else {
+      final double progress = (_masteredFlashcardsCount / 10).clamp(0.0, 1.0);
+      final remaining = 10 - _masteredFlashcardsCount;
+      return {
+        'title': 'Beginner Reader',
+        'stage': 'Kademeli Rütbe I',
+        'color': const Color(0xFF64748B),
+        'icon': PhosphorIcons.plantBold,
+        'nextRequirement': '$remaining Mastered Kelime → Word Explorer',
+        'progress': progress,
+      };
+    }
+  }
+
+  /// Rozet detay penceresini veya kilitli uyarı modalını açar[cite: 4]
   void _showBadgeDetailModal(_BadgeData badge) {
     HapticFeedback.selectionClick();
     if (badge.isUnlocked) {
@@ -176,9 +265,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildModernProfileHeader(),
               const SizedBox(height: 18),
 
-              // YENİ: Kalıcı Hafıza (Mastery) İlerleme Vitrini Kartı
+              // 1. ÖĞRENME KİMLİĞİ VE READER LEVEL RÜTBE KARTI (Madde 34 & 35)
+              _buildLearningIdentityCard(),
+              const SizedBox(height: 16),
+
+              // 2. KALICI HAFIZA (MASTERY) İLERLEME VİTRİNİ KARTI (Madde 10)[cite: 4]
               _buildMasteryProgressBanner(),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
               _buildLeagueRankCard(),
               const SizedBox(height: 18),
@@ -201,7 +294,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ==========================================================================
-  // WIDGET: Kalıcı Hafıza (Mastery) İlerleme Vitrini
+  // WIDGET: Madde 34 & 35 - Öğrenme Kimliği & Reader Level Rütbe Kartı
+  // ==========================================================================
+  Widget _buildLearningIdentityCard() {
+    final levelInfo = _getReaderLevelInfo();
+    final Color levelColor = levelInfo['color'] as Color;
+    final IconData levelIcon = levelInfo['icon'] as IconData;
+    final String levelTitle = levelInfo['title'] as String;
+    final String nextReq = levelInfo['nextRequirement'] as String;
+    final double levelProgress = levelInfo['progress'] as double;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            levelColor.withValues(alpha: 0.18),
+            const Color(0xFF111827),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: levelColor.withValues(alpha: 0.45), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: levelColor.withValues(alpha: 0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: levelColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(levelIcon, color: levelColor, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        levelTitle,
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      Text(
+                        levelInfo['stage'] as String,
+                        style: GoogleFonts.inter(
+                          color: levelColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                child: Text(
+                  '📚 $_totalBooksCount Kitap',
+                  style: GoogleFonts.outfit(color: const Color(0xFFE2E8F0), fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            nextReq,
+            style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: levelProgress,
+              minHeight: 6,
+              backgroundColor: const Color(0xFF1F2937),
+              valueColor: AlwaysStoppedAnimation<Color>(levelColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // WIDGET: Madde 10 - Kalıcı Hafıza (Mastery) İlerleme Vitrini[cite: 4]
   // ==========================================================================
   Widget _buildMasteryProgressBanner() {
     final double percentage = _totalFlashcards > 0 
@@ -236,7 +436,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const Text('🏆', style: TextStyle(fontSize: 20)),
                     const SizedBox(width: 8),
                     Text(
-                      'Kalıcı Hafıza (Mastery)',
+                      'Kalıcı Hafıza Vitrini',
                       style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900),
                     ),
                   ],
