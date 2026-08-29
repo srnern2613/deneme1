@@ -1,6 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/dictionary_screen.dart
-// AÇIKLAMA: Read-only Hataları Giderilmiş Sözlük Ekranı
+// AÇIKLAMA: 3 Kademeli Filtreleme (Tümü, Öğreniliyor, 🏆 Ustalaşılanlar),
+//           5 Aşamalı İlerleme Noktaları ve Psikolojik UX Standartlarına Sahip Kelime Defteri
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -19,9 +20,9 @@ class DictionaryScreen extends StatefulWidget {
 class _DictionaryScreenState extends State<DictionaryScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _searchResults = [];
-  Set<String> _savedWordNames = {};
   bool _isLoading = false;
-  bool _onlySavedFilter = false;
+  
+  int _selectedFilterIndex = 1;
 
   @override
   void initState() {
@@ -34,31 +35,35 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final savedCards = await DatabaseHelper.instance.getFlashcards();
-      final Set<String> savedNames = savedCards
-          .map((card) => (card['word'] as String).toLowerCase().trim())
-          .toSet();
+      List<Map<String, dynamic>> results = [];
 
-      List<Map<String, dynamic>> results;
-      if (_onlySavedFilter) {
-        results = List.from(savedCards);
+      if (_selectedFilterIndex == 0) {
+        final rawResults = await DatabaseHelper.instance.searchWord(query);
+        results = rawResults.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        final flashcards = await DatabaseHelper.instance.getFlashcards();
+        
+        results = flashcards.where((card) {
+          final isMastered = (card['is_mastered'] as int? ?? 0) == 1;
+          if (_selectedFilterIndex == 1) {
+            return !isMastered;
+          } else {
+            return isMastered;
+          }
+        }).map((e) => Map<String, dynamic>.from(e)).toList();
+
         if (query.trim().isNotEmpty) {
           final q = query.toLowerCase().trim();
           results = results.where((item) {
-            final w = (item['word'] as String).toLowerCase();
-            final m = (item['meaning'] as String).toLowerCase();
+            final w = (item['word'] as String? ?? '').toLowerCase();
+            final m = (item['meaning'] as String? ?? '').toLowerCase();
             return w.contains(q) || m.contains(q);
           }).toList();
         }
-      } else {
-        // SQLite'tan gelen listeyi değiştirilebilir yapmak için List.from() ile sarmalıyoruz
-        final rawResults = await DatabaseHelper.instance.searchWord(query);
-        results = rawResults.map((e) => Map<String, dynamic>.from(e)).toList();
       }
 
       if (!mounted) return;
       setState(() {
-        _savedWordNames = savedNames;
         _searchResults = results;
         _isLoading = false;
       });
@@ -68,63 +73,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
   }
 
-  Future<void> _toggleBookmark(Map<String, dynamic> item) async {
-    HapticFeedback.selectionClick();
-    final word = item['word'] as String;
-    final meaning = item['meaning'] as String;
-    final cleanWord = word.trim();
-    final lowerWord = cleanWord.toLowerCase();
-    final isAlreadySaved = _savedWordNames.contains(lowerWord);
-
-    if (isAlreadySaved) {
-      await DatabaseHelper.instance.removeFlashcardByWord(cleanWord);
-      
-      if (!mounted) return;
-      setState(() {
-        _savedWordNames.remove(lowerWord);
-        if (_onlySavedFilter) {
-          _searchResults.removeWhere((element) => (element['word'] as String).toLowerCase().trim() == lowerWord);
-        }
-      });
-
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('"$cleanWord" kelime kartlarından çıkarıldı.'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } else {
-      await DatabaseHelper.instance.addFlashcard(cleanWord, meaning);
-
-      if (!mounted) return;
-      setState(() {
-        _savedWordNames.add(lowerWord);
-      });
-
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('"$cleanWord" kelime kartlarına eklendi! 🌟'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
   Future<void> _deleteWordPermanently(Map<String, dynamic> item) async {
     final word = item['word'] as String;
-    final id = item['id'];
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: Color(0xFF334155))),
-        title: Text('Kelimeyi Sil', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Text('"$word" kelimesini sözlükten ve kartlardan kalıcı olarak silmek istediğine emin misin?', style: GoogleFonts.inter(color: const Color(0xFF94A3B8))),
+        title: Text('Kelimeyi Kartlardan Çıkar', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text('"$word" kelimesini defterinden kaldırmak istediğine emin misin?', style: GoogleFonts.inter(color: const Color(0xFF94A3B8))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -133,7 +91,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Tamamen Sil', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text('Kaldır', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -141,25 +99,13 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
     if (confirm == true) {
       HapticFeedback.mediumImpact();
-      final db = await DatabaseHelper.instance.database;
-      
-      if (id != null) {
-        await db.delete('dictionary', where: 'id = ?', whereArgs: [id]);
-      } else {
-        await db.delete('dictionary', where: 'word = ? COLLATE NOCASE', whereArgs: [word]);
-      }
-      
       await DatabaseHelper.instance.removeFlashcardByWord(word);
+      _loadData(_searchController.text);
 
       if (!mounted) return;
-      setState(() {
-        _searchResults.removeWhere((element) => element['word'].toString().toLowerCase() == word.toLowerCase());
-        _savedWordNames.remove(word.toLowerCase().trim());
-      });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('"$word" sözlükten tamamen silindi.'),
+          content: Text('"$word" kelime defterinden çıkarıldı.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -175,7 +121,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
-          'Çevrimdışı Sözlük & Defter',
+          'Kelime Defteri & Havuz',
           style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
         ),
         centerTitle: true,
@@ -190,7 +136,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                 onChanged: (text) => _loadData(text),
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  hintText: 'Kelime veya anlam ara...',
+                  hintText: 'Defterinde kelime ara...',
                   hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B)),
                   prefixIcon: const Icon(PhosphorIcons.magnifyingGlassBold, color: Color(0xFF64748B), size: 20),
                   suffixIcon: _searchController.text.isNotEmpty
@@ -215,40 +161,20 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
 
-              Row(
-                children: [
-                  ChoiceChip(
-                    label: Text('Tüm Sözlük', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
-                    selected: !_onlySavedFilter,
-                    selectedColor: const Color(0xFF4F46E5),
-                    backgroundColor: const Color(0xFF111827),
-                    labelStyle: TextStyle(color: !_onlySavedFilter ? Colors.white : const Color(0xFF94A3B8)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    onSelected: (val) {
-                      if (val) {
-                        setState(() => _onlySavedFilter = false);
-                        _loadData(_searchController.text);
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text('⭐ Kelime Defterim (${_savedWordNames.length})', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
-                    selected: _onlySavedFilter,
-                    selectedColor: const Color(0xFF4F46E5),
-                    backgroundColor: const Color(0xFF111827),
-                    labelStyle: TextStyle(color: _onlySavedFilter ? Colors.white : const Color(0xFF94A3B8)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    onSelected: (val) {
-                      if (val) {
-                        setState(() => _onlySavedFilter = true);
-                        _loadData(_searchController.text);
-                      }
-                    },
-                  ),
-                ],
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    _buildFilterChip(0, 'Tüm Sözlük', PhosphorIcons.bookBookmarkBold),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(1, 'Öğreniliyor (SRS)', PhosphorIcons.brainBold),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(2, '🏆 Ustalaşılanlar', PhosphorIcons.trophyBold),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -257,9 +183,26 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                     ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
                     : _searchResults.isEmpty
                         ? Center(
-                            child: Text(
-                              _onlySavedFilter ? 'Henüz kaydedilmiş kelime bulunmuyor.' : 'Eşleşen kelime bulunamadı.',
-                              style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _selectedFilterIndex == 2 ? PhosphorIcons.trophy : PhosphorIcons.tray,
+                                    size: 48,
+                                    color: const Color(0xFF334155),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _selectedFilterIndex == 2
+                                        ? 'Henüz ustalaşılan kelime yok 🌱\nSRS kartlarında 5\'te 5 yaparak kalıcı hafızaya alabilirsin.'
+                                        : 'Bu kategoride kayıtlı kelime bulunmuyor.',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13.5, height: 1.4),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                         : ListView.separated(
@@ -270,16 +213,22 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                               final item = _searchResults[index];
                               final String word = item['word'] ?? '';
                               final String meaning = item['meaning'] ?? '';
-                              final String? example = item['example'];
-
-                              final bool isSaved = _savedWordNames.contains(word.toLowerCase().trim());
+                              final String? bookTitle = item['book_title'];
+                              
+                              final int repetitions = item['repetitions'] as int? ?? 0;
+                              final bool isMastered = (item['is_mastered'] as int? ?? 0) == 1;
 
                               return Container(
-                                padding: const EdgeInsets.all(14),
+                                padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF111827).withValues(alpha: 0.85),
+                                  color: isMastered 
+                                      ? const Color(0xFF1E1B4B).withValues(alpha: 0.4) 
+                                      : const Color(0xFF111827).withValues(alpha: 0.85),
                                   borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+                                  border: Border.all(
+                                    color: isMastered ? Colors.amber.withValues(alpha: 0.4) : const Color(0xFF1F2937), 
+                                    width: 1.5,
+                                  ),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,9 +237,28 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            word,
-                                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                word,
+                                                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16.5, color: Colors.white),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              if (bookTitle != null && bookTitle.isNotEmpty)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white.withValues(alpha: 0.06),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: Text(
+                                                    bookTitle,
+                                                    style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8)),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
@@ -298,40 +266,67 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                             style: GoogleFonts.outfit(
                                               color: const Color(0xFF38BDF8),
                                               fontWeight: FontWeight.w700,
-                                              fontSize: 13.5,
+                                              fontSize: 14,
                                             ),
                                           ),
-                                          if (example != null && example.isNotEmpty) ...[
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              example,
-                                              style: GoogleFonts.inter(
-                                                fontStyle: FontStyle.italic,
-                                                fontSize: 11.5,
-                                                color: const Color(0xFF94A3B8),
+                                          const SizedBox(height: 10),
+
+                                          if (isMastered)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: Colors.amber.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                                               ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text('🏆', style: TextStyle(fontSize: 11)),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    'Kalıcı Hafıza • Ustalaşıldı',
+                                                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
+                                                  ),
+                                                ],
+                                              ),
+                                            )
+                                          else
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  'İlerleme ($repetitions/5): ',
+                                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Row(
+                                                  children: List.generate(5, (dotIndex) {
+                                                    final bool isFilled = dotIndex < repetitions;
+                                                    return Container(
+                                                      width: 6,
+                                                      height: 6,
+                                                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        color: isFilled ? const Color(0xFF10B981) : const Color(0xFF334155),
+                                                      ),
+                                                    );
+                                                  }),
+                                                ),
+                                              ],
                                             ),
-                                          ],
                                         ],
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: Icon(
-                                        isSaved ? PhosphorIcons.bookmarkSimpleBold : PhosphorIcons.bookmarkSimple,
-                                        color: isSaved ? Colors.amber : const Color(0xFF64748B),
-                                        size: 22,
-                                      ),
-                                      tooltip: isSaved ? 'Koleksiyondan Çıkar' : 'Flashcard Ekle',
-                                      onPressed: () => _toggleBookmark(item),
-                                    ),
+
                                     IconButton(
                                       icon: const Icon(
                                         PhosphorIcons.trashBold,
                                         color: Color(0xFFEF4444),
-                                        size: 20,
+                                        size: 19,
                                       ),
-                                      tooltip: 'Sözlükten Sil',
+                                      tooltip: 'Defterden Çıkar',
                                       onPressed: () => _deleteWordPermanently(item),
                                     ),
                                   ],
@@ -342,6 +337,36 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(int index, String label, IconData icon) {
+    final bool isSelected = _selectedFilterIndex == index;
+    return ChoiceChip(
+      avatar: Icon(
+        icon,
+        size: 14,
+        color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+      ),
+      label: Text(label, style: GoogleFonts.outfit(fontSize: 12.5, fontWeight: FontWeight.bold)),
+      selected: isSelected,
+      onSelected: (val) {
+        if (val) {
+          HapticFeedback.selectionClick();
+          setState(() => _selectedFilterIndex = index);
+          _loadData(_searchController.text);
+        }
+      },
+      selectedColor: const Color(0xFF4F46E5),
+      backgroundColor: const Color(0xFF111827),
+      labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF94A3B8)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF1F2937),
+          width: 1.5,
         ),
       ),
     );
