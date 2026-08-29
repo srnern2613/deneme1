@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/quiz_exercise_screen.dart
-// AÇIKLAMA: Anlam Çakışması ve Boşluk Korumalı 4 Şıklı Hızlı Test
+// AÇIKLAMA: Anlam Çakışması, Boşluk ve SRS Mastery Köprülü 4 Şıklı Hızlı Test
 // ============================================================================
 
 import 'dart:async';
@@ -10,6 +10,7 @@ import 'tts_service.dart';
 import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'coach_messages.dart';
+import 'database_helper.dart';
 
 class QuizExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -163,7 +164,9 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
     if (_answered) return;
     _questionTimer?.cancel();
 
-    final correctAnswer = (_questions[_currentIndex]['meaning'] ?? '').toString().trim();
+    final currentCard = _questions[_currentIndex];
+    final correctAnswer = (currentCard['meaning'] ?? '').toString().trim();
+    final wordText = (currentCard['word'] ?? '').toString().trim();
     final isCorrect = (option == correctAnswer);
 
     setState(() {
@@ -175,6 +178,34 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       HapticFeedback.mediumImpact();
       _score++;
       _streak++;
+
+      // 🏆 SRS & Kalıcı Hafıza (Mastery) İlerleme Entegrasyonu
+      final cardId = currentCard['id'];
+      int currentRepetitions = (currentCard['repetitions'] as int? ?? 0) + 1;
+      bool isMastered = currentRepetitions >= 5;
+
+      if (cardId != null) {
+        await DatabaseHelper.instance.updateFlashcardSrsProgress(
+          cardId: cardId is int ? cardId : int.tryParse(cardId.toString()) ?? 1,
+          repetitions: currentRepetitions,
+          interval: currentRepetitions * 2,
+          isMastered: isMastered,
+        );
+      } else {
+        final allCards = await DatabaseHelper.instance.getFlashcards();
+        final match = allCards.firstWhere(
+          (c) => (c['word'] ?? '').toString().toLowerCase() == wordText.toLowerCase(),
+          orElse: () => {},
+        );
+        if (match.isNotEmpty && match['id'] != null) {
+          await DatabaseHelper.instance.updateFlashcardSrsProgress(
+            cardId: match['id'],
+            repetitions: currentRepetitions,
+            interval: currentRepetitions * 2,
+            isMastered: isMastered,
+          );
+        }
+      }
 
       final earnedXp = _timeRemaining > 4.5 ? 8 : 6;
       _totalEarnedXp += earnedXp;

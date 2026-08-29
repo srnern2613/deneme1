@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_screen.dart
-// AÇIKLAMA: Entegre Kaynak HUD'lu, Clash Royale / Duolingo Standardında Pratik Merkezi
+// AÇIKLAMA: Entegre Kaynak HUD'lu ve Çakışmasız Pratik Merkezi
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -137,11 +137,8 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // --- 1. MODERN ENTEGRE BAŞLIK VE KAYNAK HUD ---
                     _buildModernHeader(),
                     const SizedBox(height: 18),
-
-                    // --- 2. KELİME ARENASI BİLGİ BANNERI ---
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -188,14 +185,11 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-
                     Text(
                       'Öğrenme & Oyun Modları',
                       style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3),
                     ),
                     const SizedBox(height: 14),
-
-                    // --- 3. OYUN MODU KARTLARI ---
                     _buildPracticeCard(
                       icon: PhosphorIcons.lightningBold,
                       title: '4 Şıklı Hızlı Test',
@@ -205,7 +199,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       onTap: _startQuizExercise,
                     ),
                     const SizedBox(height: 12),
-
                     _buildPracticeCard(
                       icon: PhosphorIcons.cardsBold,
                       title: 'SRS Hafıza Kartları',
@@ -215,7 +208,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       onTap: _startSrsExercise,
                     ),
                     const SizedBox(height: 12),
-
                     _buildPracticeCard(
                       icon: PhosphorIcons.puzzlePieceBold,
                       title: 'Kelime Eşleştirme',
@@ -225,7 +217,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       onTap: _startMatchExercise,
                     ),
                     const SizedBox(height: 12),
-
                     _buildPracticeCard(
                       icon: PhosphorIcons.headphonesBold,
                       title: 'Dinle & Yaz (Spelling)',
