@@ -1,7 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/celebration_dialog.dart
-// AÇIKLAMA: Dinamik Tema Rengine Bürünmüş Işık Halkası, Canlı Sayaçlar, 
-//           Konfeti, Büyüme Odaklı İstatistik ve Çift Buton (Kitaba Dön + Zorlandıklarım)
+// AÇIKLAMA: Dinamik Renkli Işık Halkası, Canlı Sayaçlar, Konfeti,
+//           Mastery (Ustalaşılan Kelime) Destekli Büyüme Modalı
 // ============================================================================
 
 import 'dart:math';
@@ -12,12 +12,13 @@ class CelebrationDialog extends StatefulWidget {
   final String emoji;
   final String title;
   final String subtitle;
-  final Color themeColor; // Dinamik tema rengi
+  final Color themeColor;
   final int earnedXp;
   final int earnedGems;
   final int? totalWordsReviewed;
   final int? strengthenedWords;
   final int? needsReviewWords;
+  final int masteredWordsCount; // Bu oturumda ustalaşılan yeni kelime sayısı
   final String? actionLabel;
   final VoidCallback? onAction;
   final String? secondaryActionLabel;
@@ -34,6 +35,7 @@ class CelebrationDialog extends StatefulWidget {
     this.totalWordsReviewed,
     this.strengthenedWords,
     this.needsReviewWords,
+    this.masteredWordsCount = 0,
     this.actionLabel,
     this.onAction,
     this.secondaryActionLabel,
@@ -51,6 +53,7 @@ class CelebrationDialog extends StatefulWidget {
     int? totalWordsReviewed,
     int? strengthenedWords,
     int? needsReviewWords,
+    int masteredWordsCount = 0,
     String? actionLabel,
     VoidCallback? onAction,
     String? secondaryActionLabel,
@@ -73,6 +76,7 @@ class CelebrationDialog extends StatefulWidget {
         totalWordsReviewed: totalWordsReviewed,
         strengthenedWords: strengthenedWords,
         needsReviewWords: needsReviewWords,
+        masteredWordsCount: masteredWordsCount,
         actionLabel: actionLabel,
         onAction: onAction,
         secondaryActionLabel: secondaryActionLabel,
@@ -162,7 +166,6 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Dinamik Renkli Konfeti Efekti
             AnimatedBuilder(
               animation: _controller,
               builder: (context, child) {
@@ -194,7 +197,7 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Hızlı Kapatma Çıkışı (Sağ Üst Köşe)
+                  // Hızlı Kapatma
                   Align(
                     alignment: Alignment.topRight,
                     child: IconButton(
@@ -213,7 +216,7 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
                     ),
                   ),
 
-                  // Dinamik Temalı Dönen Işık Halkası ve Rozet
+                  // Dönen Işık ve Rozet
                   SizedBox(
                     width: 92,
                     height: 92,
@@ -288,11 +291,11 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
                     ),
                   ),
 
-                  // ZENGİN BÜYÜME İSTATİSTİK PANELİ
+                  // BÜYÜME VE MASTERY İSTATİSTİK PANELİ
                   if (widget.totalWordsReviewed != null && widget.totalWordsReviewed! > 0) ...[
                     const SizedBox(height: 14),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                       decoration: BoxDecoration(
                         color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(16),
@@ -305,16 +308,21 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
                             children: [
                               _buildStatItem('Tekrar Edildi', '${widget.totalWordsReviewed}', Colors.blueAccent),
                               _buildStatItem('Güçlendi', '${widget.strengthenedWords ?? 0}', const Color(0xFF10B981)),
-                              _buildStatItem('Pekiştirilecek', '${widget.needsReviewWords ?? 0}', Colors.orangeAccent),
+                              if (widget.masteredWordsCount > 0)
+                                _buildStatItem('Ustalaşıldı', '🏆 ${widget.masteredWordsCount}', Colors.amber)
+                              else
+                                _buildStatItem('Pekiştirilecek', '${widget.needsReviewWords ?? 0}', Colors.orangeAccent),
                             ],
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '🗓️ Yarın yeni tekrarlar seni bekliyor!',
+                            widget.masteredWordsCount > 0 
+                                ? '🏆 ${widget.masteredWordsCount} kelime kalıcı hafızana geçti!' 
+                                : '🗓️ Yarın yeni tekrarlar seni bekliyor!',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              color: widget.masteredWordsCount > 0 ? Colors.amber : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                             ),
                           ),
                         ],
@@ -387,7 +395,7 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
 
                   const SizedBox(height: 18),
 
-                  // BİRİNCİL ANA BUTON (Dinamik Renkli - Kitaba Dön)
+                  // BİRİNCİL ANA BUTON
                   SizedBox(
                     width: double.infinity,
                     height: 48,
@@ -413,7 +421,7 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
                     ),
                   ),
 
-                  // İKİNCİL BUTON (Zorlandıklarımı Gör - Opsiyonel)
+                  // İKİNCİL BUTON (Zorlandıklarımı Gör)
                   if (widget.secondaryActionLabel != null && widget.onSecondaryAction != null) ...[
                     const SizedBox(height: 8),
                     SizedBox(
@@ -452,9 +460,9 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
   Widget _buildStatItem(String label, String value, Color color) {
     return Column(
       children: [
-        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
+        Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color)),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
       ],
     );
   }

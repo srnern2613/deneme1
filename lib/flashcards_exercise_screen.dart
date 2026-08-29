@@ -1,7 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_exercise_screen.dart
-// AÇIKLAMA: %38 Swipe Eşiği Korumalı, Çift Tetikleme Kilitli,
-//           Bağlamsal Öğrenme, Dinamik Renkli Seans Sonu ve Güvenli Mini-Review
+// AÇIKLAMA: 5'te 5 Mastery (🏆 Ustalaşma Rozeti), %38 Swipe Eşiği Korumalı,
+//           Bağlamsal Öğrenme ve Güvenli Mini-Review
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -34,6 +34,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
   int _knownCount = 0;
   int _hardCount = 0;
   int _reviewCount = 0;
+  int _masteredCountInSession = 0; // Bu seansta 5'te 5 yapan kelimelerin sayısı
   int _initialTotal = 0;
   int _consecutiveKnownStreak = 0;
   int _totalEarnedXp = 0;
@@ -96,7 +97,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
 
   void _triggerCheer(String message) {
     setState(() => _cheerMessage = message);
-    Future.delayed(const Duration(milliseconds: 2200), () {
+    Future.delayed(const Duration(milliseconds: 2400), () {
       if (mounted && _cheerMessage == message) {
         setState(() => _cheerMessage = null);
       }
@@ -122,9 +123,11 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
 
     int newReps = currentReps;
     int newInterval = currentInterval;
+    bool isNowMastered = false;
     int xpGain = 0;
 
     if (rating == 0) {
+      // 🔴 TEKRAR -> Repetitions sıfırlanır, ustalaşma kaybolur
       newReps = 0;
       newInterval = 1;
       _consecutiveKnownStreak = 0;
@@ -135,6 +138,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         _triggerCheer(CoachMessages.getWrongAnswerEncouragement());
       }
     } else if (rating == 1) {
+      // 🟠 ZOR
       _hardCount++;
       _consecutiveKnownStreak = 0;
       _struggledCards.add(currentCard);
@@ -142,15 +146,27 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       newInterval = (currentInterval * 1.3).round().clamp(1, 30);
       xpGain = 4;
     } else {
+      // 🟢 BİLDİM
       _knownCount++;
       _consecutiveKnownStreak++;
       newReps += 1;
       newInterval = (currentInterval * 2.4).round().clamp(3, 120);
       xpGain = 6;
 
-      final cheer = CoachMessages.getFlashcardCheer(_consecutiveKnownStreak);
-      if (cheer != null) {
-        _triggerCheer(cheer);
+      // 5'te 5 Ustalaşma Kontrolü
+      if (newReps >= 5 && newInterval >= 21) {
+        isNowMastered = true;
+        if (!widget.isReviewOnly) {
+          _masteredCountInSession++;
+          xpGain += 10; // Mastery bonus XP
+          HapticFeedback.heavyImpact();
+          _triggerCheer('🏆 Harika! "${currentCard['word']}" kelimesinde ustalaştın!');
+        }
+      } else {
+        final cheer = CoachMessages.getFlashcardCheer(_consecutiveKnownStreak);
+        if (cheer != null) {
+          _triggerCheer(cheer);
+        }
       }
     }
 
@@ -165,6 +181,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           cardId: cardId,
           repetitions: newReps,
           interval: newInterval,
+          isMastered: isNowMastered,
         ).catchError((_) {});
       }
     }
@@ -203,15 +220,18 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
 
     CelebrationDialog.show(
       context,
-      emoji: feedback.emoji,
-      title: feedback.title,
-      subtitle: feedback.subtitle,
-      themeColor: feedback.themeColor,
+      emoji: _masteredCountInSession > 0 ? '🏆' : feedback.emoji,
+      title: _masteredCountInSession > 0 ? 'Yeni Ustalaşma Kazandın!' : feedback.title,
+      subtitle: _masteredCountInSession > 0 
+          ? '$_masteredCountInSession kelimede 5\'te 5 yaparak kalıcı hafızana aldın.' 
+          : feedback.subtitle,
+      themeColor: _masteredCountInSession > 0 ? const Color(0xFFF59E0B) : feedback.themeColor,
       earnedXp: _totalEarnedXp,
       earnedGems: _knownCount == _initialTotal && _initialTotal >= 5 ? 5 : 0,
       totalWordsReviewed: _initialTotal,
       strengthenedWords: _knownCount,
       needsReviewWords: needsReviewCount,
+      masteredWordsCount: _masteredCountInSession,
       actionLabel: feedback.actionLabel,
       onAction: () {
         Navigator.of(context).pop();
@@ -284,11 +304,11 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
+                      color: _cheerMessage!.contains('🏆') ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                          color: (_cheerMessage!.contains('🏆') ? const Color(0xFFF59E0B) : const Color(0xFF10B981)).withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),
@@ -320,6 +340,9 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         ? currentCard['book_title'] 
         : 'Kütüphanem';
     final String? chapterInfo = currentCard['chapter_info'] as String?;
+
+    final int repetitions = currentCard['repetitions'] as int? ?? 0;
+    final bool isAlreadyMastered = (currentCard['is_mastered'] as int? ?? 0) == 1;
 
     final int currentIndex = _initialTotal - _remainingCards.length + 1;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -375,11 +398,9 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           Expanded(
             child: Dismissible(
               key: ValueKey('${currentCard['id']}_$currentIndex'),
-              // Sadece kart açıkken kaydırmaya izin verilir
               direction: _isFlipped && !_isProcessing
                   ? DismissDirection.horizontal 
                   : DismissDirection.none,
-              // %38 minimum sürükleme eşiği
               dismissThresholds: const {
                 DismissDirection.startToEnd: 0.38,
                 DismissDirection.endToStart: 0.38,
@@ -390,9 +411,9 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
               },
               onDismissed: (direction) {
                 if (direction == DismissDirection.startToEnd) {
-                  _handleSrsRating(2); // Sağa = Bildim
+                  _handleSrsRating(2);
                 } else {
-                  _handleSrsRating(0); // Sola = Tekrar
+                  _handleSrsRating(0);
                 }
               },
               background: Container(
@@ -438,12 +459,16 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                     color: isDark ? const Color(0xFF131B2E) : Colors.white,
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF1E293B) : colors.outlineVariant.withValues(alpha: 0.5),
-                      width: 1.5,
+                      color: isAlreadyMastered 
+                          ? Colors.amber.withValues(alpha: 0.45) 
+                          : (isDark ? const Color(0xFF1E293B) : colors.outlineVariant.withValues(alpha: 0.5)),
+                      width: isAlreadyMastered ? 2 : 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+                        color: isAlreadyMastered 
+                            ? Colors.amber.withValues(alpha: isDark ? 0.2 : 0.08) 
+                            : Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
                         blurRadius: 18,
                         offset: const Offset(0, 8),
                       ),
@@ -485,17 +510,54 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                                 ),
                               ),
                             ),
-                            IconButton.filledTonal(
-                              style: IconButton.styleFrom(
-                                backgroundColor: colors.primary.withValues(alpha: 0.12),
-                                padding: const EdgeInsets.all(8),
-                              ),
-                              icon: Icon(Icons.volume_up_rounded, color: colors.primary, size: 22),
-                              tooltip: 'Telaffuzu Dinle',
-                              onPressed: () {
-                                HapticFeedback.selectionClick();
-                                TtsService.instance.speakWord(currentWord);
-                              },
+                            
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Mastery ve İlerleme Noktaları (1..5)
+                                if (isAlreadyMastered)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                                    ),
+                                    child: const Text('🏆 Ustalaşıldı', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Colors.amber)),
+                                  )
+                                else if (repetitions > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: Row(
+                                      children: List.generate(5, (dotIndex) {
+                                        final bool isFilled = dotIndex < repetitions;
+                                        return Container(
+                                          width: 5,
+                                          height: 5,
+                                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: isFilled ? const Color(0xFF10B981) : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                  ),
+
+                                IconButton.filledTonal(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: colors.primary.withValues(alpha: 0.12),
+                                    padding: const EdgeInsets.all(8),
+                                  ),
+                                  icon: Icon(Icons.volume_up_rounded, color: colors.primary, size: 22),
+                                  tooltip: 'Telaffuzu Dinle',
+                                  onPressed: () {
+                                    HapticFeedback.selectionClick();
+                                    TtsService.instance.speakWord(currentWord);
+                                  },
+                                ),
+                              ],
                             ),
                           ],
                         ),

@@ -2,7 +2,7 @@
 // DOSYA ADI: lib/database_helper.dart
 // AÇIKLAMA: SQLite Veritabanı Yöneticisi
 //           - Çevrimdışı 20.000 Kelimelik Sözlük Destekli (POS & Phonetic)
-//           - Flashcard, Highlight ve SRS Şemaları
+//           - Flashcard, Highlight ve 5'te 5 Mastery Destekli SRS Şeması
 // ============================================================================
 
 import 'package:sqflite/sqflite.dart';
@@ -26,7 +26,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10, // Mastery (is_mastered) desteği için sürüm 10'a yükseltildi
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
     );
@@ -49,7 +49,7 @@ class DatabaseHelper {
       CREATE INDEX idx_dictionary_word ON dictionary(word COLLATE NOCASE)
     ''');
 
-    // 2. GELİŞMİŞ FLASHCARD TABLOSU (Bağlam & Kitap Destekli)
+    // 2. GELİŞMİŞ FLASHCARD TABLOSU (Bağlam & Mastery Destekli)
     await db.execute('''
       CREATE TABLE flashcards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,6 +57,7 @@ class DatabaseHelper {
         meaning TEXT NOT NULL,
         interval INTEGER DEFAULT 1,
         repetitions INTEGER DEFAULT 0,
+        is_mastered INTEGER DEFAULT 0,
         context_sentence TEXT,
         book_title TEXT,
         chapter_info TEXT
@@ -125,6 +126,12 @@ class DatabaseHelper {
       } catch (_) {}
       try {
         await db.execute('ALTER TABLE dictionary ADD COLUMN phonetic TEXT');
+      } catch (_) {}
+    }
+
+    if (oldVersion < 10) {
+      try {
+        await db.execute('ALTER TABLE flashcards ADD COLUMN is_mastered INTEGER DEFAULT 0');
       } catch (_) {}
     }
   }
@@ -260,6 +267,7 @@ class DatabaseHelper {
         'meaning': meaning.trim(),
         'interval': 1,
         'repetitions': 0,
+        'is_mastered': 0,
         'context_sentence': contextSentence?.trim(),
         'book_title': bookTitle?.trim(),
         'chapter_info': chapterInfo?.trim(),
@@ -283,12 +291,13 @@ class DatabaseHelper {
     return await db.delete('flashcards', where: 'id = ?', whereArgs: [id]);
   }
 
-  // --- SRS METODU ---
+  // --- SRS & MASTERY İLERLEME GÜNCELLEMESİ ---
 
   Future<void> updateFlashcardSrsProgress({
     required int cardId,
     required int repetitions,
     required int interval,
+    bool isMastered = false,
   }) async {
     final db = await database;
     await db.update(
@@ -296,6 +305,7 @@ class DatabaseHelper {
       {
         'repetitions': repetitions,
         'interval': interval,
+        'is_mastered': isMastered ? 1 : 0,
       },
       where: 'id = ?',
       whereArgs: [cardId],
