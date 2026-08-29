@@ -1,11 +1,10 @@
 // ============================================================================
 // DOSYA ADI: lib/dictionary_screen.dart
-// AÇIKLAMA: Faz 2 - Kelime Koleksiyonu & Kalıcı Hafıza (Mastery) Vitrini
-// GÖREVLER:
-//   1. 5 Aşamalı SRS İlerleme Hiyerarşisi (DISCOVERED -> SEEN -> REMEMBERED -> STRONG -> MASTERED)
-//   2. Clash Royale benzeri kart koleksiyonu ve seviyelendirme mantığı
-//   3. Orijinal kitap bağlamı (Context Sentence) ve kitap adı gösterimi
-//   4. Canlı istatistik paneli (Öğrenilen ve Ustalaşılan kelime sayaçları)
+// AÇIKLAMA: Faz 2 - Clash Royale Tarzı "My Word Collection" & Mastered Arşivi
+// GÖREVLER & DÜZELTMELER:
+//   1. 5 Aşamalı SRS Hiyerarşisi ve Mastered Kalıcı Başarı Vitrini.
+//   2. Asenkron yarış durumlarına karşı mounted güvenliği.
+//   3. Performans dostu lazy-loading liste yapısı.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -28,10 +27,10 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   // Ekranda listelenecek filtrelenmiş kelimelerin listesi
   List<Map<String, dynamic>> _searchResults = [];
   
-  // Veritabanı sorgusu sürerken yükleniyor animasyonunu kontrol eden bayrak
+  // Yüklenme durumu bayrağı
   bool _isLoading = false;
   
-  // Seçili filtre sekmesi indeksi: 0 = Tüm Sözlük, 1 = Öğreniliyor, 2 = Ustalaşılanlar
+  // Seçili filtre sekmesi: 0 = Tüm Sözlük, 1 = Öğreniliyor, 2 = Ustalaşılanlar (Mastered)
   int _selectedFilterIndex = 1;
 
   // Koleksiyon istatistik sayaçları
@@ -41,40 +40,37 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   @override
   void initState() {
     super.initState();
-    // Ekran ilk açıldığında boş arama sorgusu ile mevcut kelimeleri yükle
     _loadData('');
   }
 
-  /// Veritabanından kelimeleri çeken, filtreleyen ve arama sorgusunu uygulayan ana fonksiyon
+  /// Asenkron veri yükleme ve yarış durumu korumalı state yönetimi
   Future<void> _loadData(String query) async {
     if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
-      // 1. ADIM: Tüm kartları getir ve üst sayaçlar için istatistikleri hesapla
       final flashcards = await DatabaseHelper.instance.getFlashcards();
+      if (!mounted) return;
+
       _totalMasteredCount = flashcards.where((c) => (c['is_mastered'] as int? ?? 0) == 1).length;
       _totalLearningCount = flashcards.where((c) => (c['is_mastered'] as int? ?? 0) == 0).length;
 
       List<Map<String, dynamic>> results = [];
 
-      // 2. ADIM: Seçili filtreye göre veritabanı ayrımı yap
       if (_selectedFilterIndex == 0) {
-        // Tüm sözlük araması (çevrimdışı genel sözlük tablosu)
         final rawResults = await DatabaseHelper.instance.searchWord(query);
+        if (!mounted) return;
         results = rawResults.map((e) => Map<String, dynamic>.from(e)).toList();
       } else {
-        // Öğreniliyor veya Ustalaşılanlar (Kullanıcının aktif SRS kartları tablosu)
         results = flashcards.where((card) {
           final isMastered = (card['is_mastered'] as int? ?? 0) == 1;
           if (_selectedFilterIndex == 1) {
-            return !isMastered; // Sadece öğrenim aşamasındakiler (0-4 tekrar)
+            return !isMastered;
           } else {
-            return isMastered; // Sadece ustalaşılmış olanlar (5 tekrar ve üzeri)
+            return isMastered;
           }
         }).map((e) => Map<String, dynamic>.from(e)).toList();
 
-        // Metin kutusunda arama yapılıyorsa filtre sonuçlarını daralt
         if (query.trim().isNotEmpty) {
           final q = query.toLowerCase().trim();
           results = results.where((item) {
@@ -90,17 +86,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         _searchResults = results;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
 
-  /// Kelimeyi koleksiyondan ve SRS tekrarlarından kalıcı olarak silen diyalog ve işlem
+  /// Kelimeyi koleksiyondan kalıcı olarak silen güvenli operasyon
   Future<void> _deleteWordPermanently(Map<String, dynamic> item) async {
     final word = item['word'] as String;
 
-    // Kullanıcıya onay penceresi göstererek yanlışlıkla silmeleri önle
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -131,13 +126,12 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       ),
     );
 
-    // Kullanıcı onayladıysa veritabanından sil ve listeyi tazele
-    if (confirm == true) {
+    if (confirm == true && mounted) {
       HapticFeedback.mediumImpact();
       await DatabaseHelper.instance.removeFlashcardByWord(word);
+      if (!mounted) return;
       _loadData(_searchController.text);
 
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('"$word" koleksiyondan çıkarıldı.'),
@@ -147,17 +141,15 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
   }
 
-  /// SRS tekrar sayısına (0-5) göre psikolojik aşama başlığını döndürür
   String _getMasteryStageTitle(int reps) {
-    if (reps <= 0) return 'DISCOVERED';    // Yeni keşfedildi
-    if (reps == 1) return 'SEEN';          // Görüldü
-    if (reps == 2) return 'REMEMBERED';     // Hatırlandı
-    if (reps == 3) return 'STRONG';         // Güçlü hafıza
-    if (reps == 4) return 'NEAR MASTERY';  // Kalıcı hafızaya 1 adım kaldı
-    return 'MASTERED';                     // Tamamen ustalaşıldı
+    if (reps <= 0) return 'DISCOVERED';
+    if (reps == 1) return 'SEEN';
+    if (reps == 2) return 'REMEMBERED';
+    if (reps == 3) return 'STRONG';
+    if (reps == 4) return 'NEAR MASTERY';
+    return 'MASTERED';
   }
 
-  /// Aşamaya uygun renk temasını belirler (Mavi -> İndigo -> Mor -> Amber -> Zümrüt Yeşili)
   Color _getMasteryStageColor(int reps) {
     if (reps <= 0) return const Color(0xFF64748B);
     if (reps == 1) return const Color(0xFF38BDF8);
@@ -176,7 +168,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
-          'Kelime Koleksiyonu (Mastery)',
+          '📚 My Word Collection',
           style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
         ),
         centerTitle: true,
@@ -188,22 +180,25 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
             children: [
               // --- 1. KOLEKSİYON İSTATİSTİK ÖZET KARTI ---
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.4)),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.4), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.15), blurRadius: 16, offset: const Offset(0, 4)),
+                  ],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _buildStatItem('Öğreniliyor', '$_totalLearningCount', const Color(0xFF38BDF8)),
                     Container(height: 28, width: 1, color: Colors.white.withValues(alpha: 0.1)),
-                    _buildStatItem('Kalıcı Hafıza', '$_totalMasteredCount', Colors.amber),
+                    _buildStatItem('🏆 Mastered Words', '$_totalMasteredCount', Colors.amber),
                   ],
                 ),
               ),
@@ -242,7 +237,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
               ),
               const SizedBox(height: 14),
 
-              // --- 3. KATEGORİ VE DURUM FİLTRELEME BUTONLARI ---
+              // --- 3. KATEGORİ VE DURUM FİLTRELEME ---
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -252,7 +247,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                     const SizedBox(width: 8),
                     _buildFilterChip(1, 'Öğreniliyor', PhosphorIcons.brainBold),
                     const SizedBox(width: 8),
-                    _buildFilterChip(2, '🏆 Ustalaşılanlar', PhosphorIcons.trophyBold),
+                    _buildFilterChip(2, '🏆 Mastered Words', PhosphorIcons.trophyBold),
                   ],
                 ),
               ),
@@ -277,7 +272,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                   const SizedBox(height: 12),
                                   Text(
                                     _selectedFilterIndex == 2
-                                        ? 'Henüz ustalaşılan kelime yok 🌱\n5 tekrarı tamamlayarak kalıcı koleksiyonuna katabilirsin.'
+                                        ? 'Henüz mastered kelime yok 🌱\nTekrarları tamamlayarak kalıcı koleksiyonuna katabilirsin.'
                                         : 'Bu filtrede kayıtlı kelime bulunmuyor.',
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13.5, height: 1.4),
@@ -310,7 +305,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                       : const Color(0xFF111827).withValues(alpha: 0.85),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: isMastered ? Colors.amber.withValues(alpha: 0.45) : const Color(0xFF1F2937), 
+                                    color: isMastered ? Colors.amber.withValues(alpha: 0.5) : const Color(0xFF1F2937), 
                                     width: 1.5,
                                   ),
                                 ),
@@ -321,7 +316,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          // Kelime başlığı ve kaydedildiği kitap etiketi
                                           Row(
                                             children: [
                                               Text(
@@ -346,7 +340,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                             ],
                                           ),
                                           const SizedBox(height: 3),
-                                          // Kelime anlamı
                                           Text(
                                             meaning,
                                             style: GoogleFonts.outfit(
@@ -355,8 +348,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                               fontSize: 14.5,
                                             ),
                                           ),
-
-                                          // Orijinal kitap bağlam cümlesi (Context)
                                           if (contextSentence != null && contextSentence.trim().isNotEmpty) ...[
                                             const SizedBox(height: 6),
                                             Text(
@@ -370,10 +361,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ],
-
                                           const SizedBox(height: 10),
-
-                                          // Kalıcı Hafıza Rozeti veya 5 Kademeli SRS Göstergesi
                                           if (isMastered)
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -397,7 +385,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                           else
                                             Row(
                                               children: [
-                                                // Aşama etiketi (DISCOVERED, SEEN vb.)
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                   decoration: BoxDecoration(
@@ -415,7 +402,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8),
-                                                // 5 kademeli ilerleme noktacıkları
                                                 Row(
                                                   children: List.generate(5, (dotIndex) {
                                                     final bool isFilled = dotIndex < repetitions;
@@ -441,7 +427,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    // Silme / Koleksiyondan Çıkarma butonu
                                     IconButton(
                                       icon: const Icon(
                                         PhosphorIcons.trashBold,
@@ -464,7 +449,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     );
   }
 
-  /// Üst istatistik kutucuklarını oluşturan yardımcı widget
   Widget _buildStatItem(String title, String count, Color color) {
     return Column(
       children: [
@@ -481,7 +465,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     );
   }
 
-  /// Filtre çipini (ChoiceChip) oluşturan yardımcı widget
   Widget _buildFilterChip(int index, String label, IconData icon) {
     final bool isSelected = _selectedFilterIndex == index;
     return ChoiceChip(

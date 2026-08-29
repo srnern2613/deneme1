@@ -1,12 +1,10 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
-// AÇIKLAMA: Faz 3 - Kelime Avcısı (Word Hunter) & Sıfır Taşma/Sıfır Hata Mimarisi
-// GÖREVLER & GÜVENLİK ÖNLEMLERİ:
-//   1. %82 Max-Height Sınırı: Küçük ekranlarda dikey taşmayı kesin olarak önler.
-//   2. sheetContext.mounted Koruması: Modal kapatıldığında asenkron çökmeleri engeller.
-//   3. Çift Çıkış Kilidi (_isExiting): Çift kutlama modalı açılmasını önler.
-//   4. TTS Güvenli Durdurma: Çıkışta sesin arkada kalmasını engeller.
-//   5. Word Hunter Canlı Av Sayacı ve XP Ödül Sistemi.
+// AÇIKLAMA: Faz 3 - Memoization & Yüksek Performanslı Kelime Avcısı Okuyucu
+// GÖREVLER & DÜZELTMELER:
+//   1. Sayfa Başına _spanCache (Memoization): Hızlı sayfa kaydırmada CPU sıfıra çekildi.
+//   2. Önbellek İptal Tetikleyicileri: Font, tema veya fosfor değiştiğinde cache temizlenir.
+//   3. Çift Çıkış ve Asenkron Mounted Korumaları Korundu.
 // ============================================================================
 
 import 'dart:async';
@@ -27,7 +25,6 @@ import 'celebration_dialog.dart';
 enum ReaderTheme { light, sepia, dark }
 enum ReaderFont { serif, sans }
 
-/// Okuma oturumunun sonucunu ana ekrana taşıyan model
 class ReadingSessionResult {
   final int durationSeconds;
   final int wordsExamined;
@@ -69,15 +66,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
   ReaderTheme _currentTheme = ReaderTheme.sepia;
   final ReaderFont _currentFont = ReaderFont.serif;
 
-  // Kontrol barlarının görünürlük durumu
   bool _showControls = true;
   String? _selectedWord;
-  bool _isExiting = false; // Çift çıkış / mükerrer dialog koruması
+  bool _isExiting = false;
 
-  // Sayfadaki fosforlu kalem işaretlemeleri
+  // Sayfa bazlı fosforlu işaretlemeler
   final List<Map<String, dynamic>> _pageHighlightData = [];
 
-  // Seans istatistikleri ve sayaçlar
+  // MEMOIZATION: Ayrıştırılmış InlineSpan Önbelleği
+  final Map<int, List<InlineSpan>> _spansCache = {};
+
   DateTime _sessionStartTime = DateTime.now();
   int _wordsExaminedCount = 0;
   int _wordsAddedCount = 0;
@@ -107,7 +105,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return _posTranslations[clean] ?? pos.toUpperCase();
   }
 
-  /// Tırnak, sembol ve noktalama işaretlerini regex ile temizler
   String _cleanWordText(String raw) {
     var cleaned = raw.replaceAll(
       RegExp(r'''^[\s"“”'‘’\(\)\[\]\{\}\.,;:!?\-—_]+|[\s"“”'‘’\(\)\[\]\{\}\.,;:!?\-—_]+$'''), 
@@ -133,7 +130,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _loadHighlightsForCurrentPage(_currentPage);
   }
 
-  /// Sayfadaki vurguları veritabanından güvenle yükler
   Future<void> _loadHighlightsForCurrentPage(int pageIndex) async {
     try {
       final rawHighlights = await DatabaseHelper.instance.getHighlightsForPage(widget.book.id, pageIndex);
@@ -147,6 +143,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         setState(() {
           _pageHighlightData.clear();
           _pageHighlightData.addAll(data);
+          _spansCache.remove(pageIndex); // İlgili sayfanın önbelleğini tazele
         });
       }
     } catch (_) {}
@@ -155,12 +152,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   void dispose() {
     _sessionTimer?.cancel();
-    TtsService.instance.stop(); // Arkada ses çalmaya devam etmesini önle
+    TtsService.instance.stop();
     _pageController.dispose();
+    _spansCache.clear();
     super.dispose();
   }
 
-  /// Okuma süresi koçluk bildirimlerini yöneten zamanlayıcı
   void _startSessionCoachTimer() {
     _sessionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
@@ -187,7 +184,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  /// Oturum çıkışını ve sonuç kutlama modalını yöneten fonksiyon
   void _handleExit() {
     if (_isExiting) return;
     _isExiting = true;
@@ -201,7 +197,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     int pagesDelta = _currentPage - _initialStartPage;
     int pagesRead = pagesDelta > 0 ? pagesDelta : (totalSeconds >= 20 ? 1 : 0);
 
-    // XP Kazancı: Okunan sayfa başı +10 XP, avlanan kelime başı +15 XP
     final calculatedXp = (pagesRead * 10) + (_wordsAddedCount * 15);
     if (calculatedXp > 0) {
       XpShopService.instance.addXp(calculatedXp).catchError((_) => 0);
@@ -237,7 +232,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  // --- TEMA RENKLERİ ---
   Color get _backgroundColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia:
@@ -356,6 +350,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       );
       setState(() {
         _pageHighlightData.removeAt(existingIndex);
+        _spansCache.remove(pageIndex);
       });
     } else {
       if (existingIndex >= 0) {
@@ -388,7 +383,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     await _loadHighlightsForCurrentPage(pageIndex);
   }
 
-  /// Kelime Detayı ve Avlama Penceresi (Taşma ve Ekran Uyumluluk Korumalı)
   Future<void> _showWordDetails(
     String word, 
     int pageIndex, 
@@ -404,6 +398,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     setState(() {
       _selectedWord = cleanWord;
       _wordsExaminedCount++;
+      _spansCache.remove(pageIndex);
     });
 
     if (!mounted) return;
@@ -469,7 +464,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               ),
                               const SizedBox(height: 12),
 
-                              // Kelime Başlığı, Seviye Etiketi ve Ses Butonu
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -547,7 +541,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               ),
                               const SizedBox(height: 10),
 
-                              // Sözlük Anlamı Yükleme Durumu
                               if (isLoading) ...[
                                 Row(
                                   children: [
@@ -624,7 +617,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                               const SizedBox(height: 10),
 
-                              // Orijinal Kitap Cümlesi Önizlemesi (Context)
                               if (contextSentence.trim().isNotEmpty)
                                 Container(
                                   width: double.infinity,
@@ -646,7 +638,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                               const SizedBox(height: 10),
 
-                              // Fosforlu Kalem Seçenekleri (Kelime)
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -683,7 +674,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               ),
                               const SizedBox(height: 8),
 
-                              // Fosforlu Kalem Seçenekleri (Tüm Cümle)
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -720,7 +710,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               ),
                               const SizedBox(height: 12),
 
-                              // WORD HUNTER: Kelime Avlama ve Koleksiyona Katma Butonu
                               SizedBox(
                                 width: double.infinity,
                                 height: 44,
@@ -802,7 +791,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
       },
     ).whenComplete(() {
       if (mounted) {
-        setState(() => _selectedWord = null);
+        setState(() {
+          _selectedWord = null;
+          _spansCache.remove(pageIndex);
+        });
       }
     });
   }
@@ -837,18 +829,25 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  // OPTİMİZE EDİLMİŞ METİN AYRIŞTIRICI (MEMOIZATION DESTEKLİ)
   List<InlineSpan> _buildOptimizedSpans(int pageIndex) {
+    if (_spansCache.containsKey(pageIndex)) {
+      return _spansCache[pageIndex]!;
+    }
+
     final pageContent = (widget.book.pages.isNotEmpty && pageIndex < widget.book.pages.length)
         ? widget.book.pages[pageIndex]
         : '';
 
     if (pageContent.trim().isEmpty) {
-      return [
+      final fallback = [
         TextSpan(
           text: 'Bu sayfada görüntülenecek metin bulunamadı.',
           style: _readerTextStyle.copyWith(fontStyle: FontStyle.italic),
         ),
       ];
+      _spansCache[pageIndex] = fallback;
+      return fallback;
     }
 
     final clean = _normalizePdfText(pageContent);
@@ -913,6 +912,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
         );
       }
     }
+
+    _spansCache[pageIndex] = spans;
     return spans;
   }
 
@@ -971,7 +972,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           divisions: 8,
                           onChanged: (val) {
                             HapticFeedback.selectionClick();
-                            setState(() => _fontSize = val);
+                            setState(() {
+                              _fontSize = val;
+                              _spansCache.clear(); // Font değişince önbelleği temizle
+                            });
                           },
                         ),
                       ),
@@ -1004,7 +1008,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
         child: GestureDetector(
           onTap: () {
             HapticFeedback.selectionClick();
-            setState(() => _currentTheme = theme);
+            setState(() {
+              _currentTheme = theme;
+              _spansCache.clear(); // Tema değişince önbelleği temizle
+            });
             Navigator.pop(context);
           },
           child: Container(
@@ -1039,7 +1046,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         backgroundColor: _backgroundColor,
         body: Stack(
           children: [
-            // 1. ANA METİN VE SAYFA GÖRÜNÜMÜ
             GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -1068,7 +1074,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
 
-            // 2. ÜST BAR & WORD HUNTER HUD GÖSTERGESİ (Genişlik Korumalı)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOut,
@@ -1097,8 +1102,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _textColor),
                       ),
                     ),
-
-                    // Word Hunter Mini Av Sayacı (HUD)
                     Container(
                       margin: const EdgeInsets.only(right: 12),
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
@@ -1128,7 +1131,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
 
-            // 3. ALT SAYFA VE AYAR ÇUBUĞU
             AnimatedPositioned(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOut,
@@ -1183,7 +1185,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
 
-            // 4. KOÇLUK & AV TOAST BİLDİRİMİ
             if (_activeCoachToast != null)
               Positioned(
                 top: MediaQuery.of(context).padding.top + 60,

@@ -1,10 +1,10 @@
 // ============================================================================
 // DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Faz 4 - Öğrenme Kimliği & Lig Arenası Yönlendirmeli Profil
+// AÇIKLAMA: Mantıksal Yönlendirmeleri ve Mastered Vitrini Entegre Edilmiş Profil
 // GÖREVLER & DÜZELTMELER:
-//   1. Lig Kartı Yönlendirmesi: _buildLeagueRankCard artık LeaderboardScreen'e tıklandığında geçiş sağlar.
-//   2. getBooks Güvenliği: Kitaplar benzersiz book_title üzerinden hesaplanır.
-//   3. Madde 10, 34, 35 standartları korunmuştur.
+//   1. "İncelenen Kelime" ve banner yönlendirmeleri DictionaryScreen'e bağlandı.
+//   2. Asenkron veri yükleme yaşam döngüsüne mounted kontrolleri eklendi.
+//   3. Kalıcı hafıza ve koleksiyon istatistikleri canlı olarak senkronize edildi.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -24,7 +24,7 @@ import 'achievement_service.dart';
 import 'celebration_dialog.dart';
 import 'shop_screen.dart';
 import 'dictionary_screen.dart';
-import 'leaderboard_screen.dart'; // <--- YENİ EKLENEN LİG EKRANI
+import 'leaderboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -58,11 +58,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadProfileData();
   }
 
+  /// Asenkron veri yarış durumlarını (race condition) önleyen güvenli veri yükleme
   Future<void> _loadProfileData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cards = await DatabaseHelper.instance.getFlashcards();
       
+      if (!mounted) return;
+
       final uniqueBooks = <String>{};
       for (var card in cards) {
         final title = (card['book_title'] as String?)?.trim();
@@ -85,7 +88,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final xp = await XpShopService.instance.getTotalXp();
       final gems = await XpShopService.instance.getGemsBalance();
       final crown = await XpShopService.instance.hasItem('golden_crown');
-      final flame = prefs.getBool('item_flame_border') ?? false;
+      final flame = await XpShopService.instance.hasItem('flame_border');
+
+      if (!mounted) return;
 
       final List<int> heatmapData = [];
       final now = DateTime.now();
@@ -131,7 +136,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     HapticFeedback.selectionClick();
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => screen),
-    ).then((_) => _loadProfileData());
+    ).then((_) {
+      if (mounted) _loadProfileData();
+    });
   }
 
   Map<String, dynamic> _getReaderLevelInfo() {
@@ -252,15 +259,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildModernProfileHeader(),
               const SizedBox(height: 18),
 
-              // 1. ÖĞRENME KİMLİĞİ VE READER LEVEL RÜTBE KARTI (Madde 34 & 35)
+              // 1. ÖĞRENME KİMLİĞİ VE READER LEVEL RÜTBE KARTI
               _buildLearningIdentityCard(),
               const SizedBox(height: 16),
 
-              // 2. KALICI HAFIZA (MASTERY) İLERLEME VİTRİNİ KARTI (Madde 10)[cite: 4]
+              // 2. MASTERED WORDS VİTRİNİ (Koleksiyon Odasına Yönlendirir)
               _buildMasteryProgressBanner(),
               const SizedBox(height: 16),
 
-              // 3. GÜNCELLENDİ: LİG ARENASINA YÖNLENDİREN LİG KARTI
+              // 3. LİG ARENASINA YÖNLENDİREN LİG KARTI
               _buildLeagueRankCard(),
               const SizedBox(height: 18),
 
@@ -351,16 +358,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                ),
-                child: Text(
-                  '📚 $_totalBooksCount Kitap',
-                  style: GoogleFonts.outfit(color: const Color(0xFFE2E8F0), fontWeight: FontWeight.bold, fontSize: 11),
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => _navigateTo(const LibraryScreen()),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: Text(
+                    '📚 $_totalBooksCount Kitap',
+                    style: GoogleFonts.outfit(color: const Color(0xFFE2E8F0), fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
                 ),
               ),
             ],
@@ -385,6 +396,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// Kalıcı Başarı Vitrini (Tıklandığında DictionaryScreen koleksiyon odasını açar)
   Widget _buildMasteryProgressBanner() {
     final double percentage = _totalFlashcards > 0 
         ? (_masteredFlashcardsCount / _totalFlashcards).clamp(0.0, 1.0) 
@@ -418,7 +430,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const Text('🏆', style: TextStyle(fontSize: 20)),
                     const SizedBox(width: 8),
                     Text(
-                      'Kalıcı Hafıza Vitrini',
+                      'Mastered Words Vitrini',
                       style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900),
                     ),
                   ],
@@ -431,7 +443,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                   ),
                   child: Text(
-                    '%$percentInt Hafıza',
+                    '%$percentInt Tamamlandı',
                     style: GoogleFonts.outfit(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11.5),
                   ),
                 ),
@@ -439,7 +451,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Toplam $_totalFlashcards kelimeden $_masteredFlashcardsCount tanesinde ustalaştın.',
+              'Toplam havuzdaki $_totalFlashcards kelimeden $_masteredFlashcardsCount tanesi kalıcı hafızaya alındı.',
               style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12),
             ),
             const SizedBox(height: 12),
@@ -638,7 +650,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // GÜNCELLENDİ: Tıklanabilir ve doğrudan LeaderboardScreen açan Lig Kartı
   Widget _buildLeagueRankCard() {
     return InkWell(
       borderRadius: BorderRadius.circular(22),
@@ -863,10 +874,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
       crossAxisSpacing: 12,
       childAspectRatio: 1.35,
       children: [
-        _buildStatCard('Okuma Süresi', '$_totalReadMinutes dk', PhosphorIcons.timerBold, const Color(0xFF38BDF8), () => _navigateTo(const LibraryScreen())),
-        _buildStatCard('Kelime Havuzu', '$_totalFlashcards Kart', PhosphorIcons.cardsBold, const Color(0xFFEC4899), () => _navigateTo(const FlashcardsScreen())),
-        _buildStatCard('İncelenen Kelime', '$_totalWordsExamined Kelime', PhosphorIcons.magnifyingGlassBold, const Color(0xFF10B981), () => _navigateTo(const FlashcardsScreen())),
-        _buildStatCard('Başarı Serisi', '$_streakDays Gün', PhosphorIcons.fireBold, const Color(0xFFF59E0B), () => _navigateTo(const HabitTrackerScreen())),
+        _buildStatCard(
+          'Okuma Süresi', 
+          '$_totalReadMinutes dk', 
+          PhosphorIcons.timerBold, 
+          const Color(0xFF38BDF8), 
+          () => _navigateTo(const LibraryScreen()),
+        ),
+        _buildStatCard(
+          'Kelime Havuzu', 
+          '$_totalFlashcards Kart', 
+          PhosphorIcons.cardsBold, 
+          const Color(0xFFEC4899), 
+          () => _navigateTo(const FlashcardsScreen()),
+        ),
+        _buildStatCard(
+          'Koleksiyon Arşivi', 
+          '$_totalWordsExamined Kelime', 
+          PhosphorIcons.magnifyingGlassBold, 
+          const Color(0xFF10B981), 
+          () => _navigateTo(const DictionaryScreen()),
+        ),
+        _buildStatCard(
+          'Başarı Serisi', 
+          '$_streakDays Gün', 
+          PhosphorIcons.fireBold, 
+          const Color(0xFFF59E0B), 
+          () => _navigateTo(const HabitTrackerScreen()),
+        ),
       ],
     );
   }

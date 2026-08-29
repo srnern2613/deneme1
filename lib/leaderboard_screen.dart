@@ -95,12 +95,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       final userCurrentXp = xp > 0 ? xp : 4108;
 
       final List<Map<String, dynamic>> simulatedLeague = [
-        {'name': 'Zeynep K.', 'xp': userCurrentXp + 30, 'avatar': '👑', 'isUser': false},
+        {'name': 'Seydihan Akıl.', 'xp': userCurrentXp + 30, 'avatar': '👑', 'isUser': false},
         {'name': 'Eren (Sen)', 'xp': userCurrentXp, 'avatar': '🛡️', 'isUser': true},
-        {'name': 'Mert Demir', 'xp': (userCurrentXp - 10).clamp(0, 999999), 'avatar': '⚡', 'isUser': false},
-        {'name': 'Canan Yılmaz', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'avatar': '🦊', 'isUser': false},
-        {'name': 'Burak Kaya', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'avatar': '🎯', 'isUser': false},
-        {'name': 'Ayşe S.', 'xp': (userCurrentXp - 130).clamp(0, 999999), 'avatar': '🌸', 'isUser': false},
+        {'name': 'Sezer', 'xp': (userCurrentXp - 10).clamp(0, 999999), 'avatar': '⚡', 'isUser': false},
+        {'name': 'Zenci', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'avatar': '🦊', 'isUser': false},
+        {'name': 'Çinli', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'avatar': '🎯', 'isUser': false},
+        {'name': 'Gece.', 'xp': (userCurrentXp - 130).clamp(0, 999999), 'avatar': '🌸', 'isUser': false},
         {'name': 'Deniz Acar', 'xp': (userCurrentXp - 180).clamp(0, 999999), 'avatar': '🚀', 'isUser': false},
         {'name': 'Selin Öztürk', 'xp': (userCurrentXp - 230).clamp(0, 999999), 'avatar': '⭐', 'isUser': false},
         {'name': 'Emre Aydın', 'xp': (userCurrentXp - 280).clamp(0, 999999), 'avatar': '🎮', 'isUser': false},

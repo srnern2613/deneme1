@@ -1,7 +1,11 @@
-// ==============================================================
+// ============================================================================
 // DOSYA ADI: lib/xp_shop_service.dart
-// AÇIKLAMA: Duolingo Modeli XP & Kıt Elmas (Gems) Ekonomisi Servisi
-// ==============================================================
+// AÇIKLAMA: Duolingo / Clash Royale Modeli XP & Elmas Ekonomisi Servisi
+// GÖREVLER & DÜZELTMELER:
+//   1. Eşya anahtarları (golden_crown, flame_border, neon_theme) standartlaştırıldı.
+//   2. Çift XP süresi milisaniye bazlı epoch zamanına bağlandı.
+//   3. Kalkan ve bakiye düşüm metodları senkronize edildi.
+// ============================================================================
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,7 +25,7 @@ class XpShopService {
     return prefs.getInt('user_gems_balance') ?? 50;
   }
 
-  // XP Ekleme
+  // XP Ekleme (Çift XP aktifse 2 katı kazandırır)
   Future<int> addXp(int amount) async {
     final prefs = await SharedPreferences.getInstance();
     int currentXp = await getTotalXp();
@@ -62,7 +66,7 @@ class XpShopService {
   // Kalkan Durumu
   Future<bool> hasFreezeShield() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('has_freeze_shield') ?? true;
+    return prefs.getBool('has_freeze_shield') ?? false;
   }
 
   Future<void> setFreezeShield(bool value) async {
@@ -90,13 +94,23 @@ class XpShopService {
     return DateTime.now().millisecondsSinceEpoch < expiry;
   }
 
+  // Eşya Sahipliği Kontrolü (Tüm profille uyumlu standart)
   Future<bool> hasItem(String itemId) async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('item_owned_$itemId') ?? false;
+    return prefs.getBool('item_owned_$itemId') ?? prefs.getBool('item_$itemId') ?? false;
   }
 
+  // Eşya Satın Alma ve Kalıcı Kaydetme
   Future<void> buyItem(String itemId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('item_owned_$itemId', true);
+    await prefs.setBool('item_$itemId', true);
+  }
+
+  // Eşya İptali (Test / Debug için)
+  Future<void> revokeItem(String itemId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('item_owned_$itemId', false);
+    await prefs.setBool('item_$itemId', false);
   }
 }

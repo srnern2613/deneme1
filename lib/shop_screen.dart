@@ -1,6 +1,10 @@
 // ============================================================================
 // DOSYA ADI: lib/shop_screen.dart
-// AÇIKLAMA: Akıcı Uçuş Hızı, Kozmik Arka Plan & "Bugün Alınanlar" Envanter Çubuklu Mağaza
+// AÇIKLAMA: Faz 6 - Performans İzolasyonlu Ganimet Dükkanı & Kusursuz Tipografi
+// GÖREVLER & DÜZELTMELER:
+//   1. _formatDuration metodu eklendi (undefined_method hatası giderildi).
+//   2. ValueListenableBuilder ile izole geri sayım sayacı korundu.
+//   3. Gece 00:00 geçişinde otomatik veri yenileme entegrasyonu.
 // ============================================================================
 
 import 'dart:async';
@@ -23,21 +27,24 @@ class ShopScreen extends StatefulWidget {
 }
 
 class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
-  int _userGems = 500;
+  int _userGems = 50;
   int _userTotalXp = 100;
   int _streakDays = 1;
   bool _hasFreezeShield = false;
   bool _isDoubleXpActive = false;
   bool _hasGoldenCrown = false;
+  bool _hasFlameBorder = false;
+  bool _hasNeonTheme = false;
   bool _isWagerActive = false;
   bool _hasUsedRepairToday = false;
   int _chestsOpenedToday = 0;
   int _wagerProgressDays = 3;
 
+  // İzole Geri Sayım Değeri (Tüm ekranı baştan çizmez)
+  final ValueNotifier<Duration> _timeUntilMidnightNotifier = ValueNotifier<Duration>(Duration.zero);
   Timer? _countdownTimer;
-  Duration _timeUntilMidnight = Duration.zero;
 
-  // Canlı HUD Anahtarları ve Çarpma Animasyon Tetikleyicileri
+  // Canlı HUD Anahtarları ve Animasyon Ölçekleri
   final GlobalKey _hudGemsKey = GlobalKey();
   final GlobalKey _hudXpKey = GlobalKey();
   double _gemsScale = 1.0;
@@ -47,25 +54,30 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _loadShopData();
-    _startTimer();
+    _startIsolatedTimer();
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _timeUntilMidnightNotifier.dispose();
     super.dispose();
   }
 
-  void _startTimer() {
-    _timeUntilMidnight = XpShopService.instance.getTimeUntilMidnight();
+  void _startIsolatedTimer() {
+    _timeUntilMidnightNotifier.value = XpShopService.instance.getTimeUntilMidnight();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      setState(() {
-        _timeUntilMidnight = XpShopService.instance.getTimeUntilMidnight();
-      });
+      final remaining = XpShopService.instance.getTimeUntilMidnight();
+      _timeUntilMidnightNotifier.value = remaining;
+      
+      // Gece 00:00 geçildiğinde mağaza verilerini bir defa güncelle
+      if (remaining.inSeconds <= 1) {
+        _loadShopData();
+      }
     });
   }
 
+  /// Süreyi HH:MM:SS formatına dönüştüren yardımcı fonksiyon
   String _formatDuration(Duration d) {
     final hours = d.inHours.toString().padLeft(2, '0');
     final minutes = (d.inMinutes % 60).toString().padLeft(2, '0');
@@ -74,31 +86,37 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _loadShopData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final gems = await XpShopService.instance.getGemsBalance();
-    final xp = await XpShopService.instance.getTotalXp();
-    final shield = await XpShopService.instance.hasFreezeShield();
-    final doubleXp = await XpShopService.instance.isDoubleXpActive();
-    final crown = await XpShopService.instance.hasItem('golden_crown');
-    final streak = prefs.getInt('current_streak_days') ?? 1;
-    final wager = prefs.getBool('is_wager_active') ?? false;
-    final repairUsed = prefs.getBool('streak_repair_used_today') ?? false;
-    final chestsCount = prefs.getInt('chests_opened_today') ?? 0;
-    final wagerDays = prefs.getInt('wager_progress_days') ?? 3;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final gems = await XpShopService.instance.getGemsBalance();
+      final xp = await XpShopService.instance.getTotalXp();
+      final shield = await XpShopService.instance.hasFreezeShield();
+      final doubleXp = await XpShopService.instance.isDoubleXpActive();
+      final crown = await XpShopService.instance.hasItem('golden_crown');
+      final flame = await XpShopService.instance.hasItem('flame_border');
+      final neon = await XpShopService.instance.hasItem('neon_theme');
+      final streak = prefs.getInt('current_streak_days') ?? 1;
+      final wager = prefs.getBool('is_wager_active') ?? false;
+      final repairUsed = prefs.getBool('streak_repair_used_today') ?? false;
+      final chestsCount = prefs.getInt('chests_opened_today') ?? 0;
+      final wagerDays = prefs.getInt('wager_progress_days') ?? 3;
 
-    if (!mounted) return;
-    setState(() {
-      _userGems = gems;
-      _userTotalXp = xp;
-      _hasFreezeShield = shield;
-      _isDoubleXpActive = doubleXp;
-      _hasGoldenCrown = crown;
-      _streakDays = streak;
-      _isWagerActive = wager;
-      _hasUsedRepairToday = repairUsed;
-      _chestsOpenedToday = chestsCount;
-      _wagerProgressDays = wagerDays;
-    });
+      if (!mounted) return;
+      setState(() {
+        _userGems = gems;
+        _userTotalXp = xp;
+        _hasFreezeShield = shield;
+        _isDoubleXpActive = doubleXp;
+        _hasGoldenCrown = crown;
+        _hasFlameBorder = flame;
+        _hasNeonTheme = neon;
+        _streakDays = streak;
+        _isWagerActive = wager;
+        _hasUsedRepairToday = repairUsed;
+        _chestsOpenedToday = chestsCount;
+        _wagerProgressDays = wagerDays;
+      });
+    } catch (_) {}
   }
 
   Future<void> _addDebugGems() async {
@@ -120,14 +138,11 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     HapticFeedback.vibrate();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('user_gems_balance', 0);
-    await prefs.setInt('user_gems', 0);
-    await prefs.setInt('gems_balance', 0);
     await XpShopService.instance.setFreezeShield(false);
-    await prefs.setString('double_xp_expires_at', DateTime.now().subtract(const Duration(days: 2)).toIso8601String());
-    await prefs.setBool('item_golden_crown', false);
-    await prefs.setBool('golden_crown', false);
-    await prefs.setBool('item_neon_theme', false);
-    await prefs.setBool('neon_theme', false);
+    await prefs.remove('double_xp_expiry_time');
+    await XpShopService.instance.revokeItem('golden_crown');
+    await XpShopService.instance.revokeItem('flame_border');
+    await XpShopService.instance.revokeItem('neon_theme');
     await prefs.setBool('is_wager_active', false);
     await prefs.setBool('streak_repair_used_today', false);
     await prefs.setInt('chests_opened_today', 0);
@@ -151,16 +166,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
 
     if (itemKey == 'shield') {
       await XpShopService.instance.setFreezeShield(false);
-      await prefs.setBool('has_freeze_shield', false);
-      await prefs.setBool('freeze_shield', false);
     } else if (itemKey == 'double_xp') {
-      await prefs.setString('double_xp_expires_at', DateTime.now().subtract(const Duration(days: 2)).toIso8601String());
-    } else if (itemKey == 'golden_crown') {
-      await prefs.setBool('item_golden_crown', false);
-      await prefs.setBool('golden_crown', false);
-    } else if (itemKey == 'neon_theme') {
-      await prefs.setBool('item_neon_theme', false);
-      await prefs.setBool('neon_theme', false);
+      await prefs.remove('double_xp_expiry_time');
+    } else if (itemKey == 'golden_crown' || itemKey == 'flame_border' || itemKey == 'neon_theme') {
+      await XpShopService.instance.revokeItem(itemKey);
     } else if (itemKey == 'wager') {
       await prefs.setBool('is_wager_active', false);
     } else if (itemKey == 'repair') {
@@ -179,9 +188,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==========================================================================
-  // DOĞAL AKIŞ HIZINDA ÇİFT UÇUŞ (ELMAS VE XP) + ÇARPTIKÇA ARTAN CANLI SAYAÇ
-  // ==========================================================================
   void _triggerDualFlyToHudEffect({
     required Offset startPosition,
     required int addedGems,
@@ -207,7 +213,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       builder: (context) {
         return Stack(
           children: [
-            // Uçan Elmaslar
             ...List.generate(particleCount, (index) {
               return _DualFlyingParticle(
                 start: startPosition + Offset(Random().nextDouble() * 30 - 15, Random().nextDouble() * 20 - 10),
@@ -233,7 +238,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 },
               );
             }),
-            // Uçan Enerjiler (XP)
             ...List.generate(particleCount, (index) {
               return _DualFlyingParticle(
                 start: startPosition + Offset(Random().nextDouble() * 30 - 15, Random().nextDouble() * 20 - 10),
@@ -267,9 +271,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     overlay.insert(overlayEntry);
   }
 
-  // ==========================================================================
-  // ŞIK YETERSİZ BAKİYE DİYALOĞU (HATASIZ TİPOGRAFİ)
-  // ==========================================================================
   void _showInsufficientGemsDialog(int requiredGems) {
     HapticFeedback.vibrate();
     final missingGems = requiredGems - _userGems;
@@ -376,9 +377,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==========================================================================
-  // TÜM GÜÇLENDİRİCİLER İÇİN 3D KART ÇEVİRME ZAFER KUTLAMASI
-  // ==========================================================================
   void _showItemUnlockVictoryDialog({
     required IconData icon,
     required Color iconColor,
@@ -408,9 +406,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==========================================================================
-  // CLASH ROYALE KART PATLAMALI DESTANSI SANDIK SEREMONİSİ
-  // ==========================================================================
   void _startChestOpeningCeremony() {
     final earnedGems = Random().nextInt(110) + 70;
     final earnedXp = 150;
@@ -576,9 +571,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     }
   }
 
-  // ==========================================================================
-  // BUGÜNÜN AKTİF ENVANTER VE GÜÇLERİ ÇUBUĞU (SAHİPLİK ETKİSİ)
-  // ==========================================================================
   Widget _buildTodayActiveInventoryBar() {
     final List<Widget> activePills = [];
 
@@ -594,6 +586,20 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
         icon: PhosphorIcons.lightningBold,
         label: 'Çift XP Aktif (2x)',
         color: const Color(0xFFF59E0B),
+      ));
+    }
+    if (_hasGoldenCrown) {
+      activePills.add(_buildActivePill(
+        icon: PhosphorIcons.crownBold,
+        label: 'Kraliyet Tacı Takılı',
+        color: const Color(0xFFF59E0B),
+      ));
+    }
+    if (_hasFlameBorder) {
+      activePills.add(_buildActivePill(
+        icon: PhosphorIcons.flameBold,
+        label: 'Alev Çerçevesi Aktif',
+        color: const Color(0xFFEC4899),
       ));
     }
     if (_hasUsedRepairToday) {
@@ -895,6 +901,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     desc: 'Profil kartını alevli ve elmas kaplı özel efektle donatır.',
                     fullDesc: 'Profil görselinin etrafını saran animasyonlu alev çerçevesi.',
                     price: 120,
+                    isOwned: _hasFlameBorder,
+                    ownedLabel: 'Kullanımda',
+                    badge: 'ÖZEL EFEKT',
+                    badgeColor: const Color(0xFFEC4899),
                     onBuy: () => _buyItem(
                       title: 'Alev Çerçevesi',
                       price: 120,
@@ -902,8 +912,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                       iconColor: const Color(0xFFEC4899),
                       categoryTag: 'ÖZEL KOZMETİK',
                       perkText: 'Profil kartın artık elmas mavisi alevlerle kuşatıldı!',
-                      onPurchased: () async {},
+                      onPurchased: () => XpShopService.instance.buyItem('flame_border'),
                     ),
+                    onRevoke: () => _revokeItem('flame_border', 'Alev Çerçevesi'),
                   ),
                   const SizedBox(height: 12),
                   _buildProductCard(
@@ -913,6 +924,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     desc: 'Okuma deneyimi için özel neon mor gece paleti.',
                     fullDesc: 'Gece okumalarında gözleri dinlendiren mor neon palet.',
                     price: 70,
+                    isOwned: _hasNeonTheme,
+                    ownedLabel: 'Kullanımda',
                     onBuy: () => _buyItem(
                       title: 'Neon Tema',
                       price: 70,
@@ -935,90 +948,95 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildShieldWarningBanner() {
-    final timerString = _formatDuration(_timeUntilMidnight);
+    return ValueListenableBuilder<Duration>(
+      valueListenable: _timeUntilMidnightNotifier,
+      builder: (context, remainingTime, _) {
+        final timerString = _formatDuration(remainingTime);
 
-    if (_hasFreezeShield) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E3A8A).withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4), width: 1.5),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
-              child: const Icon(PhosphorIcons.shieldCheckBold, color: Color(0xFF38BDF8), size: 24),
+        if (_hasFreezeShield) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E3A8A).withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4), width: 1.5),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(PhosphorIcons.shieldCheckBold, color: Color(0xFF38BDF8), size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Serin Güvende!', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, color: const Color(0xFF93C5FD))),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                        decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
-                        child: Text('⏳ $timerString', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 11, color: const Color(0xFF93C5FD))),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Serin Güvende!', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, color: const Color(0xFF93C5FD))),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+                            child: Text('⏳ $timerString', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 11, color: const Color(0xFF93C5FD))),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 3),
+                      Text('$_streakDays günlük serin gün sonuna kadar kalkan ile korunuyor.', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8))),
                     ],
                   ),
-                  const SizedBox(height: 3),
-                  Text('$_streakDays günlük serin gün sonuna kadar kalkan ile korunuyor.', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8))),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: const Color(0xFF7F1D1D).withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
-            child: const Icon(PhosphorIcons.warningBold, color: Color(0xFFEF4444), size: 24)
-                .animate(onPlay: (c) => c.repeat(reverse: true))
-                .scale(duration: 600.ms, begin: const Offset(1, 1), end: const Offset(1.15, 1.15)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Kalkanın Yok!', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, color: const Color(0xFFFCA5A5))),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                      decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
-                      child: Text('🔥 $timerString kaldı', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 11, color: const Color(0xFFFCA5A5))),
-                    ),
-                  ],
                 ),
-                const SizedBox(height: 3),
-                Text('$_streakDays günlük serin gece sıfırlanabilir! Yanmaması için hemen kalkan al.', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8))),
               ],
             ),
+          );
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7F1D1D).withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5), width: 1.5),
           ),
-        ],
-      ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
+                child: const Icon(PhosphorIcons.warningBold, color: Color(0xFFEF4444), size: 24)
+                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                    .scale(duration: 600.ms, begin: const Offset(1, 1), end: const Offset(1.15, 1.15)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Kalkanın Yok!', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, color: const Color(0xFFFCA5A5))),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                          decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+                          child: Text('🔥 $timerString kaldı', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 11, color: const Color(0xFFFCA5A5))),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text('$_streakDays günlük serin gece sıfırlanabilir! Yanmaması için hemen kalkan al.', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1317,9 +1335,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 }
 
-// ============================================================================
-// WIDGET: _ItemUnlockVictoryView (3D Flip / Zafer Kartı)
-// ============================================================================
 class _ItemUnlockVictoryView extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -1442,9 +1457,6 @@ class _ItemUnlockVictoryView extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// WIDGET: _ChestOpeningDialog (Kozmik Gece Işıltılı & 3 Kademeli Sandık)
-// ============================================================================
 class _ChestOpeningDialog extends StatefulWidget {
   final int earnedGems;
   final int earnedXp;
@@ -1783,9 +1795,6 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
   }
 }
 
-// ============================================================================
-// DUAL FLY-TO-HUD: İki Ayrı Hedefe Sıvı Akış Hızında Parçacık Hareketi
-// ============================================================================
 class _DualFlyingParticle extends StatefulWidget {
   final Offset start;
   final Offset end;
@@ -1873,9 +1882,6 @@ class _DualFlyingParticleState extends State<_DualFlyingParticle> with SingleTic
   }
 }
 
-// ============================================================================
-// CUSTOM PAINTER: Sonsuz Taşan Dönen Işık Huzmesi
-// ============================================================================
 class _SunburstPainter extends CustomPainter {
   final Color color;
   const _SunburstPainter({required this.color});
