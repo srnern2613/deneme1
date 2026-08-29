@@ -1,25 +1,21 @@
 // ============================================================================
 // DOSYA ADI: lib/book_model.dart
-// AÇIKLAMA: Kitap Veri Modeli ve Kalıcı Durum Saklama Mantığı
-// 
-// Bu model; kitabın temel bilgilerini, PDF'ten ayrıştırılan tüm sayfalarını,
-// kullanıcının kaldığı sayfayı ve istatistik merkezinde (Dashboard) gösterilecek
-// okuma süresi ile son erişim tarihlerini taşır.
+// AÇIKLAMA: Kitap Veri Modeli, Tip-Güvenli JSON Ayrıştırma & İlerleme Mantığı
 // ============================================================================
 
 import 'dart:convert';
 
 class Book {
-  final String id;              // Kitaba özel benzersiz kimlik (Zaman damgası ile üretilir)
-  final String title;           // Kitabın başlığı (Dosya adı veya hazır kitap ismi)
-  final String author;          // Yazar adı
-  final String level;           // CEFR Seviyesi (Örn: Başlangıç / B1, İleri / C1)
-  final String icon;            // Kitaplık kartında gösterilecek kapak emojisi/simgesi
-  final List<String> pages;     // PDF veya TXT'den ayrıştırılmış her bir sayfanın metin dizisi
+  final String id;              // Kitaba özel benzersiz UUID / Zaman damgası[cite: 5]
+  final String title;           // Kitap başlığı[cite: 5]
+  final String author;          // Yazar adı[cite: 5]
+  final String level;           // CEFR Seviyesi (A1, A2, B1, B2, C1, C2)[cite: 5]
+  final String icon;            // Kitaplık kartı simgesi[cite: 5]
+  final List<String> pages;     // Ayrıştırılmış sayfa metinleri[cite: 5]
   
-  int currentPage;              // Kullanıcının en son okuduğu / kaldığı sayfa indeksi (0'dan başlar)
-  DateTime? lastReadDate;       // Kitabın en son ne zaman açılıp okunduğunu tutan tarih damgası
-  int totalReadSeconds;         // Bu kitapta toplam kaç saniye okuma yapıldığı
+  int currentPage;              // En son okunan sayfa indeksi (0 tabanlı)[cite: 5]
+  DateTime? lastReadDate;       // Son erişim tarihi[cite: 5]
+  int totalReadSeconds;         // Toplam okunan süre (sn)[cite: 5]
 
   Book({
     required this.id,
@@ -33,13 +29,15 @@ class Book {
     this.totalReadSeconds = 0,
   });
 
-  // Toplam sayfa sayısını güvenli şekilde döndürür (Boşsa en az 1 sayfa kabul eder)
+  /// Toplam sayfa sayısını güvenli döner[cite: 5]
   int get totalPages => pages.isNotEmpty ? pages.length : 1;
 
-  // Kitabın tamamlanma yüzdesini hesaplar (0.0 ile 1.0 arasında bir değer döner, progress bar için kullanılır)
+  /// 0.0 - 1.0 aralığında okuma tamamlanma yüzdesi[cite: 5]
   double get progress => totalPages > 0 ? (currentPage + 1) / totalPages : 0.0;
 
-  // Nesneyi SharedPreferences veritabanına kaydetmek üzere Map formatına dönüştürür
+  /// Yüzdelik string formatı (Örn: %45)
+  String get progressPercentage => '${(progress * 100).toInt()}%';
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -49,27 +47,25 @@ class Book {
       'icon': icon,
       'pages': pages,
       'currentPage': currentPage,
-      'lastReadDate': lastReadDate?.toIso8601String(), // Tarihi standart ISO formatında metne çevirir
+      'lastReadDate': lastReadDate?.toIso8601String(),
       'totalReadSeconds': totalReadSeconds,
     };
   }
 
-  // Hafızadan okunan Map verisini tekrar tip-güvenli Book nesnesine dönüştürür
   factory Book.fromMap(Map<String, dynamic> map) {
     return Book(
-      id: map['id'] ?? '',
-      title: map['title'] ?? '',
-      author: map['author'] ?? '',
-      level: map['level'] ?? '',
-      icon: map['icon'] ?? '📖',
-      pages: List<String>.from(map['pages'] ?? []),
-      currentPage: map['currentPage'] ?? 0,
-      lastReadDate: map['lastReadDate'] != null ? DateTime.tryParse(map['lastReadDate']) : null,
-      totalReadSeconds: map['totalReadSeconds'] ?? 0,
+      id: map['id']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      author: map['author']?.toString() ?? '',
+      level: map['level']?.toString() ?? 'B1',
+      icon: map['icon']?.toString() ?? '📖',
+      pages: (map['pages'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      currentPage: (map['currentPage'] as num?)?.toInt() ?? 0,
+      lastReadDate: map['lastReadDate'] != null ? DateTime.tryParse(map['lastReadDate'].toString()) : null,
+      totalReadSeconds: (map['totalReadSeconds'] as num?)?.toInt() ?? 0,
     );
   }
 
-  // JSON formatına dönüştürme ve JSON'dan nesne üretme köprüleri
   String toJson() => json.encode(toMap());
-  factory Book.fromJson(String source) => Book.fromMap(json.decode(source));
+  factory Book.fromJson(String source) => Book.fromMap(json.decode(source) as Map<String, dynamic>);
 }

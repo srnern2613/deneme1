@@ -1,6 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
-// AÇIKLAMA: Highlight Silme (Toggle) Özelliği Eklenmiş Okuyucu Ekranı
+// AÇIKLAMA: Akıllı Okuma, Tırnak/Sembol Korumalı Regex,
+//           Bağlam (Context) Yakalama & Güvenli Kayıt
 // ============================================================================
 
 import 'dart:async';
@@ -88,6 +89,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (pos == null || pos.trim().isEmpty) return '';
     final clean = pos.trim().toLowerCase();
     return _posTranslations[clean] ?? pos.toUpperCase();
+  }
+
+  /// Gelişmiş Kelime Temizleme & Sembol Koruması:
+  /// Başındaki/sonundaki tırnak (“ ” " ‘ ’), parantez ve noktalama işaretlerini siler[cite: 6].
+  /// Eğer geriye harf kalmadıysa (yalnızca tırnak vb. sembolden ibaretse) boş string döner ve tıklanmasını engeller.
+  String _cleanWordText(String raw) {
+    var cleaned = raw.replaceAll(
+      RegExp(r'''^[\s"“”'‘’\(\)\[\]\{\}\.,;:!?\-—_]+|[\s"“”'‘’\(\)\[\]\{\}\.,;:!?\-—_]+$'''), 
+      '',
+    ).trim();
+
+    // İçinde en az bir Latin harfi barındırmayan girişleri ele
+    if (!RegExp(r'[a-zA-Z]').hasMatch(cleaned)) {
+      return '';
+    }
+    return cleaned;
   }
 
   @override
@@ -272,7 +289,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return text.trim();
   }
 
-  /// Highlight ekleme veya silme mantığı
   Future<void> _applyHighlight(int pageIndex, int startIndex, int endIndex, String colorTag) async {
     HapticFeedback.mediumImpact();
     
@@ -310,7 +326,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  /// Belirli bir aralıktaki highlight'ı tamamen siler
   Future<void> _removeHighlight(int pageIndex, int startIndex, int endIndex) async {
     HapticFeedback.mediumImpact();
     await DatabaseHelper.instance.removeHighlightRange(
@@ -322,8 +337,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
     await _loadHighlightsForCurrentPage(pageIndex);
   }
 
-  Future<void> _showWordDetails(String word, int pageIndex, int globalWordIndex, int? sentenceStart, int? sentenceEnd) async {
-    final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+  Future<void> _showWordDetails(
+    String word, 
+    int pageIndex, 
+    int globalWordIndex, 
+    int? sentenceStart, 
+    int? sentenceEnd,
+    String contextSentence,
+  ) async {
+    final cleanWord = _cleanWordText(word);
+    // Eğer metin yalnızca sembol/tırnak ise bottom sheet açılmasını engelle
     if (cleanWord.isEmpty) return;
 
     HapticFeedback.lightImpact();
@@ -337,7 +360,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final safeStart = sentenceStart ?? globalWordIndex;
     final safeEnd = sentenceEnd ?? globalWordIndex;
 
-    // Bu kelimenin veya cümlenin halihazırda bir highlight'ı var mı kontrol et
     bool isWordHighlighted = _pageHighlightData.any((h) => h['start'] == globalWordIndex && h['end'] == globalWordIndex);
     bool isSentenceHighlighted = _pageHighlightData.any((h) => h['start'] == safeStart && h['end'] == safeEnd);
 
@@ -357,6 +379,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 final isLoading = snapshot.connectionState == ConnectionState.waiting;
                 final result = snapshot.data;
                 final isOffline = result?.isOfflineError ?? false;
+
+                final rawMeaning = result?.alternativeMeanings.take(3).join(', ') ?? result?.primaryMeaning ?? '';
+                final hasValidMeaning = rawMeaning.trim().isNotEmpty && rawMeaning.trim() != 'Tanım yok';
 
                 return FutureBuilder<bool>(
                   future: DatabaseHelper.instance.isWordInFlashcards(cleanWord),
@@ -380,20 +405,42 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
+
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    cleanWord,
-                                    style: TextStyle(
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'serif',
-                                      color: _textColor,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        cleanWord,
+                                        style: TextStyle(
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: 'serif',
+                                          color: _textColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: _accentColor.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: _accentColor.withValues(alpha: 0.3)),
+                                        ),
+                                        child: Text(
+                                          widget.book.level.isNotEmpty ? widget.book.level : 'B1',
+                                          style: TextStyle(
+                                            fontSize: 10, 
+                                            fontWeight: FontWeight.bold, 
+                                            color: _accentColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   if (result?.phonetic != null) ...[
                                     const SizedBox(height: 2),
@@ -445,7 +492,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                 ),
                               ],
                             ),
-                          ] else if (isOffline) ...[
+                          ] else if (isOffline && !hasValidMeaning) ...[
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -459,7 +506,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
-                                      'Çevrimdışısınız. Bu kelime daha önce kaydedilmediği için çevrilemedi.',
+                                      'Çevrimdışısınız. İnternet bağlandığında otomatik güncellenecektir.',
                                       style: TextStyle(fontSize: 12, color: _textColor),
                                     ),
                                   ),
@@ -483,6 +530,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               spacing: 8,
                               runSpacing: 6,
                               children: (result?.alternativeMeanings ?? [result?.primaryMeaning ?? ''])
+                                  .where((m) => m.trim().isNotEmpty)
                                   .map((mean) => Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                         decoration: BoxDecoration(
@@ -503,9 +551,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             ),
                           ],
 
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 14),
 
-                          // --- KELİME FOSFORLAMA & SİLME ---
+                          if (contextSentence.trim().isNotEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _textColor.withValues(alpha: 0.04),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: _panelBorderColor.withValues(alpha: 0.6)),
+                              ),
+                              child: Text(
+                                '“$contextSentence”',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                  color: _textColor.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ),
+
+                          const SizedBox(height: 16),
+
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -542,7 +610,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // --- CÜMLE FOSFORLAMA & SİLME ---
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -584,12 +651,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             height: 46,
                             child: FilledButton.icon(
                               style: FilledButton.styleFrom(
-                                backgroundColor: isSaved ? Colors.grey[700] : _accentColor,
+                                backgroundColor: isSaved 
+                                    ? Colors.grey[700] 
+                                    : (isLoading ? _accentColor.withValues(alpha: 0.5) : _accentColor),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
                               onPressed: () async {
                                 HapticFeedback.mediumImpact();
+
                                 if (isSaved) {
                                   await DatabaseHelper.instance.removeFlashcardByWord(cleanWord);
                                   setSheetState(() => isSaved = false);
@@ -599,9 +669,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                     SnackBar(behavior: SnackBarBehavior.floating, content: Text('"$cleanWord" kartlardan çıkarıldı.')),
                                   );
                                 } else {
-                                  final saveMeaning = isOffline
-                                      ? 'Anlam bekleniyor'
-                                      : (result?.alternativeMeanings.take(3).join(', ') ?? result?.primaryMeaning ?? '');
+                                  if (isLoading) {
+                                    ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                      const SnackBar(
+                                        behavior: SnackBarBehavior.floating,
+                                        content: Text('Kelime anlamı yüklenirken lütfen bekleyin...'),
+                                        duration: Duration(seconds: 1),
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  final saveMeaning = hasValidMeaning 
+                                      ? rawMeaning 
+                                      : 'kelime anlamı';
 
                                   await DatabaseHelper.instance.addFlashcard(cleanWord, saveMeaning);
                                   setSheetState(() => isSaved = true);
@@ -613,7 +694,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               },
                               icon: Icon(isSaved ? Icons.bookmark_remove_rounded : Icons.bookmark_add_rounded, size: 20),
                               label: Text(
-                                isSaved ? 'Kelime Kartlarından Çıkar' : 'Kelime Kartlarına Ekle',
+                                isSaved ? 'Kelime Kartlarından Çıkar' : (isLoading ? 'Anlam Yükleniyor...' : 'Kelime Kartlarına Ekle'),
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                               ),
                             ),
@@ -699,7 +780,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       for (int w = 0; w < words.length; w++) {
         final word = words[w];
         final currentWordIndex = globalWordCounter++;
-        final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '');
+        final cleanWord = _cleanWordText(word);
         final isSelected = _selectedWord != null && _selectedWord == cleanWord;
 
         String? matchedColorTag;
@@ -733,6 +814,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               currentWordIndex, 
               sentenceStartIndex, 
               sentenceEndIndex,
+              sentence,
             ),
           ),
         );

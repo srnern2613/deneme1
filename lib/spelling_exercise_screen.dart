@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/spelling_exercise_screen.dart
-// AÇIKLAMA: Dinle & Yaz (💡 İpucu/Joker Desteği & Psikolojik Geri Bildirim)
+// AÇIKLAMA: Harf/Sembol Korumalı, Hatasız Dinle & Yaz (Spelling) Modu
 // ============================================================================
 
 import 'dart:math';
@@ -49,7 +49,13 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   @override
   void initState() {
     super.initState();
-    _questions = List.from(widget.cards)..shuffle();
+    // KORUMA 1: İçinde en az bir İngilizce harf barındırmayan (örn: sadece tırnak "") kartları ele
+    _questions = widget.cards.where((c) {
+      final w = (c['word'] ?? '').toString().trim().toUpperCase();
+      final clean = w.replaceAll(RegExp(r'[^A-Z]'), '');
+      return clean.isNotEmpty; // Sadece gerçek harfi olan kelimeler teste girebilir
+    }).toList()..shuffle();
+
     _loadCurrentWord();
   }
 
@@ -60,14 +66,26 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
     final rawWord = (_questions[_currentIndex]['word'] ?? '').toString().trim().toUpperCase();
     final cleanWord = rawWord.replaceAll(RegExp(r'[^A-Z]'), '');
 
+    // Eğer beklenmedik bir şekilde temiz kelime boşsa sonraki soruya geç
+    if (cleanWord.isEmpty) {
+      if (_currentIndex + 1 < _questions.length) {
+        _currentIndex++;
+        _loadCurrentWord();
+      }
+      return;
+    }
+
+    // 1. Hedef kelimenin harf bloklarını oluştur
     List<LetterBlock> blocks = [];
     for (int i = 0; i < cleanWord.length; i++) {
       blocks.add(LetterBlock(id: i, letter: cleanWord[i]));
     }
 
+    // 2. Yalnızca 2 veya 3 adet rastgele çeldirici harf ekle
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     final rand = Random();
-    final extraCount = min(3, 8 - min(blocks.length, 5));
+    final extraCount = cleanWord.length <= 4 ? 3 : 2;
+
     for (int i = 0; i < extraCount; i++) {
       final extraChar = alphabet[rand.nextInt(alphabet.length)];
       blocks.add(LetterBlock(id: 100 + i, letter: extraChar));
@@ -109,37 +127,41 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
 
     final String requiredChar = targetWord[targetIndex];
 
-    final matchingBlock = _availableLetters.firstWhere(
+    final matchingIndex = _availableLetters.indexWhere(
       (b) => !b.isUsed && b.letter == requiredChar,
-      orElse: () => _availableLetters.first,
     );
 
-    HapticFeedback.selectionClick();
-    setState(() {
-      _hintsUsedInWord++;
-      matchingBlock.isUsed = true;
-      _placedLetters.add(matchingBlock);
-    });
+    if (matchingIndex != -1) {
+      final matchingBlock = _availableLetters[matchingIndex];
+      HapticFeedback.selectionClick();
+      setState(() {
+        _hintsUsedInWord++;
+        matchingBlock.isUsed = true;
+        _placedLetters.add(matchingBlock);
+      });
 
-    if (_placedLetters.length == targetWord.length) {
-      _checkAnswer(targetWord);
+      if (_placedLetters.length == targetWord.length) {
+        _checkAnswer(targetWord);
+      }
     }
   }
 
   void _onLetterTap(LetterBlock block) {
     if (_isAnswerChecked || block.isUsed) return;
 
-    HapticFeedback.selectionClick();
-    setState(() {
-      block.isUsed = true;
-      _placedLetters.add(block);
-    });
-
     final targetWord = (_questions[_currentIndex]['word'] ?? '')
         .toString()
         .trim()
         .toUpperCase()
         .replaceAll(RegExp(r'[^A-Z]'), '');
+
+    if (_placedLetters.length >= targetWord.length) return;
+
+    HapticFeedback.selectionClick();
+    setState(() {
+      block.isUsed = true;
+      _placedLetters.add(block);
+    });
 
     if (_placedLetters.length == targetWord.length) {
       _checkAnswer(targetWord);
@@ -234,7 +256,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
     if (_questions.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Dinle & Yaz')),
-        body: const Center(child: Text('Pratik yapılacak kelime bulunamadı.')),
+        body: const Center(child: Text('Pratik yapılacak geçerli kelime bulunamadı.')),
       );
     }
 
@@ -296,7 +318,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // Ses ve İpucu Kartı
+                  // Dinleme & Anlam Kartı
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
                     decoration: BoxDecoration(
@@ -342,7 +364,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Harf Yuvaları
+                  // Harf Slotları
                   Wrap(
                     alignment: WrapAlignment.center,
                     spacing: 8,

@@ -1,10 +1,9 @@
 // ============================================================================
 // DOSYA ADI: lib/quiz_exercise_screen.dart
-// AÇIKLAMA: 10sn Süreli Zaman Barı, Psikolojik Geri Bildirimli Hızlı Test
+// AÇIKLAMA: Anlam Çakışması ve Boşluk Korumalı 4 Şıklı Hızlı Test
 // ============================================================================
 
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'tts_service.dart';
@@ -35,10 +34,27 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   Timer? _questionTimer;
   double _timeRemaining = 10.0;
 
+  static const List<String> _fallbackDistractors = [
+    'başlangıç, ilk adım',
+    'görüşme, sohbet, diyalog',
+    'dikkatlice bakmak, gözetlemek',
+    'içine doğru, dahilinde',
+    'kıyı, nehir kenarı, banka',
+    'keşfetmek, açığa çıkarmak',
+    'anlamak, kavramak, idrak etmek',
+    'hızlıca ilerlemek, koşmak',
+    'karar vermek, tercih etmek',
+  ];
+
   @override
   void initState() {
     super.initState();
-    _questions = List.from(widget.cards)..shuffle();
+    _questions = widget.cards.where((c) {
+      final w = (c['word'] ?? '').toString().trim();
+      final m = (c['meaning'] ?? '').toString().trim();
+      return w.isNotEmpty && m.isNotEmpty;
+    }).toList()..shuffle();
+
     _loadOptionsForCurrent();
   }
 
@@ -77,33 +93,54 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
     });
   }
 
+  bool _isTooSimilar(String opt1, String opt2) {
+    final clean1 = opt1.toLowerCase().replaceAll(RegExp(r'[^a-zçğıöşü]'), ' ').trim();
+    final clean2 = opt2.toLowerCase().replaceAll(RegExp(r'[^a-zçğıöşü]'), ' ').trim();
+    if (clean1 == clean2) return true;
+
+    final words1 = clean1.split(' ').where((w) => w.length > 2).toSet();
+    final words2 = clean2.split(' ').where((w) => w.length > 2).toSet();
+    return words1.intersection(words2).isNotEmpty;
+  }
+
   void _loadOptionsForCurrent() {
     if (_questions.isEmpty || _currentIndex >= _questions.length) return;
 
     final currentCard = _questions[_currentIndex];
-    final correctAnswer = currentCard['meaning'] ?? 'Tanım yok';
+    final correctAnswer = (currentCard['meaning'] ?? '').toString().trim();
 
+    final List<String> distinctOptions = [correctAnswer];
+
+    // 1. Kullanıcının mevcut diğer kelimelerinden benzer olmayanları topla
     final otherMeanings = widget.cards
-        .where((c) => c['meaning'] != correctAnswer)
-        .map((c) => c['meaning'] as String)
+        .map((c) => (c['meaning'] ?? '').toString().trim())
+        .where((m) => m.isNotEmpty && m != correctAnswer)
         .toSet()
-        .toList();
+        .toList()..shuffle();
 
-    otherMeanings.shuffle();
-
-    final List<String> options = [correctAnswer];
-    for (int i = 0; i < min(3, otherMeanings.length); i++) {
-      options.add(otherMeanings[i]);
+    for (var m in otherMeanings) {
+      if (distinctOptions.length >= 4) break;
+      if (!distinctOptions.any((opt) => _isTooSimilar(opt, m))) {
+        distinctOptions.add(m);
+      }
     }
 
-    while (options.length < 4) {
-      options.add('Seçenek ${options.length + 1}');
+    // 2. Yetersizse fallback listesinden ekle
+    if (distinctOptions.length < 4) {
+      final availableFallbacks = _fallbackDistractors
+          .where((f) => !distinctOptions.any((opt) => _isTooSimilar(opt, f)))
+          .toList()..shuffle();
+
+      for (var fallback in availableFallbacks) {
+        if (distinctOptions.length >= 4) break;
+        distinctOptions.add(fallback);
+      }
     }
 
-    options.shuffle();
+    distinctOptions.shuffle();
 
     setState(() {
-      _currentOptions = options;
+      _currentOptions = distinctOptions;
       _selectedOption = null;
       _answered = false;
     });
@@ -126,7 +163,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
     if (_answered) return;
     _questionTimer?.cancel();
 
-    final correctAnswer = _questions[_currentIndex]['meaning'] ?? '';
+    final correctAnswer = (_questions[_currentIndex]['meaning'] ?? '').toString().trim();
     final isCorrect = (option == correctAnswer);
 
     setState(() {
@@ -213,7 +250,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
     }
 
     final currentWord = _questions[_currentIndex]['word'] ?? '';
-    final correctAnswer = _questions[_currentIndex]['meaning'] ?? '';
+    final correctAnswer = (_questions[_currentIndex]['meaning'] ?? '').toString().trim();
 
     return Scaffold(
       appBar: AppBar(
@@ -253,7 +290,6 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Dinamik Zaman Barı
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: LinearProgressIndicator(
@@ -267,7 +303,6 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Kelime Kartı
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
                     decoration: BoxDecoration(
@@ -310,7 +345,6 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // 4 Seçenek
                   Expanded(
                     child: ListView.separated(
                       physics: const NeverScrollableScrollPhysics(),

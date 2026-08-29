@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/match_exercise_screen.dart
-// AÇIKLAMA: Kombo Çarpanlı, Süreli & Psikolojik Geri Bildirimli Eşleştirme
+// AÇIKLAMA: Boş Anlam Korumalı & Temiz Gridli Eşleştirme Ekranı
 // ============================================================================
 
 import 'dart:async';
@@ -17,14 +17,12 @@ class MatchItem {
   final String text;
   final bool isEnglish;
   final String pairId;
-  bool isMatched;
 
   MatchItem({
     required this.id,
     required this.text,
     required this.isEnglish,
     required this.pairId,
-    this.isMatched = false,
   });
 }
 
@@ -56,7 +54,13 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
   }
 
   void _restartGame() {
-    _pool = List.from(widget.cards)..shuffle();
+    // Sadece hem kelimesi hem de anlamı dolu olan kartları havuza al
+    _pool = widget.cards.where((c) {
+      final w = (c['word'] ?? '').toString().trim();
+      final m = (c['meaning'] ?? '').toString().trim();
+      return w.isNotEmpty && m.isNotEmpty && m != 'Tanım yok';
+    }).toList()..shuffle();
+
     _score = 0;
     _combo = 0;
     _totalEarnedXp = 0;
@@ -86,7 +90,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
   }
 
   void _setupBoard() {
-    final count = min(4, _pool.length);
+    final count = min(3, _pool.length);
     final selectedPairs = _pool.take(count).toList();
     _pool.removeRange(0, count);
 
@@ -95,13 +99,13 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       final pairId = card['id']?.toString() ?? card['word'];
       items.add(MatchItem(
         id: '${pairId}_en',
-        text: card['word'],
+        text: (card['word'] ?? '').toString().trim(),
         isEnglish: true,
         pairId: pairId,
       ));
       items.add(MatchItem(
         id: '${pairId}_tr',
-        text: card['meaning'],
+        text: (card['meaning'] ?? '').toString().trim(),
         isEnglish: false,
         pairId: pairId,
       ));
@@ -121,8 +125,6 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
   }
 
   void _onItemTapped(MatchItem item) async {
-    if (item.isMatched) return;
-
     HapticFeedback.selectionClick();
 
     if (item.isEnglish) {
@@ -149,21 +151,27 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       _totalEarnedXp += earnedXp;
       await XpShopService.instance.addXp(earnedXp);
 
+      final firstId = _selectedItem!.id;
+      final secondId = item.id;
+
       setState(() {
-        _selectedItem!.isMatched = true;
-        item.isMatched = true;
         _selectedItem = null;
+        _activeItems.removeWhere((i) => i.id == firstId || i.id == secondId);
       });
 
       if (_combo == 4 || _combo == 8) {
         _triggerCheer(CoachMessages.getFlashcardCheer(_combo) ?? '🔥 Harika Kombo!');
       }
 
-      if (_activeItems.every((i) => i.isMatched)) {
+      if (_activeItems.isEmpty) {
         if (_pool.isNotEmpty) {
-          _setupBoard();
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) _setupBoard();
+          });
         } else {
-          _finishGame();
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted) _finishGame();
+          });
         }
       }
     } else {
@@ -176,7 +184,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
 
   void _finishGame() {
     _timer?.cancel();
-    final totalExpected = max(8, widget.cards.length * 2);
+    final totalExpected = max(6, widget.cards.length * 2);
     final feedback = CoachMessages.getFeedback(
       exerciseType: 'match',
       score: _score,
@@ -189,7 +197,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       title: feedback.title,
       subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
-      earnedGems: _score >= 16 ? 5 : 0,
+      earnedGems: _score >= 12 ? 5 : 0,
       actionLabel: feedback.actionLabel,
       onAction: () {
         if (feedback.shouldOfferRetry) {
@@ -207,6 +215,13 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (_activeItems.isEmpty && _pool.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Kelime Eşleştirme')),
+        body: const Center(child: Text('Eşleştirilecek geçerli kelime bulunamadı.')),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -268,63 +283,62 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                   const SizedBox(height: 24),
 
                   Expanded(
-                    child: GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _activeItems.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        childAspectRatio: 1.8,
-                      ),
-                      itemBuilder: (context, index) {
-                        final item = _activeItems[index];
-                        final isSelected = (_selectedItem?.id == item.id);
+                    child: Center(
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _activeItems.length,
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 1.8,
+                        ),
+                        itemBuilder: (context, index) {
+                          final item = _activeItems[index];
+                          final isSelected = (_selectedItem?.id == item.id);
 
-                        if (item.isMatched) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: () => _onItemTapped(item),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? colors.primary.withValues(alpha: 0.18)
-                                  : (isDark ? const Color(0xFF131B2E) : Colors.white),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () => _onItemTapped(item),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
                                 color: isSelected
-                                    ? colors.primary
-                                    : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-                                width: isSelected ? 2 : 1,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
+                                    ? colors.primary.withValues(alpha: 0.18)
+                                    : (isDark ? const Color(0xFF131B2E) : Colors.white),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? colors.primary
+                                      : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                                  width: isSelected ? 2 : 1,
                                 ),
-                              ],
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              item.text,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? colors.primary : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                item.text,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? colors.primary : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],
