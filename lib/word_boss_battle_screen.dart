@@ -1,13 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/word_boss_battle_screen.dart
-// AÇIKLAMA: 6 Turlu Bilişsel Word Boss Savaş Arenası
-// TUR SIRALAMASI:
-//   Round 1: Meaning (Anlam Seçme)
-//   Round 2: Context (Cümle Tamamlama)
-//   Round 3: Listening (Dinleme & Anlama)
-//   Round 4: Spelling (Harf Harf Yazma)
-//   Round 5: Book Context (Orijinal Kitap Cümlesi Boşluğu)
-//   Final Round: Minimum İpucuyla Geri Çağırma (Flashcard Recall)
+// AÇIKLAMA: 6 Turlu Bilişsel Word Boss Savaş Arenası (Karakter & Animasyon Korumalı)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -29,28 +22,22 @@ class WordBossBattleScreen extends StatefulWidget {
 }
 
 class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
-  // Savaş tur kontrolü (0: Meaning, 1: Context, 2: Listening, 3: Spelling, 4: Book Context, 5: Final Recall)
   int _currentRound = 0;
   static const int _totalRounds = 6;
 
-  // Boss Can Puanı (Her doğru turda azalır)
   double _bossHp = 1.0;
-
   bool _isLoading = true;
   bool _isProcessing = false;
   String? _errorMessage;
 
-  // Çeldiriciler ve seçenek havuzu
   List<String> _currentOptions = [];
   String? _selectedOption;
   bool? _isOptionCorrect;
 
-  // Spelling Modu için harf durumları
   List<String> _targetLetters = [];
   final List<String> _enteredLetters = [];
   List<String> _shuffledKeyboardLetters = [];
 
-  // Final Flashcard Flip Durumu
   bool _isFinalFlipped = false;
 
   @override
@@ -103,18 +90,17 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
   Color get _bossThemeColor {
     switch (_bossLevel) {
       case 4:
-        return const Color(0xFFEF4444); // Kırmızı
+        return const Color(0xFFEF4444);
       case 3:
-        return const Color(0xFFA855F7); // Mor
+        return const Color(0xFFA855F7);
       case 2:
-        return const Color(0xFFF59E0B); // Turuncu
+        return const Color(0xFFF59E0B);
       case 1:
       default:
-        return const Color(0xFF38BDF8); // Cyan
+        return const Color(0xFF38BDF8);
     }
   }
 
-  /// Mevcut turun gerektirdiği seçenek ve verileri hazırlar
   Future<void> _prepareRoundData() async {
     setState(() {
       _isLoading = true;
@@ -126,7 +112,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
 
     try {
       if (_currentRound == 0 || _currentRound == 1 || _currentRound == 2 || _currentRound == 4) {
-        // Çeldiricileri çek ve seçenekleri karıştır
         final distractors = await DatabaseHelper.instance.getDistractorMeanings(
           correctWord: _word,
           correctMeaning: _meaning,
@@ -141,15 +126,14 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
           });
         }
 
-        // Dinleme turundaysa otomatik telaffuz et
         if (_currentRound == 2) {
           Future.delayed(const Duration(milliseconds: 350), () {
             TtsService.instance.speakWord(_word);
           });
         }
       } else if (_currentRound == 3) {
-        // Spelling Turu: Harfleri hazırla (Boşlukları temizle)
-        final cleanLetters = _word.toUpperCase().replaceAll(' ', '').split('');
+        // Özel karakterleri ve boşlukları temizleyerek sadece geçerli İngilizce harfleri al
+        final cleanLetters = _word.toUpperCase().replaceAll(RegExp(r'[^A-Z]'), '').split('');
         final shuffled = List<String>.from(cleanLetters)..shuffle();
 
         if (mounted) {
@@ -161,7 +145,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
           });
         }
       } else {
-        // Final Recall Turu
         if (mounted) {
           setState(() => _isLoading = false);
         }
@@ -230,7 +213,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
       _bossHp = (_bossHp - (1.0 / _totalRounds)).clamp(0.0, 1.0);
     });
 
-    Future.delayed(const Duration(milliseconds: 900), () {
+    Future.delayed(const Duration(milliseconds: 800), () {
       if (!mounted) return;
       if (_currentRound + 1 >= _totalRounds) {
         _handleBossVictory();
@@ -244,14 +227,12 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
   }
 
   Future<void> _handleBossVictory() async {
-    // 1. Veritabanında boss_level'ı sıfırla, streak +1 ve interval = 3 yap
     await DatabaseHelper.instance.recordMultiModalResult(
       cardId: _cardId,
       isCorrect: true,
       mode: 'boss',
     );
 
-    // 2. XP ve Ödül ver
     await XpShopService.instance.addXp(20).catchError((_) => 0);
 
     if (!mounted) return;
@@ -259,7 +240,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
   }
 
   Future<void> _handleRoundFailure() async {
-    // Soğuma süresi uygula (Kullanıcıyı boğmamak için)
     await DatabaseHelper.instance.recordBossFailureCooldown(_cardId);
 
     if (!mounted) return;
@@ -455,7 +435,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
                     child: Column(
                       children: [
-                        // --- 1. BOSS CAN BAR & SEVİYE KARTI ---
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
@@ -506,8 +485,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-
-                        // --- 2. DİNAMİK TUR GÖVDESİ ---
                         Expanded(child: _buildCurrentRoundContent()),
                       ],
                     ),
@@ -534,7 +511,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
     }
   }
 
-  // ROUND 1: Meaning (Anlam Seçme)
   Widget _buildMeaningRound() {
     return Column(
       children: [
@@ -555,7 +531,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
     );
   }
 
-  // ROUND 2: Context (Cümle Tamamlama)
   Widget _buildContextRound() {
     final sentence = _contextSentence.isNotEmpty
         ? _contextSentence.replaceAll(RegExp(RegExp.escape(_word), caseSensitive: false), '_____')
@@ -588,7 +563,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
     );
   }
 
-  // ROUND 3: Listening (Dinleme & Anlama)
   Widget _buildListeningRound() {
     return Column(
       children: [
@@ -617,7 +591,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
     );
   }
 
-  // ROUND 4: Spelling (Harf Harf Yazma)
   Widget _buildSpellingRound() {
     return Column(
       children: [
@@ -631,7 +604,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
           style: GoogleFonts.outfit(color: const Color(0xFF38BDF8), fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const Spacer(),
-        // Harf kutucukları
         Wrap(
           spacing: 6,
           runSpacing: 6,
@@ -658,7 +630,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
           }),
         ),
         const Spacer(),
-        // Klavye harfleri
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -688,7 +659,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
     );
   }
 
-  // ROUND 5: Book Context (Kitaptaki Orijinal Cümle)
   Widget _buildBookContextRound() {
     final bookTitle = widget.bossCard['book_title'] as String? ?? 'Kitabım';
     final rawSentence = _contextSentence.isNotEmpty
@@ -723,7 +693,6 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
     );
   }
 
-  // FINAL ROUND: Minimum İpucuyla Geri Çağırma
   Widget _buildFinalRecallRound() {
     return Column(
       children: [

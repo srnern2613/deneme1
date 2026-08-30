@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_exercise_screen.dart
-// AÇIKLAMA: 5 Aşamalı Learning State ve RecordExerciseResult Entegreli SRS Egzersizi
+// AÇIKLAMA: Çok Boyutlu SRS, Modalite ('srs') ve Word Boss Entegreli Kart Ekranı
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -166,10 +166,12 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         XpShopService.instance.addXp(xpGain).catchError((_) => 0);
       }
 
+      // 🎯 ÇOK BOYUTLU MODALİTE ('srs') & BOSS ENTEGRASYONU
       if (cardId > 0) {
-        DatabaseHelper.instance.recordExerciseResult(
+        DatabaseHelper.instance.recordMultiModalResult(
           cardId: cardId,
           isCorrect: isCorrect,
+          mode: 'srs',
         ).catchError((_) {});
       }
     }

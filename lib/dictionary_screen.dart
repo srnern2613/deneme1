@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/dictionary_screen.dart
-// AÇIKLAMA: 5 Kademeli Learning State Destekli Sözlük ve Kelime Koleksiyonu
+// AÇIKLAMA: 5 Kademeli Learning State + Word Boss & Streak Destekli Sözlük
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -21,11 +21,12 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   List<Map<String, dynamic>> _searchResults = [];
   bool _isLoading = false;
   
-  // 0: Tümü, 1: DISCOVERED, 2: LEARNING, 3: REVIEWING, 4: FAMILIAR, 5: MASTERED
+  // 0: Tümü, 1: BOSS, 2: DISCOVERED, 3: LEARNING, 4: REVIEWING, 5: FAMILIAR, 6: MASTERED
   int _selectedFilterIndex = 0;
 
   int _totalMasteredCount = 0;
   int _totalLearningCount = 0;
+  int _totalBossCount = 0;
 
   @override
   void initState() {
@@ -43,6 +44,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
       _totalMasteredCount = flashcards.where((c) => (c['learning_state'] == 'MASTERED' || (c['is_mastered'] as int? ?? 0) == 1)).length;
       _totalLearningCount = flashcards.where((c) => (c['learning_state'] != 'MASTERED' && (c['is_mastered'] as int? ?? 0) == 0)).length;
+      _totalBossCount = flashcards.where((c) => (c['boss_level'] as int? ?? 0) > 0).length;
 
       List<Map<String, dynamic>> results = [];
 
@@ -54,21 +56,24 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         } else {
           results = flashcards.map((e) => Map<String, dynamic>.from(e)).toList();
         }
+      } else if (_selectedFilterIndex == 1) {
+        // 👹 BOSS FİLTRESİ
+        results = flashcards.where((card) => (card['boss_level'] as int? ?? 0) > 0).map((e) => Map<String, dynamic>.from(e)).toList();
       } else {
         final stateFilter = _getStateKeyForIndex(_selectedFilterIndex);
         results = flashcards.where((card) {
           final s = card['learning_state'] as String? ?? 'LEARNING';
           return s == stateFilter;
         }).map((e) => Map<String, dynamic>.from(e)).toList();
+      }
 
-        if (query.trim().isNotEmpty) {
-          final q = query.toLowerCase().trim();
-          results = results.where((item) {
-            final w = (item['word'] as String? ?? '').toLowerCase();
-            final m = (item['meaning'] as String? ?? '').toLowerCase();
-            return w.contains(q) || m.contains(q);
-          }).toList();
-        }
+      if (query.trim().isNotEmpty && _selectedFilterIndex != 0) {
+        final q = query.toLowerCase().trim();
+        results = results.where((item) {
+          final w = (item['word'] as String? ?? '').toLowerCase();
+          final m = (item['meaning'] as String? ?? '').toLowerCase();
+          return w.contains(q) || m.contains(q);
+        }).toList();
       }
 
       if (!mounted) return;
@@ -85,14 +90,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   String _getStateKeyForIndex(int index) {
     switch (index) {
       case 1:
-        return 'DISCOVERED';
+        return 'BOSS';
       case 2:
-        return 'LEARNING';
+        return 'DISCOVERED';
       case 3:
-        return 'REVIEWING';
+        return 'LEARNING';
       case 4:
-        return 'FAMILIAR';
+        return 'REVIEWING';
       case 5:
+        return 'FAMILIAR';
+      case 6:
         return 'MASTERED';
       default:
         return 'ALL';
@@ -147,7 +154,27 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
   }
 
-  Widget _buildLearningStateBadge(String state) {
+  Widget _buildLearningStateBadge(String state, int bossLevel) {
+    // Eğer aktif bir Boss ise kırmızı Boss etiketi göster
+    if (bossLevel > 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('👹', style: TextStyle(fontSize: 10)),
+            const SizedBox(width: 3),
+            Text('Boss L$bossLevel', style: const TextStyle(color: Color(0xFFEF4444), fontSize: 10, fontWeight: FontWeight.w800)),
+          ],
+        ),
+      );
+    }
+
     Color bg;
     Color fg;
     String label;
@@ -236,6 +263,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                   children: [
                     _buildStatItem('Öğreniliyor', '$_totalLearningCount', const Color(0xFF818CF8)),
                     Container(height: 28, width: 1, color: const Color(0xFF1F2937)),
+                    _buildStatItem('Word Boss', '$_totalBossCount', const Color(0xFFEF4444)),
+                    Container(height: 28, width: 1, color: const Color(0xFF1F2937)),
                     _buildStatItem('Mastered Words', '$_totalMasteredCount', const Color(0xFF10B981)),
                   ],
                 ),
@@ -281,15 +310,17 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                   children: [
                     _buildFilterChip(0, 'Tümü', PhosphorIcons.rowsBold),
                     const SizedBox(width: 8),
-                    _buildFilterChip(1, 'Keşfedildi', PhosphorIcons.magnifyingGlassBold),
+                    _buildFilterChip(1, '👹 Bosslar', PhosphorIcons.swordBold, isBoss: true),
                     const SizedBox(width: 8),
-                    _buildFilterChip(2, 'Öğreniliyor', PhosphorIcons.bookBookmarkBold),
+                    _buildFilterChip(2, 'Keşfedildi', PhosphorIcons.magnifyingGlassBold),
                     const SizedBox(width: 8),
-                    _buildFilterChip(3, 'Tekrarda', PhosphorIcons.arrowClockwiseBold),
+                    _buildFilterChip(3, 'Öğreniliyor', PhosphorIcons.bookBookmarkBold),
                     const SizedBox(width: 8),
-                    _buildFilterChip(4, 'Aşina', PhosphorIcons.sparkleBold),
+                    _buildFilterChip(4, 'Tekrarda', PhosphorIcons.arrowClockwiseBold),
                     const SizedBox(width: 8),
-                    _buildFilterChip(5, 'Mastered', PhosphorIcons.trophyBold),
+                    _buildFilterChip(5, 'Aşina', PhosphorIcons.sparkleBold),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(6, 'Mastered', PhosphorIcons.trophyBold),
                   ],
                 ),
               ),
@@ -331,6 +362,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                               final String? bookTitle = item['book_title'];
                               final String? contextSentence = item['context_sentence'];
                               final String currentState = item['learning_state'] as String? ?? 'LEARNING';
+                              final int bossLevel = item['boss_level'] as int? ?? 0;
+                              final int streak = item['success_streak'] as int? ?? 0;
                               final bool isMastered = currentState == 'MASTERED' || (item['is_mastered'] as int? ?? 0) == 1;
 
                               return Container(
@@ -339,7 +372,11 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                   color: const Color(0xFF111827),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: isMastered ? const Color(0xFF10B981).withValues(alpha: 0.4) : const Color(0xFF1F2937), 
+                                    color: bossLevel > 0 
+                                        ? const Color(0xFFEF4444).withValues(alpha: 0.4) 
+                                        : isMastered 
+                                            ? const Color(0xFF10B981).withValues(alpha: 0.4) 
+                                            : const Color(0xFF1F2937), 
                                     width: 1.5,
                                   ),
                                 ),
@@ -396,7 +433,26 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                             ),
                                           ],
                                           const SizedBox(height: 10),
-                                          _buildLearningStateBadge(currentState),
+                                          Row(
+                                            children: [
+                                              _buildLearningStateBadge(currentState, bossLevel),
+                                              if (streak > 0 && bossLevel == 0) ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFF070B14),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: const Color(0xFF1F2937)),
+                                                  ),
+                                                  child: Text(
+                                                    '🔥 $streak Seri',
+                                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B)),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -439,13 +495,15 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     );
   }
 
-  Widget _buildFilterChip(int index, String label, IconData icon) {
+  Widget _buildFilterChip(int index, String label, IconData icon, {bool isBoss = false}) {
     final bool isSelected = _selectedFilterIndex == index;
+    final Color activeColor = isBoss ? const Color(0xFFEF4444) : const Color(0xFF6366F1);
+
     return ChoiceChip(
       avatar: Icon(
         icon,
         size: 14,
-        color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+        color: isSelected ? Colors.white : (isBoss ? const Color(0xFFEF4444) : const Color(0xFF94A3B8)),
       ),
       label: Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
       selected: isSelected,
@@ -456,13 +514,13 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           _loadData(_searchController.text);
         }
       },
-      selectedColor: const Color(0xFF6366F1),
+      selectedColor: activeColor,
       backgroundColor: const Color(0xFF111827),
       labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF94A3B8)),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF1F2937),
+          color: isSelected ? activeColor : const Color(0xFF1F2937),
           width: 1.5,
         ),
       ),
