@@ -1,10 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/dictionary_screen.dart
-// AÇIKLAMA: Faz 2 - Clash Royale Tarzı "My Word Collection" & Mastered Arşivi
-// GÖREVLER & DÜZELTMELER:
-//   1. 5 Aşamalı SRS Hiyerarşisi ve Mastered Kalıcı Başarı Vitrini.
-//   2. Asenkron yarış durumlarına karşı mounted güvenliği.
-//   3. Performans dostu lazy-loading liste yapısı.
+// AÇIKLAMA: 5 Kademeli Learning State Destekli Sözlük ve Kelime Koleksiyonu
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -21,19 +17,13 @@ class DictionaryScreen extends StatefulWidget {
 }
 
 class _DictionaryScreenState extends State<DictionaryScreen> {
-  // Arama metin kutusu kontrolcüsü
   final TextEditingController _searchController = TextEditingController();
-  
-  // Ekranda listelenecek filtrelenmiş kelimelerin listesi
   List<Map<String, dynamic>> _searchResults = [];
-  
-  // Yüklenme durumu bayrağı
   bool _isLoading = false;
   
-  // Seçili filtre sekmesi: 0 = Tüm Sözlük, 1 = Öğreniliyor, 2 = Ustalaşılanlar (Mastered)
-  int _selectedFilterIndex = 1;
+  // 0: Tümü, 1: DISCOVERED, 2: LEARNING, 3: REVIEWING, 4: FAMILIAR, 5: MASTERED
+  int _selectedFilterIndex = 0;
 
-  // Koleksiyon istatistik sayaçları
   int _totalMasteredCount = 0;
   int _totalLearningCount = 0;
 
@@ -43,7 +33,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     _loadData('');
   }
 
-  /// Asenkron veri yükleme ve yarış durumu korumalı state yönetimi
   Future<void> _loadData(String query) async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -52,23 +41,24 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       final flashcards = await DatabaseHelper.instance.getFlashcards();
       if (!mounted) return;
 
-      _totalMasteredCount = flashcards.where((c) => (c['is_mastered'] as int? ?? 0) == 1).length;
-      _totalLearningCount = flashcards.where((c) => (c['is_mastered'] as int? ?? 0) == 0).length;
+      _totalMasteredCount = flashcards.where((c) => (c['learning_state'] == 'MASTERED' || (c['is_mastered'] as int? ?? 0) == 1)).length;
+      _totalLearningCount = flashcards.where((c) => (c['learning_state'] != 'MASTERED' && (c['is_mastered'] as int? ?? 0) == 0)).length;
 
       List<Map<String, dynamic>> results = [];
 
       if (_selectedFilterIndex == 0) {
-        final rawResults = await DatabaseHelper.instance.searchWord(query);
-        if (!mounted) return;
-        results = rawResults.map((e) => Map<String, dynamic>.from(e)).toList();
+        if (query.trim().isNotEmpty) {
+          final rawResults = await DatabaseHelper.instance.searchWord(query);
+          if (!mounted) return;
+          results = rawResults.map((e) => Map<String, dynamic>.from(e)).toList();
+        } else {
+          results = flashcards.map((e) => Map<String, dynamic>.from(e)).toList();
+        }
       } else {
+        final stateFilter = _getStateKeyForIndex(_selectedFilterIndex);
         results = flashcards.where((card) {
-          final isMastered = (card['is_mastered'] as int? ?? 0) == 1;
-          if (_selectedFilterIndex == 1) {
-            return !isMastered;
-          } else {
-            return isMastered;
-          }
+          final s = card['learning_state'] as String? ?? 'LEARNING';
+          return s == stateFilter;
         }).map((e) => Map<String, dynamic>.from(e)).toList();
 
         if (query.trim().isNotEmpty) {
@@ -92,24 +82,40 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
   }
 
-  /// Kelimeyi koleksiyondan kalıcı olarak silen güvenli operasyon
+  String _getStateKeyForIndex(int index) {
+    switch (index) {
+      case 1:
+        return 'DISCOVERED';
+      case 2:
+        return 'LEARNING';
+      case 3:
+        return 'REVIEWING';
+      case 4:
+        return 'FAMILIAR';
+      case 5:
+        return 'MASTERED';
+      default:
+        return 'ALL';
+    }
+  }
+
   Future<void> _deleteWordPermanently(Map<String, dynamic> item) async {
     final word = item['word'] as String;
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: const Color(0xFF111827),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: Color(0xFF334155)),
+          side: const BorderSide(color: Color(0xFF1F2937)),
         ),
         title: Text(
           'Koleksiyondan Çıkar',
           style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         content: Text(
-          '"$word" kelimesini koleksiyonundan ve SRS tekrarlarından kaldırmak istediğine emin misin?',
+          '"$word" kelimesini koleksiyonundan ve tekrarlarından kaldırmak istediğine emin misin?',
           style: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
         ),
         actions: [
@@ -141,22 +147,62 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
   }
 
-  String _getMasteryStageTitle(int reps) {
-    if (reps <= 0) return 'DISCOVERED';
-    if (reps == 1) return 'SEEN';
-    if (reps == 2) return 'REMEMBERED';
-    if (reps == 3) return 'STRONG';
-    if (reps == 4) return 'NEAR MASTERY';
-    return 'MASTERED';
-  }
+  Widget _buildLearningStateBadge(String state) {
+    Color bg;
+    Color fg;
+    String label;
+    IconData icon;
 
-  Color _getMasteryStageColor(int reps) {
-    if (reps <= 0) return const Color(0xFF64748B);
-    if (reps == 1) return const Color(0xFF38BDF8);
-    if (reps == 2) return const Color(0xFF818CF8);
-    if (reps == 3) return const Color(0xFFA855F7);
-    if (reps == 4) return const Color(0xFFF59E0B);
-    return const Color(0xFF10B981);
+    switch (state) {
+      case 'MASTERED':
+        bg = const Color(0xFF10B981).withValues(alpha: 0.15);
+        fg = const Color(0xFF34D399);
+        label = 'Usta (Mastered)';
+        icon = Icons.check_circle_rounded;
+        break;
+      case 'FAMILIAR':
+        bg = const Color(0xFFFBBF24).withValues(alpha: 0.15);
+        fg = const Color(0xFFFDE68A);
+        label = 'Aşina';
+        icon = Icons.verified_outlined;
+        break;
+      case 'REVIEWING':
+        bg = const Color(0xFFF59E0B).withValues(alpha: 0.15);
+        fg = const Color(0xFFF59E0B);
+        label = 'Tekrarda';
+        icon = Icons.loop_rounded;
+        break;
+      case 'LEARNING':
+        bg = const Color(0xFF818CF8).withValues(alpha: 0.15);
+        fg = const Color(0xFF818CF8);
+        label = 'Öğreniliyor';
+        icon = Icons.auto_stories_rounded;
+        break;
+      case 'DISCOVERED':
+      default:
+        bg = const Color(0xFF38BDF8).withValues(alpha: 0.15);
+        fg = const Color(0xFF38BDF8);
+        label = 'Keşfedildi';
+        icon = Icons.search_rounded;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fg.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: fg),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
   }
 
   @override
@@ -168,7 +214,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
-          '📚 My Word Collection',
+          '📚 Kelime Defteri & Sözlük',
           style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
         ),
         centerTitle: true,
@@ -178,33 +224,24 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
           child: Column(
             children: [
-              // --- 1. KOLEKSİYON İSTATİSTİK ÖZET KARTI ---
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: const Color(0xFF111827),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.4), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.15), blurRadius: 16, offset: const Offset(0, 4)),
-                  ],
+                  border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatItem('Öğreniliyor', '$_totalLearningCount', const Color(0xFF38BDF8)),
-                    Container(height: 28, width: 1, color: Colors.white.withValues(alpha: 0.1)),
-                    _buildStatItem('🏆 Mastered Words', '$_totalMasteredCount', Colors.amber),
+                    _buildStatItem('Öğreniliyor', '$_totalLearningCount', const Color(0xFF818CF8)),
+                    Container(height: 28, width: 1, color: const Color(0xFF1F2937)),
+                    _buildStatItem('Mastered Words', '$_totalMasteredCount', const Color(0xFF10B981)),
                   ],
                 ),
               ),
               const SizedBox(height: 14),
 
-              // --- 2. KELİME ARAMA ÇUBUĞU ---
               TextField(
                 controller: _searchController,
                 onChanged: (text) => _loadData(text),
@@ -237,23 +274,27 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
               ),
               const SizedBox(height: 14),
 
-              // --- 3. KATEGORİ VE DURUM FİLTRELEME ---
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
                 child: Row(
                   children: [
-                    _buildFilterChip(0, 'Tüm Sözlük', PhosphorIcons.bookBookmarkBold),
+                    _buildFilterChip(0, 'Tümü', PhosphorIcons.rowsBold),
                     const SizedBox(width: 8),
-                    _buildFilterChip(1, 'Öğreniliyor', PhosphorIcons.brainBold),
+                    _buildFilterChip(1, 'Keşfedildi', PhosphorIcons.magnifyingGlassBold),
                     const SizedBox(width: 8),
-                    _buildFilterChip(2, '🏆 Mastered Words', PhosphorIcons.trophyBold),
+                    _buildFilterChip(2, 'Öğreniliyor', PhosphorIcons.bookBookmarkBold),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(3, 'Tekrarda', PhosphorIcons.arrowClockwiseBold),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(4, 'Aşina', PhosphorIcons.sparkleBold),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(5, 'Mastered', PhosphorIcons.trophyBold),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
 
-              // --- 4. KELİME LİSTESİ VE KOLEKSİYON KARTLARI ---
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
@@ -264,18 +305,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    _selectedFilterIndex == 2 ? PhosphorIcons.trophy : PhosphorIcons.tray,
-                                    size: 48,
-                                    color: const Color(0xFF334155),
+                                  const Icon(
+                                    PhosphorIcons.tray,
+                                    size: 44,
+                                    color: Color(0xFF334155),
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    _selectedFilterIndex == 2
-                                        ? 'Henüz mastered kelime yok 🌱\nTekrarları tamamlayarak kalıcı koleksiyonuna katabilirsin.'
-                                        : 'Bu filtrede kayıtlı kelime bulunmuyor.',
+                                    'Bu filtrede kayıtlı kelime bulunmuyor.',
                                     textAlign: TextAlign.center,
-                                    style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13.5, height: 1.4),
+                                    style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13.5),
                                   ),
                                 ],
                               ),
@@ -291,21 +330,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                               final String meaning = item['meaning'] ?? '';
                               final String? bookTitle = item['book_title'];
                               final String? contextSentence = item['context_sentence'];
-                              
-                              final int repetitions = item['repetitions'] as int? ?? 0;
-                              final bool isMastered = (item['is_mastered'] as int? ?? 0) == 1;
-                              final stageTitle = _getMasteryStageTitle(repetitions);
-                              final stageColor = _getMasteryStageColor(repetitions);
+                              final String currentState = item['learning_state'] as String? ?? 'LEARNING';
+                              final bool isMastered = currentState == 'MASTERED' || (item['is_mastered'] as int? ?? 0) == 1;
 
                               return Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: isMastered 
-                                      ? const Color(0xFF1E1B4B).withValues(alpha: 0.45) 
-                                      : const Color(0xFF111827).withValues(alpha: 0.85),
+                                  color: const Color(0xFF111827),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: isMastered ? Colors.amber.withValues(alpha: 0.5) : const Color(0xFF1F2937), 
+                                    color: isMastered ? const Color(0xFF10B981).withValues(alpha: 0.4) : const Color(0xFF1F2937), 
                                     width: 1.5,
                                   ),
                                 ),
@@ -362,67 +396,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                             ),
                                           ],
                                           const SizedBox(height: 10),
-                                          if (isMastered)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: Colors.amber.withValues(alpha: 0.15),
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(PhosphorIcons.crownSimpleBold, color: Colors.amber, size: 12),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    'MASTERED • KALICI HAFIZA',
-                                                    style: GoogleFonts.outfit(fontSize: 10.5, fontWeight: FontWeight.w900, color: Colors.amber),
-                                                  ),
-                                                ],
-                                              ),
-                                            )
-                                          else
-                                            Row(
-                                              children: [
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: stageColor.withValues(alpha: 0.15),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(color: stageColor.withValues(alpha: 0.4)),
-                                                  ),
-                                                  child: Text(
-                                                    stageTitle,
-                                                    style: GoogleFonts.outfit(
-                                                      fontSize: 9.5,
-                                                      fontWeight: FontWeight.w800,
-                                                      color: stageColor,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Row(
-                                                  children: List.generate(5, (dotIndex) {
-                                                    final bool isFilled = dotIndex < repetitions;
-                                                    return Container(
-                                                      width: 6.5,
-                                                      height: 6.5,
-                                                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                                                      decoration: BoxDecoration(
-                                                        shape: BoxShape.circle,
-                                                        color: isFilled ? stageColor : const Color(0xFF334155),
-                                                      ),
-                                                    );
-                                                  }),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  '$repetitions/5',
-                                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold),
-                                                ),
-                                              ],
-                                            ),
+                                          _buildLearningStateBadge(currentState),
                                         ],
                                       ),
                                     ),
@@ -473,7 +447,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         size: 14,
         color: isSelected ? Colors.white : const Color(0xFF94A3B8),
       ),
-      label: Text(label, style: GoogleFonts.outfit(fontSize: 12.5, fontWeight: FontWeight.bold)),
+      label: Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
       selected: isSelected,
       onSelected: (val) {
         if (val) {
@@ -482,7 +456,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           _loadData(_searchController.text);
         }
       },
-      selectedColor: const Color(0xFF4F46E5),
+      selectedColor: const Color(0xFF6366F1),
       backgroundColor: const Color(0xFF111827),
       labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF94A3B8)),
       shape: RoundedRectangleBorder(

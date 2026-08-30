@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_screen.dart
-// AÇIKLAMA: Entegre Kaynak HUD'lu ve Çakışmasız Pratik Merkezi
+// AÇIKLAMA: Sadece Aktif Pratik Kartlarını Çeken Semantik Pratik Merkezi
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -35,10 +35,15 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     _loadCardsAndStats();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadCardsAndStats();
+  }
+
   Future<void> _loadCardsAndStats() async {
-    setState(() => _isLoading = true);
     try {
-      final cards = await DatabaseHelper.instance.getFlashcards();
+      final cards = await DatabaseHelper.instance.getActivePracticeCards();
       final gems = await XpShopService.instance.getGemsBalance();
       final xp = await XpShopService.instance.getTotalXp();
 
@@ -50,7 +55,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Pratik verileri yüklenirken hata oluştu: $e');
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
@@ -113,7 +117,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        content: Text('⚠️ Bu oyun modu için kelime havuzunda en az $min kelime olmalıdır (Şu an: ${_cards.length}).'),
+        content: Text('⚠️ Bu oyun modu için öğrenme havuzunda en az $min kelime olmalıdır (Şu an: ${_cards.length}).'),
       ),
     );
   }
@@ -143,26 +147,19 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: const Color(0xFF111827),
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5), width: 1.5),
-                        boxShadow: [
-                          BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.18), blurRadius: 20, offset: const Offset(0, 6)),
-                        ],
+                        border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
                       ),
                       child: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(PhosphorIcons.swordBold, color: Color(0xFF818CF8), size: 28),
+                            child: const Icon(PhosphorIcons.swordBold, color: Color(0xFFF59E0B), size: 26),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -175,7 +172,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  '${_cards.length} Kayıtlı Kelime • Zihnini canlı tut!',
+                                  '${_cards.length} Aktif Pratik Kartı • Zihnini canlı tut!',
                                   style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500),
                                 ),
                               ],
@@ -213,7 +210,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       title: 'Kelime Eşleştirme',
                       desc: 'İngilizce ve Türkçe kelime bloklarını eşleştirerek tahtayı temizle.',
                       reward: '+10 XP',
-                      accentColor: const Color(0xFFA855F7),
+                      accentColor: const Color(0xFF6366F1),
                       onTap: _startMatchExercise,
                     ),
                     const SizedBox(height: 12),
@@ -258,9 +255,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF111827).withValues(alpha: 0.9),
+                  color: const Color(0xFF111827),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.5), width: 1.5),
+                  border: Border.all(color: const Color(0xFF38BDF8)),
                 ),
                 child: Row(
                   children: [
@@ -275,15 +272,15 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF111827).withValues(alpha: 0.9),
+                color: const Color(0xFF111827),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.5), width: 1.5),
+                border: Border.all(color: const Color(0xFFF59E0B)),
               ),
               child: Row(
                 children: [
-                  const Icon(PhosphorIcons.lightningBold, color: Colors.orange, size: 15),
+                  const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
                   const SizedBox(width: 4),
-                  Text('$_userTotalXp', style: GoogleFonts.outfit(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text('$_userTotalXp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
                 ],
               ),
             ),
@@ -303,16 +300,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF111827).withValues(alpha: 0.85),
+        color: const Color(0xFF111827),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,

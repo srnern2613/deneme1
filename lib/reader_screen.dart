@@ -1,10 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
-// AÇIKLAMA: Faz 3 - Memoization & Yüksek Performanslı Kelime Avcısı Okuyucu
-// GÖREVLER & DÜZELTMELER:
-//   1. Sayfa Başına _spanCache (Memoization): Hızlı sayfa kaydırmada CPU sıfıra çekildi.
-//   2. Önbellek İptal Tetikleyicileri: Font, tema veya fosfor değiştiğinde cache temizlenir.
-//   3. Çift Çıkış ve Asenkron Mounted Korumaları Korundu.
+// AÇIKLAMA: Faz 3 - Vocabulary State (DISCOVERED & LEARNING) Destekli Okuyucu
 // ============================================================================
 
 import 'dart:async';
@@ -70,10 +66,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   String? _selectedWord;
   bool _isExiting = false;
 
-  // Sayfa bazlı fosforlu işaretlemeler
   final List<Map<String, dynamic>> _pageHighlightData = [];
-
-  // MEMOIZATION: Ayrıştırılmış InlineSpan Önbelleği
   final Map<int, List<InlineSpan>> _spansCache = {};
 
   DateTime _sessionStartTime = DateTime.now();
@@ -143,7 +136,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         setState(() {
           _pageHighlightData.clear();
           _pageHighlightData.addAll(data);
-          _spansCache.remove(pageIndex); // İlgili sayfanın önbelleğini tazele
+          _spansCache.remove(pageIndex);
         });
       }
     } catch (_) {}
@@ -237,7 +230,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case ReaderTheme.sepia:
         return const Color(0xFFF4ECD8);
       case ReaderTheme.dark:
-        return const Color(0xFF121214);
+        return const Color(0xFF070B14);
       case ReaderTheme.light:
         return const Color(0xFFFAF9F6);
     }
@@ -259,7 +252,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case ReaderTheme.sepia:
         return const Color(0xFFE5DAC0);
       case ReaderTheme.dark:
-        return const Color(0xFF1A1A1E);
+        return const Color(0xFF111827);
       case ReaderTheme.light:
         return const Color(0xFFF1F5F9);
     }
@@ -270,7 +263,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case ReaderTheme.sepia:
         return const Color(0xFFD3C3A3);
       case ReaderTheme.dark:
-        return const Color(0xFF27272C);
+        return const Color(0xFF1F2937);
       case ReaderTheme.light:
         return const Color(0xFFE2E8F0);
     }
@@ -290,7 +283,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Color get _sliderInactiveColor {
     switch (_currentTheme) {
       case ReaderTheme.dark:
-        return const Color(0xFF2D2D36);
+        return const Color(0xFF1F2937);
       case ReaderTheme.sepia:
         return const Color(0xFFD3C3A3);
       case ReaderTheme.light:
@@ -383,6 +376,64 @@ class _ReaderScreenState extends State<ReaderScreen> {
     await _loadHighlightsForCurrentPage(pageIndex);
   }
 
+  Widget _buildStateBadge(String state) {
+    Color bg;
+    Color fg;
+    String label;
+    IconData icon;
+
+    switch (state) {
+      case 'MASTERED':
+        bg = const Color(0xFF10B981).withValues(alpha: 0.15);
+        fg = const Color(0xFF34D399);
+        label = 'Usta (Mastered)';
+        icon = Icons.check_circle_rounded;
+        break;
+      case 'FAMILIAR':
+        bg = const Color(0xFFFBBF24).withValues(alpha: 0.15);
+        fg = const Color(0xFFFDE68A);
+        label = 'Aşina';
+        icon = Icons.verified_outlined;
+        break;
+      case 'REVIEWING':
+        bg = const Color(0xFFF59E0B).withValues(alpha: 0.15);
+        fg = const Color(0xFFF59E0B);
+        label = 'Tekrarda';
+        icon = Icons.loop_rounded;
+        break;
+      case 'LEARNING':
+        bg = const Color(0xFF818CF8).withValues(alpha: 0.15);
+        fg = const Color(0xFF818CF8);
+        label = 'Öğreniliyor';
+        icon = Icons.auto_stories_rounded;
+        break;
+      case 'DISCOVERED':
+      default:
+        bg = const Color(0xFF38BDF8).withValues(alpha: 0.15);
+        fg = const Color(0xFF38BDF8);
+        label = 'Keşfedildi';
+        icon = Icons.search_rounded;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fg.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: fg),
+          const SizedBox(width: 4),
+          Text(label, style: GoogleFonts.outfit(color: fg, fontSize: 10, fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showWordDetails(
     String word, 
     int pageIndex, 
@@ -430,10 +481,26 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 final rawMeaning = result?.alternativeMeanings.take(3).join(', ') ?? result?.primaryMeaning ?? '';
                 final hasValidMeaning = rawMeaning.trim().isNotEmpty && rawMeaning.trim() != 'Tanım yok';
 
-                return FutureBuilder<bool>(
-                  future: DatabaseHelper.instance.isWordInFlashcards(cleanWord),
+                if (!isLoading && hasValidMeaning) {
+                  DatabaseHelper.instance.discoverWord(
+                    word: cleanWord,
+                    meaning: rawMeaning,
+                    contextSentence: contextSentence.trim(),
+                    bookTitle: widget.book.title,
+                  );
+                }
+
+                return FutureBuilder<List<Map<String, dynamic>>>(
+                  future: DatabaseHelper.instance.database.then((db) => db.query(
+                    'flashcards',
+                    where: 'word = ? COLLATE NOCASE',
+                    whereArgs: [cleanWord],
+                    limit: 1,
+                  )),
                   builder: (context, cardSnap) {
-                    bool isSaved = cardSnap.data ?? false;
+                    final existingCard = (cardSnap.data != null && cardSnap.data!.isNotEmpty) ? cardSnap.data!.first : null;
+                    final String currentState = existingCard != null ? (existingCard['learning_state'] as String? ?? 'LEARNING') : 'DISCOVERED';
+                    final bool isAddedToStudyPool = existingCard != null && currentState != 'DISCOVERED';
 
                     return Container(
                       constraints: BoxConstraints(
@@ -486,22 +553,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: _accentColor.withValues(alpha: 0.15),
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: _accentColor.withValues(alpha: 0.3)),
-                                              ),
-                                              child: Text(
-                                                widget.book.level.isNotEmpty ? widget.book.level : 'B1',
-                                                style: TextStyle(
-                                                  fontSize: 10, 
-                                                  fontWeight: FontWeight.bold, 
-                                                  color: _accentColor,
-                                                ),
-                                              ),
-                                            ),
+                                            _buildStateBadge(currentState),
                                           ],
                                         ),
                                         if (result?.phonetic != null) ...[
@@ -521,8 +573,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      if (isSaved)
-                                        const Icon(Icons.star_rounded, color: Colors.amber, size: 24),
+                                      if (isAddedToStudyPool)
+                                        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 24),
                                       const SizedBox(width: 6),
                                       IconButton.filledTonal(
                                         style: IconButton.styleFrom(
@@ -560,13 +612,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: Colors.amber.withValues(alpha: 0.15),
+                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
                                   ),
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.wifi_off_rounded, color: Colors.amber, size: 20),
+                                      const Icon(Icons.wifi_off_rounded, color: Color(0xFFF59E0B), size: 20),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
@@ -715,24 +767,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                 height: 44,
                                 child: FilledButton.icon(
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: isSaved 
-                                        ? Colors.grey[700] 
-                                        : (isLoading ? _accentColor.withValues(alpha: 0.5) : _accentColor),
+                                    backgroundColor: isAddedToStudyPool 
+                                        ? const Color(0xFF1F2937) 
+                                        : (isLoading ? const Color(0xFF10B981).withValues(alpha: 0.5) : const Color(0xFF10B981)),
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                   ),
                                   onPressed: () async {
                                     HapticFeedback.heavyImpact();
 
-                                    if (isSaved) {
+                                    if (isAddedToStudyPool) {
                                       await DatabaseHelper.instance.removeFlashcardByWord(cleanWord);
                                       if (sheetContext.mounted) {
-                                        setSheetState(() => isSaved = false);
+                                        setSheetState(() {});
                                       }
                                       if (mounted) setState(() {});
                                       if (!sheetContext.mounted) return;
                                       ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                        SnackBar(behavior: SnackBarBehavior.floating, content: Text('"$cleanWord" koleksiyondan çıkarıldı.')),
+                                        SnackBar(behavior: SnackBarBehavior.floating, content: Text('"$cleanWord" öğrenme havuzundan çıkarıldı.')),
                                       );
                                     } else {
                                       if (isLoading) {
@@ -757,22 +809,23 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                         contextSentence: contextSentence.trim(),
                                         bookTitle: widget.book.title,
                                         chapterInfo: 'Sayfa ${pageIndex + 1}',
+                                        learningState: 'LEARNING',
                                       );
 
                                       if (sheetContext.mounted) {
-                                        setSheetState(() => isSaved = true);
+                                        setSheetState(() {});
                                       }
                                       if (mounted) {
                                         setState(() {
                                           _wordsAddedCount++;
                                         });
-                                        _showCoachToast('🏹 +1 Kelime Avlandı! ("$cleanWord" • +15 XP)');
+                                        _showCoachToast('🏹 +1 Kelime Avlandı! ("$cleanWord" • Öğrenme Havuzunda)');
                                       }
                                     }
                                   },
-                                  icon: Icon(isSaved ? Icons.bookmark_remove_rounded : PhosphorIcons.crosshairBold, size: 18),
+                                  icon: Icon(isAddedToStudyPool ? Icons.bookmark_remove_rounded : PhosphorIcons.crosshairBold, size: 18),
                                   label: Text(
-                                    isSaved ? 'Koleksiyondan Çıkar' : (isLoading ? 'Anlam Yükleniyor...' : '🎯 KELİMEYİ AVLA & KAYDET'),
+                                    isAddedToStudyPool ? 'Havuzdan Çıkar' : (isLoading ? 'Anlam Yükleniyor...' : '🎯 KELİMEYİ AVLA & ÖĞREN'),
                                     style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.3),
                                   ),
                                 ),
@@ -829,7 +882,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  // OPTİMİZE EDİLMİŞ METİN AYRIŞTIRICI (MEMOIZATION DESTEKLİ)
   List<InlineSpan> _buildOptimizedSpans(int pageIndex) {
     if (_spansCache.containsKey(pageIndex)) {
       return _spansCache[pageIndex]!;
@@ -974,7 +1026,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             HapticFeedback.selectionClick();
                             setState(() {
                               _fontSize = val;
-                              _spansCache.clear(); // Font değişince önbelleği temizle
+                              _spansCache.clear();
                             });
                           },
                         ),
@@ -988,7 +1040,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildColorCard(ReaderTheme.dark, const Color(0xFF121214), 'Gece', const Color(0xFFE2E8F0)),
+                  _buildColorCard(ReaderTheme.dark, const Color(0xFF070B14), 'Gece', const Color(0xFFE2E8F0)),
                   _buildColorCard(ReaderTheme.sepia, const Color(0xFFF4ECD8), 'Sepya', const Color(0xFF2C241D)),
                   _buildColorCard(ReaderTheme.light, const Color(0xFFFAF9F6), 'Klasik', const Color(0xFF1E293B)),
                 ],
@@ -1010,7 +1062,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             HapticFeedback.selectionClick();
             setState(() {
               _currentTheme = theme;
-              _spansCache.clear(); // Tema değişince önbelleği temizle
+              _spansCache.clear();
             });
             Navigator.pop(context);
           },

@@ -1,10 +1,11 @@
 // ============================================================================
 // DOSYA ADI: lib/database_helper.dart
-// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Hızlı İndeksler ve Performans Optimize)
+// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Vocabulary Learning States Entegreli)
 // GÖREVLER & DÜZELTMELER:
-//   1. Versiyon 11: flashcards(is_mastered, repetitions) için B-Tree indeksleri eklendi.
-//   2. COUNT(*) bazlı hızlı istatistik sorguları sağlandı.
-//   3. Sıfır veri kaybı garantili onUpgrade mimarisi.
+//   1. Versiyon 12: 'learning_state' ve 'success_streak' alanları eklendi.
+//   2. 5 Aşamalı Durum Mimarisi: DISCOVERED -> LEARNING -> REVIEWING -> FAMILIAR -> MASTERED.
+//   3. Sıfır Veri Kaybı: Eski 'is_mastered' ve 'repetitions' verileriyle tam uyum.
+//   4. İndeksleme: 'learning_state' için B-Tree indeksi ile ultra hızlı filtreleme.
 // ============================================================================
 
 import 'package:sqflite/sqflite.dart';
@@ -28,14 +29,16 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 11, // İndeks optimizasyonu için sürüm 11'e yükseltildi
+      version: 12, // Yeni sütunlar ve indeksler için Versiyon 12'ye yükseltildi
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
     );
   }
 
   Future _createDB(Database db, int version) async {
-    // 1. GENİŞLETİLMİŞ SÖZLÜK TABLOSU
+    // ------------------------------------------------------------------------
+    // 1. SÖZLÜK TABLOSU (Çevrimdışı Sözlük Havuzu)
+    // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE dictionary (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +54,11 @@ class DatabaseHelper {
       CREATE INDEX idx_dictionary_word ON dictionary(word COLLATE NOCASE)
     ''');
 
-    // 2. GELİŞMİŞ FLASHCARD TABLOSU
+    // ------------------------------------------------------------------------
+    // 2. GELİŞMİŞ FLASHCARD & KELİME TAKİP TABLOSU
+    // 'learning_state': DISCOVERED, LEARNING, REVIEWING, FAMILIAR, MASTERED
+    // 'success_streak': Durum yükseltme/düşürme için ardışık doğru cevap sayısı
+    // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE flashcards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,18 +67,23 @@ class DatabaseHelper {
         interval INTEGER DEFAULT 1,
         repetitions INTEGER DEFAULT 0,
         is_mastered INTEGER DEFAULT 0,
+        learning_state TEXT DEFAULT 'LEARNING',
+        success_streak INTEGER DEFAULT 0,
         context_sentence TEXT,
         book_title TEXT,
         chapter_info TEXT
       )
     ''');
 
-    // Hızlı sorgulama indeksleri
+    // Hızlı sorgulama ve filtreleme indeksleri
     await db.execute('CREATE INDEX idx_flashcards_word ON flashcards(word COLLATE NOCASE)');
     await db.execute('CREATE INDEX idx_flashcards_mastered ON flashcards(is_mastered)');
+    await db.execute('CREATE INDEX idx_flashcards_state ON flashcards(learning_state)');
     await db.execute('CREATE INDEX idx_flashcards_repetitions ON flashcards(repetitions)');
 
-    // 3. FOSFORLU KALEM TABLOSU
+    // ------------------------------------------------------------------------
+    // 3. FOSFORLU KALEM (HIGHLIGHTS) TABLOSU
+    // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE highlights (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,7 +99,9 @@ class DatabaseHelper {
       CREATE INDEX idx_highlights_lookup ON highlights(book_id, page_index)
     ''');
 
+    // ------------------------------------------------------------------------
     // 4. ÖNBELLEK TABLOSU
+    // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE IF NOT EXISTS cacheObject (
         key TEXT PRIMARY KEY,
@@ -100,6 +114,7 @@ class DatabaseHelper {
   }
 
   Future _onUpgradeDB(Database db, int oldVersion, int newVersion) async {
+    // Geriye dönük yükseltmelerde veri kaybını engellemek için try-catch ile korunur
     if (oldVersion < 8) {
       try {
         await db.execute('ALTER TABLE flashcards ADD COLUMN context_sentence TEXT');
@@ -129,6 +144,25 @@ class DatabaseHelper {
         await db.execute('CREATE INDEX IF NOT EXISTS idx_highlights_lookup ON highlights(book_id, page_index)');
       } catch (_) {}
     }
+
+    // SÜRÜM 12 GÜNCELLEMESİ: Vocabulary Learning State Entegrasyonu
+    if (oldVersion < 12) {
+      try {
+        // Yeni öğrenme durumu ve ardışık başarı serisi sütunları eklenir
+        await db.execute("ALTER TABLE flashcards ADD COLUMN learning_state TEXT DEFAULT 'LEARNING'");
+        await db.execute("ALTER TABLE flashcards ADD COLUMN success_streak INTEGER DEFAULT 0");
+
+        // Mevcut ustalara (is_mastered = 1) sahip olanların durumunu otomatik MASTERED yap
+        await db.execute("UPDATE flashcards SET learning_state = 'MASTERED' WHERE is_mastered = 1");
+
+        // Yeni durum filtresi için B-Tree indeksi oluştur
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_state ON flashcards(learning_state)');
+      } catch (e) {
+        // Olası migration hatalarında loglama
+        // ignore: avoid_print
+        print('DB Upgrade v12 Error: $e');
+      }
+    }
   }
 
   Future<void> _insertInitialWords(Database db) async {
@@ -142,7 +176,9 @@ class DatabaseHelper {
     }
   }
 
-  // --- SÖZLÜK METOTLARI ---
+  // ==========================================================================
+  // SÖZLÜK METOTLARI
+  // ==========================================================================
 
   Future<Map<String, dynamic>?> getWordDefinition(String word) async {
     final db = await database;
@@ -187,7 +223,9 @@ class DatabaseHelper {
     );
   }
 
-  // --- HIGHLIGHT METOTLARI ---
+  // ==========================================================================
+  // HIGHLIGHT METOTLARI
+  // ==========================================================================
 
   Future<void> addHighlightRange({
     required String bookId,
@@ -238,7 +276,9 @@ class DatabaseHelper {
     await db.delete('highlights', where: 'book_id = ?', whereArgs: [bookId]);
   }
 
-  // --- FLASHCARD METOTLARI ---
+  // ==========================================================================
+  // FLASHCARD & KELİME DURUM METOTLARI
+  // ==========================================================================
 
   Future<bool> isWordInFlashcards(String word) async {
     final db = await database;
@@ -247,12 +287,14 @@ class DatabaseHelper {
     return result.isNotEmpty;
   }
 
+  /// Kelime ilk defa incelendiğinde veya desteye eklendiğinde çağrılır
   Future<int> addFlashcard(
     String word, 
     String meaning, {
     String? contextSentence,
     String? bookTitle,
     String? chapterInfo,
+    String learningState = 'LEARNING', // Varsayılan durum
   }) async {
     final db = await database;
     return await db.insert(
@@ -262,12 +304,56 @@ class DatabaseHelper {
         'meaning': meaning.trim(),
         'interval': 1,
         'repetitions': 0,
-        'is_mastered': 0,
+        'is_mastered': learningState == 'MASTERED' ? 1 : 0,
+        'learning_state': learningState,
+        'success_streak': 0,
         'context_sentence': contextSentence?.trim(),
         'book_title': bookTitle?.trim(),
         'chapter_info': chapterInfo?.trim(),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Kitapta bir kelimeye dokunulduğunda 'DISCOVERED' olarak kaydeder
+  Future<int> discoverWord({
+    required String word,
+    required String meaning,
+    String? contextSentence,
+    String? bookTitle,
+  }) async {
+    final db = await database;
+    final clean = word.trim();
+    
+    // Zaten ekliyse durumunu bozma
+    final existing = await db.query(
+      'flashcards',
+      where: 'word = ? COLLATE NOCASE',
+      whereArgs: [clean],
+      limit: 1,
+    );
+
+    if (existing.isNotEmpty) {
+      return existing.first['id'] as int;
+    }
+
+    return await addFlashcard(
+      clean,
+      meaning,
+      contextSentence: contextSentence,
+      bookTitle: bookTitle,
+      learningState: 'DISCOVERED',
+    );
+  }
+
+  /// Durumu DISCOVERED olan kelimeyi öğrenme havuzuna (LEARNING) geçirir
+  Future<void> promoteToLearning(String word) async {
+    final db = await database;
+    await db.update(
+      'flashcards',
+      {'learning_state': 'LEARNING'},
+      where: "word = ? COLLATE NOCASE AND learning_state = 'DISCOVERED'",
+      whereArgs: [word.trim()],
     );
   }
 
@@ -281,26 +367,144 @@ class DatabaseHelper {
     return await db.query('flashcards', orderBy: 'id DESC');
   }
 
+  /// Sadece aktif pratik yapılacak kartları çeker (DISCOVERED olanlar egzersiz havuzuna girmez)
+  Future<List<Map<String, dynamic>>> getActivePracticeCards() async {
+    final db = await database;
+    return await db.query(
+      'flashcards',
+      where: "learning_state != 'DISCOVERED'",
+      orderBy: 'id DESC',
+    );
+  }
+
+  /// Belirli bir duruma göre filtrelenmiş kartları getirir
+  Future<List<Map<String, dynamic>>> getCardsByState(String stateKey) async {
+    final db = await database;
+    return await db.query(
+      'flashcards',
+      where: 'learning_state = ?',
+      whereArgs: [stateKey],
+      orderBy: 'id DESC',
+    );
+  }
+
   Future<int> deleteFlashcard(int id) async {
     final db = await database;
     return await db.delete('flashcards', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Hızlı Sayaç Metotları (Bellek dostu)
+  // ==========================================================================
+  // HIZLI SAYAÇ & İSTATİSTİK METOTLARI (Bellek Dostu COUNT Sorguları)
+  // ==========================================================================
+
   Future<int> getMasteredCount() async {
     final db = await database;
-    final result = await db.rawQuery('SELECT COUNT(*) as cnt FROM flashcards WHERE is_mastered = 1');
+    final result = await db.rawQuery("SELECT COUNT(*) as cnt FROM flashcards WHERE learning_state = 'MASTERED' OR is_mastered = 1");
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<int> getDueReviewCount() async {
     final db = await database;
-    final result = await db.rawQuery('SELECT COUNT(*) as cnt FROM flashcards WHERE repetitions < 5');
+    final result = await db.rawQuery("SELECT COUNT(*) as cnt FROM flashcards WHERE learning_state IN ('LEARNING', 'REVIEWING')");
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
-  // --- SRS & MASTERY İLERLEME GÜNCELLEMESİ ---
+  Future<Map<String, int>> getLearningStateCounts() async {
+    final db = await database;
+    final result = await db.rawQuery('''
+      SELECT learning_state, COUNT(*) as cnt 
+      FROM flashcards 
+      GROUP BY learning_state
+    ''');
 
+    final Map<String, int> counts = {
+      'DISCOVERED': 0,
+      'LEARNING': 0,
+      'REVIEWING': 0,
+      'FAMILIAR': 0,
+      'MASTERED': 0,
+    };
+
+    for (var row in result) {
+      final state = row['learning_state'] as String?;
+      final cnt = row['cnt'] as int? ?? 0;
+      if (state != null && counts.containsKey(state)) {
+        counts[state] = cnt;
+      }
+    }
+    return counts;
+  }
+
+  // ==========================================================================
+  // GELİŞMİŞ SRS & LEARNING STATE HESAPLAMA VE GÜNCELLEME
+  // ==========================================================================
+
+  /// Egzersiz sonucuna göre kartın durumunu (State), serisini (Streak) ve aralığını (Interval) günceller
+  Future<void> recordExerciseResult({
+    required int cardId,
+    required bool isCorrect,
+  }) async {
+    final db = await database;
+    
+    // Mevcut kart verisini oku
+    final list = await db.query('flashcards', where: 'id = ?', whereArgs: [cardId], limit: 1);
+    if (list.isEmpty) return;
+
+    final card = list.first;
+    int currentRepetitions = card['repetitions'] as int? ?? 0;
+    int currentStreak = card['success_streak'] as int? ?? 0;
+    int currentInterval = card['interval'] as int? ?? 1;
+
+    String nextState;
+    int newStreak;
+    int newRepetitions;
+    int newInterval;
+
+    if (isCorrect) {
+      newStreak = currentStreak + 1;
+      newRepetitions = currentRepetitions + 1;
+      newInterval = (currentInterval * 1.8).round().clamp(1, 365);
+
+      // Başarı eşiklerine göre aşamalı yükselme
+      if (newStreak >= 6) {
+        nextState = 'MASTERED';
+      } else if (newStreak >= 4) {
+        nextState = 'FAMILIAR';
+      } else if (newStreak >= 2) {
+        nextState = 'REVIEWING';
+      } else {
+        nextState = 'LEARNING';
+      }
+    } else {
+      // Hatalı cevapta streak sıfırlanır ve durum bir basamak geriler
+      newStreak = 0;
+      newRepetitions = currentRepetitions + 1;
+      newInterval = 1; // Unutulduğu için aralık başa döner
+
+      if (card['learning_state'] == 'MASTERED' || card['learning_state'] == 'FAMILIAR') {
+        nextState = 'REVIEWING'; // Usta veya Aşina ise Tekrara düşer
+      } else {
+        nextState = 'LEARNING'; // Diğer durumlarda Öğreniliyor'a döner
+      }
+    }
+
+    final bool isMasteredFlag = nextState == 'MASTERED';
+
+    await db.update(
+      'flashcards',
+      {
+        'repetitions': newRepetitions,
+        'success_streak': newStreak,
+        'interval': newInterval,
+        'learning_state': nextState,
+        'is_mastered': isMasteredFlag ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [cardId],
+    );
+  }
+
+  /// Klasik SRS metodunu geriye dönük uyumluluk için korur
   Future<void> updateFlashcardSrsProgress({
     required int cardId,
     required int repetitions,
@@ -308,12 +512,14 @@ class DatabaseHelper {
     bool isMastered = false,
   }) async {
     final db = await database;
+    final String state = isMastered ? 'MASTERED' : (repetitions >= 3 ? 'REVIEWING' : 'LEARNING');
     await db.update(
       'flashcards',
       {
         'repetitions': repetitions,
         'interval': interval,
         'is_mastered': isMastered ? 1 : 0,
+        'learning_state': state,
       },
       where: 'id = ?',
       whereArgs: [cardId],

@@ -1,12 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_exercise_screen.dart
-// AÇIKLAMA: Faz 2 - Gelişmiş SRS Egzersizi & Kalıcı Hafıza (Mastery) Kutlaması
-// GÖREVLER & PSİKOLOJİK TETİKLEYİCİLER:
-//   1. 5 Aşamalı SRS İlerlemesi (0-4 Öğrenim, 5'te Kalıcı Hafızaya Geçiş)[cite: 2, 3]
-//   2. Seviye 4 -> 5 Geçişinde "Kalıcı Hafıza Eşiği" Özel Uyarısı & Kutlaması[cite: 3]
-//   3. Orijinal Kitap Cümlesi Bağlamı (Context Hint & Tam Görünüm)[cite: 3]
-//   4. Çift Yönlü Kaydırma (%38 Eşikli Swipe: Sağ = Bildim, Sol = Tekrar)[cite: 3]
-//   5. XP, Seri ve Seans Sonu Detaylı Başarı / Zorlanılan Kelimeler Geri Bildirimi[cite: 3]
+// AÇIKLAMA: 5 Aşamalı Learning State ve RecordExerciseResult Entegreli SRS Egzersizi
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -19,10 +13,7 @@ import 'database_helper.dart';
 import 'dictionary_service.dart';
 
 class FlashcardsExerciseScreen extends StatefulWidget {
-  // Egzersizde çalışılacak kelime kartlarının listesi
   final List<Map<String, dynamic>> cards;
-  
-  // Sadece zorlanılan kelimelerin mini tekrarı olup olmadığını belirten bayrak
   final bool isReviewOnly;
 
   const FlashcardsExerciseScreen({
@@ -36,32 +27,25 @@ class FlashcardsExerciseScreen extends StatefulWidget {
 }
 
 class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
-  // Seansta kalan kartlar listesi (Her cevapta ilk eleman listeden çıkarılır)
   late List<Map<String, dynamic>> _remainingCards;
-  
-  // Kullanıcının "Tekrar" veya "Zor" dediği, seans sonunda tekrar gösterilebilecek kartlar
   final List<Map<String, dynamic>> _struggledCards = [];
 
-  // Seans istatistik sayaçları
-  int _knownCount = 0;              // Başarıyla bilinen kart sayısı
-  int _hardCount = 0;               // Zorlanarak bilinen kart sayısı
-  int _reviewCount = 0;             // Hatırlanamayan kart sayısı
-  int _masteredCountInSession = 0;  // Bu seansta 5'te 5 yaparak kalıcı hafızaya geçen kelimeler
-  int _initialTotal = 0;            // Seansın başında gelen toplam kart sayısı
-  int _consecutiveKnownStreak = 0;  // Art arda doğru bilme serisi (Motive edici koç mesajları için)
-  int _totalEarnedXp = 0;           // Seansta kazanılan toplam tecrübe puanı (XP)
+  int _knownCount = 0;
+  int _hardCount = 0;
+  int _reviewCount = 0;
+  int _masteredCountInSession = 0;
+  int _initialTotal = 0;
+  int _consecutiveKnownStreak = 0;
+  int _totalEarnedXp = 0;
 
-  // Arayüz ve etkileşim durum değişkenleri
-  String? _cheerMessage;            // Ekranda beliren dinamik tebrik / motivasyon banner metni
-  bool _isFlipped = false;          // Kartın arka yüzünün (Türkçe anlam) açık olup olmadığı
-  bool _showHint = false;           // Kitap cümle ipucunun görünürlüğü
-  bool _celebrationShown = false;   // Bitiş kutlama penceresinin mükerrer açılmasını önleyen bayrak
-  bool _isProcessing = false;       // Çift tıklama veya hızlı swipe çakışmalarını önleyen kilit
+  String? _cheerMessage;
+  bool _isFlipped = false;
+  bool _showHint = false;
+  bool _celebrationShown = false;
+  bool _isProcessing = false;
 
-  // Kelime tanımlarını hafızada tutarak gereksiz ağ isteklerini önleyen önbellek
   final Map<String, WordDefinitionResult?> _definitionCache = {};
 
-  // Kelime türlerinin Türkçe karşılık eşlemesi
   static const Map<String, String> _posTranslations = {
     'noun': 'İSİM',
     'verb': 'FİİL',
@@ -76,7 +60,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     'phrase': 'DEYİM / İFADE',
   };
 
-  /// Kelime türünü büyük harfli Türkçe etikete dönüştürür
   String _formatTurkishPos(String? pos) {
     if (pos == null || pos.trim().isEmpty) return '';
     final clean = pos.trim().toLowerCase();
@@ -86,21 +69,17 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
   @override
   void initState() {
     super.initState();
-    // 1. Kartları karıştırarak her seansta rastgele bir sıra oluştur
     _remainingCards = List.from(widget.cards)..shuffle();
     _initialTotal = _remainingCards.length;
-    // 2. İlk kelimenin ek sözlük detaylarını arka planda çek
     _prefetchCurrentCardDetails();
   }
 
   @override
   void dispose() {
-    // Ekrandan çıkıldığında sesli telaffuz motorunu durdur
     TtsService.instance.stop();
     super.dispose();
   }
 
-  /// Sıradaki kelimenin tür ve sözlük verilerini gecikmesiz göstermek için önbelleğe alır
   void _prefetchCurrentCardDetails() {
     if (_remainingCards.isEmpty) return;
     final word = _remainingCards.first['word']?.toString().trim().toLowerCase() ?? '';
@@ -115,7 +94,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     }
   }
 
-  /// Kullanıcıya kısa süreli başarı/motivasyon bildirimi fırlatır
   void _triggerCheer(String message) {
     setState(() => _cheerMessage = message);
     Future.delayed(const Duration(milliseconds: 2400), () {
@@ -125,14 +103,12 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     });
   }
 
-  /// SRS Algoritması: Kullanıcının verdiği cevaba (0: Tekrar, 1: Zor, 2: Bildim) göre ilerlemeyi işler
   void _handleSrsRating(int rating) {
     if (_remainingCards.isEmpty || _isProcessing) return;
 
     _isProcessing = true;
     TtsService.instance.stop();
 
-    // Dokunma / Haptic geri bildirimi sağla
     if (rating == 2) {
       HapticFeedback.lightImpact();
     } else {
@@ -141,19 +117,13 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
 
     final currentCard = _remainingCards.first;
     final int cardId = currentCard['id'] as int? ?? 0;
-    int currentReps = currentCard['repetitions'] as int? ?? 0;
-    int currentInterval = currentCard['interval'] as int? ?? 1;
+    int currentStreak = currentCard['success_streak'] as int? ?? (currentCard['repetitions'] as int? ?? 0);
 
-    int newReps = currentReps;
-    int newInterval = currentInterval;
-    bool isNowMastered = false;
+    bool isCorrect = false;
     int xpGain = 0;
 
-    // --- 1. CEVAP PUANLAMA & SRS HESAPLAMA MANTIĞI ---
     if (rating == 0) {
-      // 🔴 TEKRAR (Unutuldu): Tekrar sayısı sıfırlanır, aralık 1 güne iner, zorlanılanlara eklenir
-      newReps = 0;
-      newInterval = 1;
+      isCorrect = false;
       _consecutiveKnownStreak = 0;
       _reviewCount++;
       _struggledCards.add(currentCard);
@@ -162,33 +132,26 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         _triggerCheer(CoachMessages.getWrongAnswerEncouragement());
       }
     } else if (rating == 1) {
-      // 🟠 ZOR (Hatırlandı ama zorlanıldı): Küçük bir aralık artışı ve hafif XP
+      isCorrect = true;
       _hardCount++;
       _consecutiveKnownStreak = 0;
       _struggledCards.add(currentCard);
-      newReps += 1;
-      newInterval = (currentInterval * 1.3).round().clamp(1, 30);
       xpGain = 4;
     } else {
-      // 🟢 BİLDİM (Rahat hatırlandı): Aralık katlanarak büyür, XP kazanılır
+      isCorrect = true;
       _knownCount++;
       _consecutiveKnownStreak++;
-      newReps += 1;
-      newInterval = (currentInterval * 2.4).round().clamp(3, 120);
       xpGain = 6;
 
-      // 🏆 5'te 5 Kalıcı Hafıza (Mastery) Kontrolü[cite: 3]
-      if (newReps >= 5 && newInterval >= 21) {
-        isNowMastered = true;
+      if (currentStreak + 1 >= 6) {
         if (!widget.isReviewOnly) {
           _masteredCountInSession++;
-          xpGain += 15; // Mastery Özel Bonus XP'si
+          xpGain += 15;
           HapticFeedback.heavyImpact();
-          _triggerCheer('✨ MASTERED! "${currentCard['word']}" artık kalıcı hafızanda!');
+          _triggerCheer('✨ MASTERED! "${currentCard['word']}" kalıcı hafızada!');
         }
-      } else if (newReps == 4) {
-        // 4. Seviyeye ulaşan kelimeler için motivasyonel yakınlık mesajı[cite: 3]
-        _triggerCheer('🔥 Kalıcı hafızaya son 1 adım kaldı!');
+      } else if (currentStreak + 1 == 4) {
+        _triggerCheer('🔥 Kalıcı hafızaya yaklaşıyorsun (Aşina)!');
       } else {
         final cheer = CoachMessages.getFlashcardCheer(_consecutiveKnownStreak);
         if (cheer != null) {
@@ -197,7 +160,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       }
     }
 
-    // --- 2. VERİTABANI & XP SERVİSİ GÜNCELLEMESİ ---
     if (!widget.isReviewOnly) {
       if (xpGain > 0) {
         _totalEarnedXp += xpGain;
@@ -205,16 +167,13 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       }
 
       if (cardId > 0) {
-        DatabaseHelper.instance.updateFlashcardSrsProgress(
+        DatabaseHelper.instance.recordExerciseResult(
           cardId: cardId,
-          repetitions: newReps,
-          interval: newInterval,
-          isMastered: isNowMastered,
+          isCorrect: isCorrect,
         ).catchError((_) {});
       }
     }
 
-    // Kartı listeden kaldır ve durumları sıfırla
     setState(() {
       _remainingCards.removeAt(0);
       _isFlipped = false;
@@ -222,10 +181,8 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       _isProcessing = false;
     });
 
-    // Bir sonraki kartın verilerini hazırla
     _prefetchCurrentCardDetails();
 
-    // Tüm kartlar bittiyse kutlama penceresini tetikle
     if (_remainingCards.isEmpty && !_celebrationShown) {
       _celebrationShown = true;
       Future.delayed(const Duration(milliseconds: 250), () {
@@ -235,7 +192,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     }
   }
 
-  /// Egzersiz bittiğinde sonuç özetini ve kazanılan ödülleri gösteren diyalog[cite: 3]
   void _finishSrs() {
     if (widget.isReviewOnly) {
       Navigator.of(context).pop();
@@ -255,7 +211,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       emoji: _masteredCountInSession > 0 ? '🏆' : feedback.emoji,
       title: _masteredCountInSession > 0 ? 'Kalıcı Hafızaya Yeni Kelime Eklendi!' : feedback.title,
       subtitle: _masteredCountInSession > 0 
-          ? '$_masteredCountInSession kelimede 5\'te 5 yaparak ustalığa ulaştın.' 
+          ? '$_masteredCountInSession kelimede ustalığa ulaştın.' 
           : feedback.subtitle,
       themeColor: _masteredCountInSession > 0 ? const Color(0xFFF59E0B) : feedback.themeColor,
       earnedXp: _totalEarnedXp,
@@ -287,18 +243,66 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     );
   }
 
-  /// Seansın tahmini tamamlanma süresini hesaplar (Kart başı ortalama 15 saniye)[cite: 3]
   String _getEstimatedSessionTime() {
     int totalSec = _initialTotal * 15;
     int minutes = (totalSec / 60).ceil();
     return '~$minutes dk';
   }
 
+  Widget _buildLearningStateBadge(String state) {
+    Color bg;
+    Color fg;
+    String label;
+    IconData icon;
+
+    switch (state) {
+      case 'MASTERED':
+        bg = const Color(0xFF10B981).withValues(alpha: 0.15);
+        fg = const Color(0xFF34D399);
+        label = 'Usta (Mastered)';
+        icon = Icons.check_circle_rounded;
+        break;
+      case 'FAMILIAR':
+        bg = const Color(0xFFFBBF24).withValues(alpha: 0.15);
+        fg = const Color(0xFFFDE68A);
+        label = 'Aşina';
+        icon = Icons.verified_outlined;
+        break;
+      case 'REVIEWING':
+        bg = const Color(0xFFF59E0B).withValues(alpha: 0.15);
+        fg = const Color(0xFFF59E0B);
+        label = 'Tekrarda';
+        icon = Icons.loop_rounded;
+        break;
+      case 'LEARNING':
+      default:
+        bg = const Color(0xFF818CF8).withValues(alpha: 0.15);
+        fg = const Color(0xFF818CF8);
+        label = 'Öğreniliyor';
+        icon = Icons.auto_stories_rounded;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fg.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(color: fg, fontSize: 10.5, fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final textStyles = Theme.of(context).textTheme;
-
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
       appBar: AppBar(
@@ -328,9 +332,8 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           children: [
             _remainingCards.isEmpty
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
-                : _buildExerciseView(colors, textStyles),
+                : _buildExerciseView(),
 
-            // Üst Motivasyon ve Başarı Banner'ı
             if (_cheerMessage != null)
               Positioned(
                 top: 10,
@@ -374,8 +377,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     );
   }
 
-  /// Ana Egzersiz Görünümü (İlerleme çubuğu, Kaydırılabilir Kart ve Butonlar)[cite: 3]
-  Widget _buildExerciseView(ColorScheme colors, TextTheme textStyles) {
+  Widget _buildExerciseView() {
     final currentCard = _remainingCards.first;
     final String currentWord = currentCard['word'] ?? '';
     final String? contextSentence = currentCard['context_sentence'] as String?;
@@ -384,9 +386,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         : 'Kütüphanem';
     final String? chapterInfo = currentCard['chapter_info'] as String?;
 
-    final int repetitions = currentCard['repetitions'] as int? ?? 0;
-    final bool isAlreadyMastered = (currentCard['is_mastered'] as int? ?? 0) == 1;
-
+    final String currentState = (currentCard['learning_state'] as String? ?? 'LEARNING');
     final int currentIndex = _initialTotal - _remainingCards.length + 1;
 
     final wordKey = currentWord.trim().toLowerCase();
@@ -399,14 +399,12 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
 
     final String rawPos = defData?.partOfSpeech ?? '';
     final String formattedPos = _formatTurkishPos(rawPos);
-
     final bool hasValidContext = contextSentence != null && contextSentence.trim().isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
       child: Column(
         children: [
-          // 1. ÜST İLERLEME VE DOĞRU/YANLIŞ SAYACI
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -432,7 +430,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
             ],
           ),
           const SizedBox(height: 6),
-          // İlerleme Çubuğu
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
@@ -444,14 +441,12 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           ),
           const SizedBox(height: 14),
 
-          // 2. KAYDIRILABİLİR (DISMISSIBLE) 3D KART GÖVDESİ[cite: 3]
           Expanded(
             child: Dismissible(
               key: ValueKey('${currentCard['id']}_$currentIndex'),
               direction: _isFlipped && !_isProcessing
                   ? DismissDirection.horizontal 
                   : DismissDirection.none,
-              // Yanlışlıkla kaydırmayı önlemek için %38 eşik koruması[cite: 3]
               dismissThresholds: const {
                 DismissDirection.startToEnd: 0.38,
                 DismissDirection.endToStart: 0.38,
@@ -462,12 +457,11 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
               },
               onDismissed: (direction) {
                 if (direction == DismissDirection.startToEnd) {
-                  _handleSrsRating(2); // Sağa Kaydırma = BİLDİM[cite: 3]
+                  _handleSrsRating(2);
                 } else {
-                  _handleSrsRating(0); // Sola Kaydırma = TEKRAR[cite: 3]
+                  _handleSrsRating(0);
                 }
               },
-              // Sağa kaydırma arka planı (Yeşil - Bildim)[cite: 3]
               background: Container(
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -483,7 +477,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   ],
                 ),
               ),
-              // Sola kaydırma arka planı (Kırmızı - Tekrar)[cite: 3]
               secondaryBackground: Container(
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -509,30 +502,20 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF131B2E),
+                    color: const Color(0xFF111827),
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: isAlreadyMastered 
-                          ? Colors.amber.withValues(alpha: 0.5) 
-                          : (repetitions == 4 ? const Color(0xFFF59E0B).withValues(alpha: 0.5) : const Color(0xFF1E293B)),
-                      width: (isAlreadyMastered || repetitions == 4) ? 2 : 1.5,
+                      color: currentState == 'MASTERED' 
+                          ? const Color(0xFF10B981).withValues(alpha: 0.5) 
+                          : const Color(0xFF1F2937),
+                      width: 1.5,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isAlreadyMastered 
-                            ? Colors.amber.withValues(alpha: 0.2) 
-                            : const Color(0xFF4F46E5).withValues(alpha: 0.12),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(22.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Kart Üst Başlık (Kitap Adı, Seviye Noktaları ve Ses Butonu)[cite: 3]
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -540,7 +523,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF4F46E5).withValues(alpha: 0.15),
+                                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
                                 ),
@@ -568,43 +551,14 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (isAlreadyMastered)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    margin: const EdgeInsets.only(right: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
-                                    ),
-                                    child: const Text('🏆 Kalıcı Hafıza', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Colors.amber)),
-                                  )
-                                else if (repetitions > 0)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: Row(
-                                      children: List.generate(5, (dotIndex) {
-                                        final bool isFilled = dotIndex < repetitions;
-                                        return Container(
-                                          width: 5.5,
-                                          height: 5.5,
-                                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: isFilled ? const Color(0xFF10B981) : const Color(0xFF334155),
-                                          ),
-                                        );
-                                      }),
-                                    ),
-                                  ),
-
-                                // Telaffuz Dinleme Butonu[cite: 3]
+                                _buildLearningStateBadge(currentState),
+                                const SizedBox(width: 8),
                                 IconButton.filledTonal(
                                   style: IconButton.styleFrom(
-                                    backgroundColor: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                                    backgroundColor: const Color(0xFF38BDF8).withValues(alpha: 0.15),
                                     padding: const EdgeInsets.all(8),
                                   ),
-                                  icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF818CF8), size: 22),
+                                  icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF38BDF8), size: 20),
                                   tooltip: 'Telaffuzu Dinle',
                                   onPressed: () {
                                     HapticFeedback.selectionClick();
@@ -618,7 +572,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
 
                         const Spacer(),
 
-                        // Kelime ve Anlam Bölümü[cite: 3]
                         Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -660,14 +613,13 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
 
                         const Spacer(),
 
-                        // Kitap Bağlam Cümlesi & İpucu[cite: 3]
                         if (hasValidContext) ...[
                           if (!_isFlipped) ...[
                             if (!_showHint)
                               TextButton.icon(
                                 style: TextButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  backgroundColor: const Color(0xFF4F46E5).withValues(alpha: 0.15),
+                                  backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 ),
                                 icon: const Icon(Icons.lightbulb_outline_rounded, size: 16, color: Color(0xFFFDE68A)),
@@ -682,9 +634,9 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E293B),
+                                  color: const Color(0xFF070B14),
                                   borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: const Color(0xFF334155)),
+                                  border: Border.all(color: const Color(0xFF1F2937)),
                                 ),
                                 child: Text(
                                   '“${contextSentence.replaceAll(RegExp(RegExp.escape(currentWord), caseSensitive: false), '___')}”',
@@ -701,9 +653,9 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B),
+                                color: const Color(0xFF070B14),
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.3)),
+                                border: Border.all(color: const Color(0xFF1F2937)),
                               ),
                               child: Text(
                                 '“$contextSentence”',
@@ -719,7 +671,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                           const SizedBox(height: 14),
                         ],
 
-                        // Dokunma İndikatörü[cite: 3]
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -740,18 +691,18 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           ),
           const SizedBox(height: 16),
 
-          // 3. ALT CEVAP VE AKSİYON BUTONLARI[cite: 3]
           if (!_isFlipped)
             SizedBox(
               width: double.infinity,
               height: 52,
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5),
+                  backgroundColor: const Color(0xFFF59E0B),
+                  foregroundColor: const Color(0xFF070B14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 icon: const Icon(Icons.flip_rounded, size: 20),
-                label: const Text('Cevabı Göster', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                label: const Text('Cevabı Göster', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
                 onPressed: () {
                   if (_isProcessing) return;
                   HapticFeedback.selectionClick();
@@ -799,7 +750,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     );
   }
 
-  /// Doğal SRS derecelendirme butonlarını oluşturan yardımcı widget[cite: 3]
   Widget _buildNaturalSrsButton({
     required String title,
     required String sub,
