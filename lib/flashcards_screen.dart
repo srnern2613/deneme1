@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_screen.dart
-// AÇIKLAMA: Sadece Aktif Pratik Kartlarını Çeken Semantik Pratik Merkezi
+// AÇIKLAMA: Dinamik Word Boss Afişi & Semantik Renkli Pratik Merkezi
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import 'flashcards_exercise_screen.dart';
 import 'quiz_exercise_screen.dart';
 import 'match_exercise_screen.dart';
 import 'spelling_exercise_screen.dart';
+import 'word_boss_battle_screen.dart';
 import 'xp_shop_service.dart';
 import 'shop_screen.dart';
 
@@ -24,7 +25,12 @@ class FlashcardsScreen extends StatefulWidget {
 }
 
 class _FlashcardsScreenState extends State<FlashcardsScreen> {
+  // Normal aktif pratik kartları havuzu (DISCOVERED olanlar dahil edilmez)
   List<Map<String, dynamic>> _cards = [];
+  
+  // Aktif Word Boss kelimeleri listesi
+  List<Map<String, dynamic>> _bossCards = [];
+
   bool _isLoading = true;
   int _userGems = 50;
   int _userTotalXp = 100;
@@ -41,15 +47,18 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     _loadCardsAndStats();
   }
 
+  /// Tüm pratik kartlarını, aktif bossları ve kullanıcı bakiyelerini senkronize çeker
   Future<void> _loadCardsAndStats() async {
     try {
       final cards = await DatabaseHelper.instance.getActivePracticeCards();
+      final bossCards = await DatabaseHelper.instance.getActiveBossCards(limit: 3);
       final gems = await XpShopService.instance.getGemsBalance();
       final xp = await XpShopService.instance.getTotalXp();
 
       if (!mounted) return;
       setState(() {
         _cards = cards;
+        _bossCards = bossCards;
         _userGems = gems;
         _userTotalXp = xp;
         _isLoading = false;
@@ -104,6 +113,16 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     ).then((_) => _loadCardsAndStats());
   }
 
+  /// Word Boss Savaş Arenasını Başlatır
+  void _startBossBattle(Map<String, dynamic> bossCard) {
+    HapticFeedback.heavyImpact();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => WordBossBattleScreen(bossCard: bossCard),
+      ),
+    ).then((_) => _loadCardsAndStats());
+  }
+
   void _showEmptyWarning() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -143,6 +162,11 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   children: [
                     _buildModernHeader(),
                     const SizedBox(height: 18),
+
+                    // --- 1. DİNAMİK WORD BOSS BANNER'I (SADECE BOSS VARSA GÖRÜNÜR) ---
+                    _buildDynamicBossBanner(),
+
+                    // --- 2. ARENA ÖZET KARTI ---
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -182,6 +206,8 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
+
+                    // --- 3. ÖĞRENME VE OYUN MODLARI LİSTESİ ---
                     Text(
                       'Öğrenme & Oyun Modları',
                       style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3),
@@ -226,6 +252,124 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  /// Word Boss varsa gösterilen, yoksa hiçbir alan kaplamayan dinamik afiş
+  Widget _buildDynamicBossBanner() {
+    if (_bossCards.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final topBoss = _bossCards.first;
+    final bossWord = topBoss['word'] as String? ?? '';
+    final bossLevel = topBoss['boss_level'] as int? ?? 1;
+
+    Color badgeColor;
+    String levelName;
+    switch (bossLevel) {
+      case 4:
+        badgeColor = const Color(0xFFEF4444);
+        levelName = 'LEGENDARY BOSS';
+        break;
+      case 3:
+        badgeColor = const Color(0xFFA855F7);
+        levelName = 'ELITE BOSS';
+        break;
+      case 2:
+        badgeColor = const Color(0xFFF59E0B);
+        levelName = 'RIVAL';
+        break;
+      case 1:
+      default:
+        badgeColor = const Color(0xFF38BDF8);
+        levelName = 'TROUBLEMAKER';
+        break;
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.45), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: badgeColor.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text('👹', style: TextStyle(fontSize: 22)),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_bossCards.length} Word Boss Seni Bekliyor',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.35)),
+                ),
+                child: Text(
+                  levelName,
+                  style: GoogleFonts.outfit(
+                    color: badgeColor,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Zorlandığın kelimelerden "$bossWord" rövanş istiyor! 6 turlu meydan okumayı tamamla, ekstra XP kazan.',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF94A3B8),
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: badgeColor,
+                foregroundColor: (bossLevel == 1 || bossLevel == 2) ? const Color(0xFF070B14) : Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              onPressed: () => _startBossBattle(topBoss),
+              icon: const Icon(PhosphorIcons.swordBold, size: 16),
+              label: Text(
+                '⚔️ RÖVANŞA GİT ("$bossWord")',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.3),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

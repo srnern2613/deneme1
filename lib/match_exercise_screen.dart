@@ -1,12 +1,22 @@
 // ============================================================================
 // DOSYA ADI: lib/match_exercise_screen.dart
-// AÇIKLAMA: Boş Anlam Korumalı & Temiz Gridli Eşleştirme Ekranı
+// AÇIKLAMA: Kelime Eşleştirme & Çok Boyutlu Modalite/Boss Entegreli Oyun
+// GÖREVLER & DÜZELTMELER:
+//   1. Modalite Entegrasyonu: 'recordMultiModalResult(mode: "match")' üzerinden atomik kayıt.
+//   2. Boss Tetikleme: Hatalı eşleşmelerde ilgili kelimenin hata sayacı güncellenir.
+//   3. Çok Boyutlu Mastery: Başarılı eşleştirmeler 'modes_passed' alanına 'match' olarak işlenir.
+//   4. Boş anlam filtrelemesi ve dinamik grid yapısı korundu.
+//   5. Semantik Renk Standardı: %70-80 koyu zemin (#070B14), %10-20 panel (#111827).
 // ============================================================================
 
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+
+import 'database_helper.dart';
 import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'coach_messages.dart';
@@ -17,12 +27,14 @@ class MatchItem {
   final String text;
   final bool isEnglish;
   final String pairId;
+  final int cardId;
 
   MatchItem({
     required this.id,
     required this.text,
     required this.isEnglish,
     required this.pairId,
+    required this.cardId,
   });
 }
 
@@ -50,6 +62,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
   @override
   void initState() {
     super.initState();
+    TtsService.instance.initService();
     _restartGame();
   }
 
@@ -97,17 +110,21 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
     List<MatchItem> items = [];
     for (var card in selectedPairs) {
       final pairId = card['id']?.toString() ?? card['word'];
+      final cardDbId = card['id'] as int? ?? 0;
+
       items.add(MatchItem(
         id: '${pairId}_en',
         text: (card['word'] ?? '').toString().trim(),
         isEnglish: true,
         pairId: pairId,
+        cardId: cardDbId,
       ));
       items.add(MatchItem(
         id: '${pairId}_tr',
         text: (card['meaning'] ?? '').toString().trim(),
         isEnglish: false,
         pairId: pairId,
+        cardId: cardDbId,
       ));
     }
 
@@ -141,10 +158,20 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       return;
     }
 
+    // Doğru eşleşme kontrolü
     if (_selectedItem!.pairId == item.pairId && _selectedItem!.isEnglish != item.isEnglish) {
       HapticFeedback.mediumImpact();
       _combo++;
       _score += 2;
+
+      // 🎯 ÇOK BOYUTLU MODALİTE BAŞARISI KAYDI
+      if (item.cardId > 0) {
+        DatabaseHelper.instance.recordMultiModalResult(
+          cardId: item.cardId,
+          isCorrect: true,
+          mode: 'match',
+        );
+      }
 
       final multiplier = _combo >= 6 ? 2 : 1;
       final earnedXp = 4 * multiplier;
@@ -175,9 +202,19 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
         }
       }
     } else {
+      // 🔴 Yanlış eşleşme: Hata bildirimi ve Boss adaylığı tetiklemesi
       HapticFeedback.heavyImpact();
       _combo = 0;
       _triggerCheer(CoachMessages.getWrongAnswerEncouragement());
+
+      if (_selectedItem!.cardId > 0) {
+        DatabaseHelper.instance.recordMultiModalResult(
+          cardId: _selectedItem!.cardId,
+          isCorrect: false,
+          mode: 'match',
+        );
+      }
+
       setState(() => _selectedItem = null);
     }
   }
@@ -213,22 +250,33 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     if (_activeItems.isEmpty && _pool.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Kelime Eşleştirme')),
-        body: const Center(child: Text('Eşleştirilecek geçerli kelime bulunamadı.')),
+        backgroundColor: const Color(0xFF070B14),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF070B14),
+          elevation: 0,
+          title: Text('Kelime Eşleştirme', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+        body: Center(
+          child: Text('Eşleştirilecek geçerli kelime bulunamadı.', style: GoogleFonts.inter(color: const Color(0xFF94A3B8))),
+        ),
       );
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFF070B14),
       appBar: AppBar(
-        title: const Text('Kelime Eşleştirme', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF070B14),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          'Kelime Eşleştirme',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 18),
+        ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
+          icon: const Icon(Icons.close_rounded, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -245,17 +293,17 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.12),
+                          color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                          border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.35)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.timer_outlined, size: 16, color: Colors.redAccent),
+                            const Icon(PhosphorIcons.timerBold, size: 16, color: Color(0xFFEF4444)),
                             const SizedBox(width: 6),
                             Text(
                               '$_timeLeft sn',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent),
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFFEF4444)),
                             ),
                           ],
                         ),
@@ -263,9 +311,9 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.purple.withValues(alpha: 0.12),
+                          color: const Color(0xFFA855F7).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
+                          border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.35)),
                         ),
                         child: Row(
                           children: [
@@ -273,7 +321,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                             const SizedBox(width: 4),
                             Text(
                               '$_combo Kombo',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple),
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFFA855F7)),
                             ),
                           ],
                         ),
@@ -306,18 +354,18 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? colors.primary.withValues(alpha: 0.18)
-                                    : (isDark ? const Color(0xFF131B2E) : Colors.white),
+                                    ? const Color(0xFF6366F1).withValues(alpha: 0.22)
+                                    : const Color(0xFF111827),
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
                                   color: isSelected
-                                      ? colors.primary
-                                      : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-                                  width: isSelected ? 2 : 1,
+                                      ? const Color(0xFF6366F1)
+                                      : const Color(0xFF1F2937),
+                                  width: isSelected ? 2 : 1.5,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                                    color: Colors.black.withValues(alpha: 0.3),
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
                                   ),
@@ -329,10 +377,10 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
+                                style: GoogleFonts.outfit(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: isSelected ? colors.primary : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                  color: isSelected ? const Color(0xFF818CF8) : Colors.white,
                                 ),
                               ),
                             ),
@@ -369,7 +417,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                     child: Text(
                       _cheerToast!,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
                 ),

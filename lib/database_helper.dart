@@ -1,11 +1,13 @@
 // ============================================================================
 // DOSYA ADI: lib/database_helper.dart
-// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Vocabulary Learning States Entegreli)
+// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Word Boss & Çok Boyutlu Mastery Destekli)
 // GÖREVLER & DÜZELTMELER:
-//   1. Versiyon 12: 'learning_state' ve 'success_streak' alanları eklendi.
-//   2. 5 Aşamalı Durum Mimarisi: DISCOVERED -> LEARNING -> REVIEWING -> FAMILIAR -> MASTERED.
-//   3. Sıfır Veri Kaybı: Eski 'is_mastered' ve 'repetitions' verileriyle tam uyum.
-//   4. İndeksleme: 'learning_state' için B-Tree indeksi ile ultra hızlı filtreleme.
+//   1. Versiyon 13: 'wrong_count', 'boss_level', 'modes_passed', 'distinct_days_count',
+//      'last_reviewed_at', 'cooldown_until' alanları eklendi.
+//   2. Çok Boyutlu Mastered Kriteri: Zaman (3+ gün), Aralık (>=21), Modalite (>=2 mod) ve Seri (>=6).
+//   3. Boss Tetikleme & Seviye Belirleme Algoritması (Troublemaker -> Legendary Boss).
+//   4. Boss Zaferinde Exploit Koruması (Mastered otomatik yapılmaz, +1 streak & cooldown verilir).
+//   5. Fallback Distractor: Yetersiz kelime durumunda sözlükten çeldirici üretme koruması.
 // ============================================================================
 
 import 'package:sqflite/sqflite.dart';
@@ -29,7 +31,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 12, // Yeni sütunlar ve indeksler için Versiyon 12'ye yükseltildi
+      version: 13, // Word Boss ve Çok Boyutlu Mastery için Versiyon 13'e yükseltildi
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
     );
@@ -37,7 +39,7 @@ class DatabaseHelper {
 
   Future _createDB(Database db, int version) async {
     // ------------------------------------------------------------------------
-    // 1. SÖZLÜK TABLOSU (Çevrimdışı Sözlük Havuzu)
+    // 1. SÖZLÜK TABLOSU (Çevrimdışı Sözlük Havuzu & Çeldirici Kaynağı)
     // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE dictionary (
@@ -55,9 +57,7 @@ class DatabaseHelper {
     ''');
 
     // ------------------------------------------------------------------------
-    // 2. GELİŞMİŞ FLASHCARD & KELİME TAKİP TABLOSU
-    // 'learning_state': DISCOVERED, LEARNING, REVIEWING, FAMILIAR, MASTERED
-    // 'success_streak': Durum yükseltme/düşürme için ardışık doğru cevap sayısı
+    // 2. GELİŞMİŞ FLASHCARD, KELİME TAKİP & WORD BOSS TABLOSU
     // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE flashcards (
@@ -69,16 +69,23 @@ class DatabaseHelper {
         is_mastered INTEGER DEFAULT 0,
         learning_state TEXT DEFAULT 'LEARNING',
         success_streak INTEGER DEFAULT 0,
+        wrong_count INTEGER DEFAULT 0,
+        boss_level INTEGER DEFAULT 0,
+        modes_passed TEXT DEFAULT '',
+        distinct_days_count INTEGER DEFAULT 0,
+        last_reviewed_at TEXT,
+        cooldown_until TEXT,
         context_sentence TEXT,
         book_title TEXT,
         chapter_info TEXT
       )
     ''');
 
-    // Hızlı sorgulama ve filtreleme indeksleri
+    // Hızlı sorgulama ve Boss indeksleri
     await db.execute('CREATE INDEX idx_flashcards_word ON flashcards(word COLLATE NOCASE)');
     await db.execute('CREATE INDEX idx_flashcards_mastered ON flashcards(is_mastered)');
     await db.execute('CREATE INDEX idx_flashcards_state ON flashcards(learning_state)');
+    await db.execute('CREATE INDEX idx_flashcards_boss ON flashcards(boss_level)');
     await db.execute('CREATE INDEX idx_flashcards_repetitions ON flashcards(repetitions)');
 
     // ------------------------------------------------------------------------
@@ -114,7 +121,6 @@ class DatabaseHelper {
   }
 
   Future _onUpgradeDB(Database db, int oldVersion, int newVersion) async {
-    // Geriye dönük yükseltmelerde veri kaybını engellemek için try-catch ile korunur
     if (oldVersion < 8) {
       try {
         await db.execute('ALTER TABLE flashcards ADD COLUMN context_sentence TEXT');
@@ -145,22 +151,28 @@ class DatabaseHelper {
       } catch (_) {}
     }
 
-    // SÜRÜM 12 GÜNCELLEMESİ: Vocabulary Learning State Entegrasyonu
     if (oldVersion < 12) {
       try {
-        // Yeni öğrenme durumu ve ardışık başarı serisi sütunları eklenir
         await db.execute("ALTER TABLE flashcards ADD COLUMN learning_state TEXT DEFAULT 'LEARNING'");
         await db.execute("ALTER TABLE flashcards ADD COLUMN success_streak INTEGER DEFAULT 0");
-
-        // Mevcut ustalara (is_mastered = 1) sahip olanların durumunu otomatik MASTERED yap
         await db.execute("UPDATE flashcards SET learning_state = 'MASTERED' WHERE is_mastered = 1");
-
-        // Yeni durum filtresi için B-Tree indeksi oluştur
         await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_state ON flashcards(learning_state)');
+      } catch (_) {}
+    }
+
+    // SÜRÜM 13 GÜNCELLEMESİ: Word Boss & Çok Boyutlu Mastery Alanları
+    if (oldVersion < 13) {
+      try {
+        await db.execute("ALTER TABLE flashcards ADD COLUMN wrong_count INTEGER DEFAULT 0");
+        await db.execute("ALTER TABLE flashcards ADD COLUMN boss_level INTEGER DEFAULT 0");
+        await db.execute("ALTER TABLE flashcards ADD COLUMN modes_passed TEXT DEFAULT ''");
+        await db.execute("ALTER TABLE flashcards ADD COLUMN distinct_days_count INTEGER DEFAULT 0");
+        await db.execute("ALTER TABLE flashcards ADD COLUMN last_reviewed_at TEXT");
+        await db.execute("ALTER TABLE flashcards ADD COLUMN cooldown_until TEXT");
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_boss ON flashcards(boss_level)');
       } catch (e) {
-        // Olası migration hatalarında loglama
         // ignore: avoid_print
-        print('DB Upgrade v12 Error: $e');
+        print('DB Upgrade v13 Error: $e');
       }
     }
   }
@@ -169,6 +181,8 @@ class DatabaseHelper {
     final sampleWords = [
       {'word': 'Habit', 'meaning': 'Alışkanlık', 'pos': 'noun', 'phonetic': '/ˈhæb.ɪt/', 'example': 'Good habits make time your ally.'},
       {'word': 'Improve', 'meaning': 'Geliştirmek, iyileştirmek', 'pos': 'verb', 'phonetic': '/ɪmˈpruːv/', 'example': 'Read every day to improve yourself.'},
+      {'word': 'Challenge', 'meaning': 'Meydan okuma, zorluk', 'pos': 'noun', 'phonetic': '/ˈtʃæl.ɪndʒ/', 'example': 'Every challenge is an opportunity.'},
+      {'word': 'Persistent', 'meaning': 'İnatçı, ısrarcı, sürekli', 'pos': 'adjective', 'phonetic': '/pəˈsɪs.tənt/', 'example': 'Be persistent in your daily practice.'},
     ];
 
     for (var item in sampleWords) {
@@ -177,7 +191,7 @@ class DatabaseHelper {
   }
 
   // ==========================================================================
-  // SÖZLÜK METOTLARI
+  // SÖZLÜK METOTLARI & ÇELDİRİCİ (DISTRACTOR) ÜRETECİ
   // ==========================================================================
 
   Future<Map<String, dynamic>?> getWordDefinition(String word) async {
@@ -221,6 +235,62 @@ class DatabaseHelper {
       whereArgs: ['%$query%', '%$query%'],
       limit: 20,
     );
+  }
+
+  /// RangeError Önleyici: Testler ve Boss için çeldirici anlam listesi üretir
+  Future<List<String>> getDistractorMeanings({
+    required String correctWord,
+    required String correctMeaning,
+    int count = 3,
+  }) async {
+    final db = await database;
+    
+    // 1. Önce kullanıcının kendi flashcards havuzundan çeldirici dene
+    final rawFlashcards = await db.query(
+      'flashcards',
+      columns: ['meaning'],
+      where: 'word != ? COLLATE NOCASE AND meaning != ?',
+      whereArgs: [correctWord.trim(), correctMeaning.trim()],
+      orderBy: 'RANDOM()',
+      limit: count,
+    );
+
+    final Set<String> distractors = rawFlashcards
+        .map((e) => (e['meaning'] as String? ?? '').trim())
+        .where((m) => m.isNotEmpty && m != correctMeaning.trim())
+        .toSet();
+
+    // 2. Yeterli çeldirici yoksa çevrimdışı sözlük havuzundan tamamla (RangeError Koruması)
+    if (distractors.length < count) {
+      final needed = count - distractors.length;
+      final rawDictionary = await db.query(
+        'dictionary',
+        columns: ['meaning'],
+        where: 'word != ? COLLATE NOCASE AND meaning != ?',
+        whereArgs: [correctWord.trim(), correctMeaning.trim()],
+        orderBy: 'RANDOM()',
+        limit: needed * 2,
+      );
+
+      for (var row in rawDictionary) {
+        final m = (row['meaning'] as String? ?? '').trim();
+        if (m.isNotEmpty && m != correctMeaning.trim()) {
+          distractors.add(m);
+        }
+        if (distractors.length >= count) break;
+      }
+    }
+
+    // 3. Çok uç durumda hala eksikse varsayılan fallback anlamlar ekle
+    final fallbackList = ['Sonuç, netice', 'Geliştirmek', 'Keşfetmek', 'Hatırlamak', 'Önemli, mühim'];
+    for (var fb in fallbackList) {
+      if (distractors.length >= count) break;
+      if (fb != correctMeaning.trim()) {
+        distractors.add(fb);
+      }
+    }
+
+    return distractors.take(count).toList();
   }
 
   // ==========================================================================
@@ -277,7 +347,7 @@ class DatabaseHelper {
   }
 
   // ==========================================================================
-  // FLASHCARD & KELİME DURUM METOTLARI
+  // FLASHCARD, VOCABULARY STATES & WORD BOSS METOTLARI
   // ==========================================================================
 
   Future<bool> isWordInFlashcards(String word) async {
@@ -287,14 +357,13 @@ class DatabaseHelper {
     return result.isNotEmpty;
   }
 
-  /// Kelime ilk defa incelendiğinde veya desteye eklendiğinde çağrılır
   Future<int> addFlashcard(
     String word, 
     String meaning, {
     String? contextSentence,
     String? bookTitle,
     String? chapterInfo,
-    String learningState = 'LEARNING', // Varsayılan durum
+    String learningState = 'LEARNING',
   }) async {
     final db = await database;
     return await db.insert(
@@ -307,6 +376,10 @@ class DatabaseHelper {
         'is_mastered': learningState == 'MASTERED' ? 1 : 0,
         'learning_state': learningState,
         'success_streak': 0,
+        'wrong_count': 0,
+        'boss_level': 0,
+        'modes_passed': '',
+        'distinct_days_count': 0,
         'context_sentence': contextSentence?.trim(),
         'book_title': bookTitle?.trim(),
         'chapter_info': chapterInfo?.trim(),
@@ -315,7 +388,6 @@ class DatabaseHelper {
     );
   }
 
-  /// Kitapta bir kelimeye dokunulduğunda 'DISCOVERED' olarak kaydeder
   Future<int> discoverWord({
     required String word,
     required String meaning,
@@ -325,7 +397,6 @@ class DatabaseHelper {
     final db = await database;
     final clean = word.trim();
     
-    // Zaten ekliyse durumunu bozma
     final existing = await db.query(
       'flashcards',
       where: 'word = ? COLLATE NOCASE',
@@ -346,7 +417,6 @@ class DatabaseHelper {
     );
   }
 
-  /// Durumu DISCOVERED olan kelimeyi öğrenme havuzuna (LEARNING) geçirir
   Future<void> promoteToLearning(String word) async {
     final db = await database;
     await db.update(
@@ -367,7 +437,6 @@ class DatabaseHelper {
     return await db.query('flashcards', orderBy: 'id DESC');
   }
 
-  /// Sadece aktif pratik yapılacak kartları çeker (DISCOVERED olanlar egzersiz havuzuna girmez)
   Future<List<Map<String, dynamic>>> getActivePracticeCards() async {
     final db = await database;
     return await db.query(
@@ -377,15 +446,27 @@ class DatabaseHelper {
     );
   }
 
-  /// Belirli bir duruma göre filtrelenmiş kartları getirir
-  Future<List<Map<String, dynamic>>> getCardsByState(String stateKey) async {
+  /// Aktif Word Boss kelimelerini getirir (Maksimum ilk 3 boss; Fatigue Önleme)
+  Future<List<Map<String, dynamic>>> getActiveBossCards({int limit = 3}) async {
     final db = await database;
+    final nowIso = DateTime.now().toIso8601String();
     return await db.query(
       'flashcards',
-      where: 'learning_state = ?',
-      whereArgs: [stateKey],
-      orderBy: 'id DESC',
+      where: "boss_level > 0 AND (cooldown_until IS NULL OR cooldown_until <= ?)",
+      whereArgs: [nowIso],
+      orderBy: 'boss_level DESC, wrong_count DESC',
+      limit: limit,
     );
+  }
+
+  Future<int> getActiveBossCount() async {
+    final db = await database;
+    final nowIso = DateTime.now().toIso8601String();
+    final result = await db.rawQuery('''
+      SELECT COUNT(*) as cnt FROM flashcards 
+      WHERE boss_level > 0 AND (cooldown_until IS NULL OR cooldown_until <= ?)
+    ''', [nowIso]);
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<int> deleteFlashcard(int id) async {
@@ -394,7 +475,7 @@ class DatabaseHelper {
   }
 
   // ==========================================================================
-  // HIZLI SAYAÇ & İSTATİSTİK METOTLARI (Bellek Dostu COUNT Sorguları)
+  // HIZLI SAYAÇ & İSTATİSTİK METOTLARI
   // ==========================================================================
 
   Future<int> getMasteredCount() async {
@@ -436,75 +517,157 @@ class DatabaseHelper {
   }
 
   // ==========================================================================
-  // GELİŞMİŞ SRS & LEARNING STATE HESAPLAMA VE GÜNCELLEME
+  // ÇOK BOYUTLU SRS, MODALİTE & WORD BOSS ALGORİTMASI
   // ==========================================================================
 
-  /// Egzersiz sonucuna göre kartın durumunu (State), serisini (Streak) ve aralığını (Interval) günceller
-  Future<void> recordExerciseResult({
+  /// Çok modlu egzersiz sonucunu kaydeder ('srs', 'quiz', 'spelling', 'match', 'boss')
+  Future<void> recordMultiModalResult({
     required int cardId,
     required bool isCorrect,
+    required String mode,
   }) async {
     final db = await database;
     
-    // Mevcut kart verisini oku
     final list = await db.query('flashcards', where: 'id = ?', whereArgs: [cardId], limit: 1);
     if (list.isEmpty) return;
 
     final card = list.first;
-    int currentRepetitions = card['repetitions'] as int? ?? 0;
+    int reps = card['repetitions'] as int? ?? 0;
     int currentStreak = card['success_streak'] as int? ?? 0;
     int currentInterval = card['interval'] as int? ?? 1;
+    int wrongCount = card['wrong_count'] as int? ?? 0;
+    int bossLevel = card['boss_level'] as int? ?? 0;
+    String modesPassed = card['modes_passed'] as String? ?? '';
+    int distinctDays = card['distinct_days_count'] as int? ?? 0;
+    String? lastReviewStr = card['last_reviewed_at'] as String?;
 
-    String nextState;
-    int newStreak;
-    int newRepetitions;
-    int newInterval;
+    final now = DateTime.now();
+    final todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
 
     if (isCorrect) {
-      newStreak = currentStreak + 1;
-      newRepetitions = currentRepetitions + 1;
-      newInterval = (currentInterval * 1.8).round().clamp(1, 365);
+      currentStreak += 1;
+      reps += 1;
+      currentInterval = (currentInterval * 1.8).round().clamp(1, 365);
 
-      // Başarı eşiklerine göre aşamalı yükselme
-      if (newStreak >= 6) {
+      // Başarılı olunan modaliteyi kaydet
+      final modeSet = modesPassed.split(',').where((m) => m.isNotEmpty).toSet();
+      modeSet.add(mode);
+      modesPassed = modeSet.join(',');
+
+      // Farklı gün kontrolü (Aynı gün içindeki tekrarlar distinct day sayılmaz)
+      if (lastReviewStr == null || !lastReviewStr.startsWith(todayStr)) {
+        distinctDays += 1;
+      }
+
+      // 🎯 ÇOK BOYUTLU MASTERED DEĞERLENDİRMESİ:
+      // Mastered için: 6+ doğru seri, en az 3 farklı gün, en az 21 gün aralık ve en az 2 farklı mod başarısı
+      bool meetsMasteryCriteria = currentStreak >= 6 &&
+          distinctDays >= 3 &&
+          currentInterval >= 21 &&
+          modeSet.length >= 2;
+
+      String nextState;
+      if (meetsMasteryCriteria) {
         nextState = 'MASTERED';
-      } else if (newStreak >= 4) {
+      } else if (currentStreak >= 4) {
         nextState = 'FAMILIAR';
-      } else if (newStreak >= 2) {
+      } else if (currentStreak >= 2) {
         nextState = 'REVIEWING';
       } else {
         nextState = 'LEARNING';
       }
-    } else {
-      // Hatalı cevapta streak sıfırlanır ve durum bir basamak geriler
-      newStreak = 0;
-      newRepetitions = currentRepetitions + 1;
-      newInterval = 1; // Unutulduğu için aralık başa döner
 
-      if (card['learning_state'] == 'MASTERED' || card['learning_state'] == 'FAMILIAR') {
-        nextState = 'REVIEWING'; // Usta veya Aşina ise Tekrara düşer
-      } else {
-        nextState = 'LEARNING'; // Diğer durumlarda Öğreniliyor'a döner
+      // Eğer kelime Boss idi ve kazanıldıysa Boss seviyesini sıfırla (Exploit engeli)
+      if (mode == 'boss') {
+        bossLevel = 0;
+        wrongCount = 0;
       }
+
+      await db.update(
+        'flashcards',
+        {
+          'repetitions': reps,
+          'success_streak': currentStreak,
+          'interval': currentInterval,
+          'learning_state': nextState,
+          'is_mastered': nextState == 'MASTERED' ? 1 : 0,
+          'wrong_count': wrongCount,
+          'boss_level': bossLevel,
+          'modes_passed': modesPassed,
+          'distinct_days_count': distinctDays,
+          'last_reviewed_at': now.toIso8601String(),
+          'cooldown_until': null,
+        },
+        where: 'id = ?',
+        whereArgs: [cardId],
+      );
+    } else {
+      // 🔴 HATALI CEVAP: Streak kırılır, hata sayısı artar ve Boss seviyesi hesaplanır
+      wrongCount += 1;
+      currentStreak = 0;
+      currentInterval = 1;
+      reps += 1;
+
+      // 👹 ADAPTİF WORD BOSS SEVİYESİ HESAPLAMA (Level 1 - 4)
+      if (wrongCount >= 8) {
+        bossLevel = 4; // Level 4: Legendary Boss (Kronik unutma)
+      } else if (wrongCount >= 5 && mode != 'srs') {
+        bossLevel = 3; // Level 3: Elite Boss (Farklı modlarda başarısızlık)
+      } else if (wrongCount >= 5) {
+        bossLevel = 2; // Level 2: Rival (Tekrar tekrar unutuluyor)
+      } else if (wrongCount >= 3) {
+        bossLevel = 1; // Level 1: Troublemaker (Direniyor)
+      }
+
+      String nextState;
+      if (card['learning_state'] == 'MASTERED' || card['learning_state'] == 'FAMILIAR') {
+        nextState = 'REVIEWING';
+      } else {
+        nextState = 'LEARNING';
+      }
+
+      await db.update(
+        'flashcards',
+        {
+          'repetitions': reps,
+          'success_streak': 0,
+          'interval': 1,
+          'wrong_count': wrongCount,
+          'boss_level': bossLevel,
+          'learning_state': nextState,
+          'is_mastered': 0,
+          'last_reviewed_at': now.toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [cardId],
+      );
     }
+  }
 
-    final bool isMasteredFlag = nextState == 'MASTERED';
-
+  /// Boss savaşı kaybedildiğinde soğuma süresi (Cooldown) uygular
+  Future<void> recordBossFailureCooldown(int cardId) async {
+    final db = await database;
+    // Kullanıcıyı hemen boğmamak için 2 saat soğuma verilir
+    final cooldownTime = DateTime.now().add(const Duration(hours: 2)).toIso8601String();
     await db.update(
       'flashcards',
       {
-        'repetitions': newRepetitions,
-        'success_streak': newStreak,
-        'interval': newInterval,
-        'learning_state': nextState,
-        'is_mastered': isMasteredFlag ? 1 : 0,
+        'cooldown_until': cooldownTime,
+        'last_reviewed_at': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
       whereArgs: [cardId],
     );
   }
 
-  /// Klasik SRS metodunu geriye dönük uyumluluk için korur
+  /// Geriye dönük uyumluluk için standart SRS metodu
+  Future<void> recordExerciseResult({
+    required int cardId,
+    required bool isCorrect,
+  }) async {
+    await recordMultiModalResult(cardId: cardId, isCorrect: isCorrect, mode: 'srs');
+  }
+
   Future<void> updateFlashcardSrsProgress({
     required int cardId,
     required int repetitions,

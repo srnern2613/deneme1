@@ -1,11 +1,20 @@
 // ============================================================================
 // DOSYA ADI: lib/quiz_exercise_screen.dart
-// AÇIKLAMA: Anlam Çakışması, Boşluk ve SRS Mastery Köprülü 4 Şıklı Hızlı Test
+// AÇIKLAMA: 4 Şıklı Hızlı Test & Çok Boyutlu Modalite/Boss Entegreli Sınav
+// GÖREVLER & DÜZELTMELER:
+//   1. Modalite Entegrasyonu: 'recordMultiModalResult(mode: "quiz")' üzerinden atomik kayıt.
+//   2. Boss Tetikleme: Hatalı veya süresi dolan cevaplarda hata sayacı & Boss seviyesi güncellenir.
+//   3. Çok Boyutlu Mastery: Test başarısı 'modes_passed' alanına işlenerek ustalığa katkı sağlar.
+//   4. RangeError ve çakışma önleyici çeldirici algoritması korundu.
+//   5. Semantik Renk Standardı: %70-80 koyu zemin (#070B14), %10-20 panel (#111827).
 // ============================================================================
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+
 import 'tts_service.dart';
 import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
@@ -79,7 +88,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
     });
   }
 
-  void _timeOut() {
+  void _timeOut() async {
     if (_answered) return;
     HapticFeedback.heavyImpact();
     setState(() {
@@ -87,6 +96,17 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       _streak = 0;
     });
     _triggerCheer('⏳ Süre doldu! Odaklan ve devam et.');
+
+    // Süre dolduğunda hatalı sayılır ve Boss sayacına işlenir
+    final currentCard = _questions[_currentIndex];
+    final cardId = currentCard['id'] as int? ?? 0;
+    if (cardId > 0) {
+      await DatabaseHelper.instance.recordMultiModalResult(
+        cardId: cardId,
+        isCorrect: false,
+        mode: 'quiz',
+      );
+    }
 
     Future.delayed(const Duration(milliseconds: 1300), () {
       if (!mounted) return;
@@ -166,46 +186,27 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
     final currentCard = _questions[_currentIndex];
     final correctAnswer = (currentCard['meaning'] ?? '').toString().trim();
-    final wordText = (currentCard['word'] ?? '').toString().trim();
     final isCorrect = (option == correctAnswer);
+    final cardId = currentCard['id'] as int? ?? 0;
 
     setState(() {
       _selectedOption = option;
       _answered = true;
     });
 
+    // 🎯 ÇOK BOYUTLU MODALİTE & BOSS ENTEGRASYONU
+    if (cardId > 0) {
+      await DatabaseHelper.instance.recordMultiModalResult(
+        cardId: cardId,
+        isCorrect: isCorrect,
+        mode: 'quiz',
+      );
+    }
+
     if (isCorrect) {
       HapticFeedback.mediumImpact();
       _score++;
       _streak++;
-
-      // 🏆 SRS & Kalıcı Hafıza (Mastery) İlerleme Entegrasyonu
-      final cardId = currentCard['id'];
-      int currentRepetitions = (currentCard['repetitions'] as int? ?? 0) + 1;
-      bool isMastered = currentRepetitions >= 5;
-
-      if (cardId != null) {
-        await DatabaseHelper.instance.updateFlashcardSrsProgress(
-          cardId: cardId is int ? cardId : int.tryParse(cardId.toString()) ?? 1,
-          repetitions: currentRepetitions,
-          interval: currentRepetitions * 2,
-          isMastered: isMastered,
-        );
-      } else {
-        final allCards = await DatabaseHelper.instance.getFlashcards();
-        final match = allCards.firstWhere(
-          (c) => (c['word'] ?? '').toString().toLowerCase() == wordText.toLowerCase(),
-          orElse: () => {},
-        );
-        if (match.isNotEmpty && match['id'] != null) {
-          await DatabaseHelper.instance.updateFlashcardSrsProgress(
-            cardId: match['id'],
-            repetitions: currentRepetitions,
-            interval: currentRepetitions * 2,
-            isMastered: isMastered,
-          );
-        }
-      }
 
       final earnedXp = _timeRemaining > 4.5 ? 8 : 6;
       _totalEarnedXp += earnedXp;
@@ -270,13 +271,17 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     if (_questions.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Hızlı Test')),
-        body: const Center(child: Text('Test edilecek kelime bulunamadı.')),
+        backgroundColor: const Color(0xFF070B14),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF070B14),
+          elevation: 0,
+          title: Text('Hızlı Test', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+        body: Center(
+          child: Text('Test edilecek kelime bulunamadı.', style: GoogleFonts.inter(color: const Color(0xFF94A3B8))),
+        ),
       );
     }
 
@@ -284,11 +289,18 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
     final correctAnswer = (_questions[_currentIndex]['meaning'] ?? '').toString().trim();
 
     return Scaffold(
+      backgroundColor: const Color(0xFF070B14),
       appBar: AppBar(
-        title: const Text('4 Şıklı Hızlı Test', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF070B14),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          '4 Şıklı Hızlı Test',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 18),
+        ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
+          icon: const Icon(Icons.close_rounded, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -305,16 +317,17 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                     children: [
                       Text(
                         'Soru ${_currentIndex + 1} / ${_questions.length}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF94A3B8)),
                       ),
                       Row(
                         children: [
                           const Text('🔥', style: TextStyle(fontSize: 14)),
                           const SizedBox(width: 4),
-                          Text('$_streak Seri', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('$_streak Seri', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
                           const SizedBox(width: 12),
-                          const Icon(Icons.bolt_rounded, color: Colors.amber, size: 18),
-                          Text('$_score', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 16),
+                          const SizedBox(width: 2),
+                          Text('$_score', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B))),
                         ],
                       ),
                     ],
@@ -326,9 +339,9 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                     child: LinearProgressIndicator(
                       value: (_timeRemaining / 10.0).clamp(0.0, 1.0),
                       minHeight: 6,
-                      backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                      backgroundColor: const Color(0xFF111827),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        _timeRemaining > 3.0 ? const Color(0xFF10B981) : Colors.redAccent,
+                        _timeRemaining > 3.0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
                       ),
                     ),
                   ),
@@ -337,14 +350,12 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF131B2E) : Colors.white,
+                      color: const Color(0xFF111827),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                      ),
+                      border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                          color: Colors.black.withValues(alpha: 0.3),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),
@@ -355,17 +366,19 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                         Text(
                           currentWord,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: GoogleFonts.outfit(
                             fontSize: 30,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.5,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 8),
                         IconButton.filledTonal(
-                          style: IconButton.styleFrom(backgroundColor: colors.primary.withValues(alpha: 0.12)),
-                          icon: Icon(Icons.volume_up_rounded, color: colors.primary),
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                          ),
+                          icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF38BDF8)),
                           onPressed: () {
                             HapticFeedback.selectionClick();
                             TtsService.instance.speakWord(currentWord);
@@ -386,9 +399,9 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                         final isSelected = (_selectedOption == option);
                         final isCorrect = (option == correctAnswer);
 
-                        Color borderColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
-                        Color bgColor = isDark ? const Color(0xFF131B2E) : Colors.white;
-                        Color textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+                        Color borderColor = const Color(0xFF1F2937);
+                        Color bgColor = const Color(0xFF111827);
+                        Color textColor = Colors.white;
 
                         if (_answered) {
                           if (isCorrect) {
@@ -396,9 +409,9 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                             bgColor = const Color(0xFF10B981).withValues(alpha: 0.15);
                             textColor = const Color(0xFF10B981);
                           } else if (isSelected) {
-                            borderColor = Colors.red;
-                            bgColor = Colors.red.withValues(alpha: 0.15);
-                            textColor = Colors.red;
+                            borderColor = const Color(0xFFEF4444);
+                            bgColor = const Color(0xFFEF4444).withValues(alpha: 0.15);
+                            textColor = const Color(0xFFEF4444);
                           }
                         }
 
