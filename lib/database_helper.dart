@@ -1,13 +1,12 @@
 // ============================================================================
 // DOSYA ADI: lib/database_helper.dart
-// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Word Boss & Çok Boyutlu Mastery Destekli)
+// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Word Boss + Book Journey & Progress v14)
 // GÖREVLER & DÜZELTMELER:
-//   1. Versiyon 13: 'wrong_count', 'boss_level', 'modes_passed', 'distinct_days_count',
-//      'last_reviewed_at', 'cooldown_until' alanları eklendi.
-//   2. Çok Boyutlu Mastered Kriteri: Zaman (3+ gün), Aralık (>=21), Modalite (>=2 mod) ve Seri (>=6).
-//   3. Boss Tetikleme & Seviye Belirleme Algoritması (Troublemaker -> Legendary Boss).
-//   4. Boss Zaferinde Exploit Koruması (Mastered otomatik yapılmaz, +1 streak & cooldown verilir).
-//   5. Fallback Distractor: Yetersiz kelime durumunda sözlükten çeldirici üretme koruması.
+//   1. Versiyon 14: 'book_progress' tablosu eklendi (Okuma yüzdesi, bölüm, süre).
+//   2. Dual-Track İlerleme Sorgusu: 'getBookJourneyData' (Reading + Vocabulary).
+//   3. Okuma İlerlemesi Kaydı: 'updateBookReadingProgress' (NaN ve sıfıra bölme korumalı).
+//   4. Başlık ve ID uyuşmazlığını önleyen COLLATE NOCASE sorguları.
+//   5. Sıfır veri kaybı ve geriye dönük güvenli migration.
 // ============================================================================
 
 import 'package:sqflite/sqflite.dart';
@@ -31,7 +30,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 13, // Word Boss ve Çok Boyutlu Mastery için Versiyon 13'e yükseltildi
+      version: 14, // Book Journey & Progress entegrasyonu için Versiyon 14
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
     );
@@ -81,11 +80,12 @@ class DatabaseHelper {
       )
     ''');
 
-    // Hızlı sorgulama ve Boss indeksleri
+    // Hızlı sorgulama ve filtreleme indeksleri
     await db.execute('CREATE INDEX idx_flashcards_word ON flashcards(word COLLATE NOCASE)');
     await db.execute('CREATE INDEX idx_flashcards_mastered ON flashcards(is_mastered)');
     await db.execute('CREATE INDEX idx_flashcards_state ON flashcards(learning_state)');
     await db.execute('CREATE INDEX idx_flashcards_boss ON flashcards(boss_level)');
+    await db.execute('CREATE INDEX idx_flashcards_book ON flashcards(book_title COLLATE NOCASE)');
     await db.execute('CREATE INDEX idx_flashcards_repetitions ON flashcards(repetitions)');
 
     // ------------------------------------------------------------------------
@@ -107,7 +107,26 @@ class DatabaseHelper {
     ''');
 
     // ------------------------------------------------------------------------
-    // 4. ÖNBELLEK TABLOSU
+    // 4. KİTAP İLERLEME & READING JOURNEY TABLOSU (v14)
+    // ------------------------------------------------------------------------
+    await db.execute('''
+      CREATE TABLE book_progress (
+        book_id TEXT PRIMARY KEY,
+        book_title TEXT NOT NULL COLLATE NOCASE,
+        current_page INTEGER DEFAULT 0,
+        total_pages INTEGER DEFAULT 1,
+        last_chapter TEXT,
+        total_read_seconds INTEGER DEFAULT 0,
+        last_read_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_book_progress_title ON book_progress(book_title COLLATE NOCASE)
+    ''');
+
+    // ------------------------------------------------------------------------
+    // 5. ÖNBELLEK TABLOSU
     // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE IF NOT EXISTS cacheObject (
@@ -160,7 +179,6 @@ class DatabaseHelper {
       } catch (_) {}
     }
 
-    // SÜRÜM 13 GÜNCELLEMESİ: Word Boss & Çok Boyutlu Mastery Alanları
     if (oldVersion < 13) {
       try {
         await db.execute("ALTER TABLE flashcards ADD COLUMN wrong_count INTEGER DEFAULT 0");
@@ -170,9 +188,28 @@ class DatabaseHelper {
         await db.execute("ALTER TABLE flashcards ADD COLUMN last_reviewed_at TEXT");
         await db.execute("ALTER TABLE flashcards ADD COLUMN cooldown_until TEXT");
         await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_boss ON flashcards(boss_level)');
+      } catch (_) {}
+    }
+
+    // SÜRÜM 14 GÜNCELLEMESİ: Book Journey & Reading Progress Tablosu
+    if (oldVersion < 14) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS book_progress (
+            book_id TEXT PRIMARY KEY,
+            book_title TEXT NOT NULL COLLATE NOCASE,
+            current_page INTEGER DEFAULT 0,
+            total_pages INTEGER DEFAULT 1,
+            last_chapter TEXT,
+            total_read_seconds INTEGER DEFAULT 0,
+            last_read_at TEXT
+          )
+        ''');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_book_progress_title ON book_progress(book_title COLLATE NOCASE)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_book ON flashcards(book_title COLLATE NOCASE)');
       } catch (e) {
         // ignore: avoid_print
-        print('DB Upgrade v13 Error: $e');
+        print('DB Upgrade v14 Error: $e');
       }
     }
   }
@@ -237,7 +274,6 @@ class DatabaseHelper {
     );
   }
 
-  /// RangeError Önleyici: Testler ve Boss için çeldirici anlam listesi üretir
   Future<List<String>> getDistractorMeanings({
     required String correctWord,
     required String correctMeaning,
@@ -245,7 +281,6 @@ class DatabaseHelper {
   }) async {
     final db = await database;
     
-    // 1. Önce kullanıcının kendi flashcards havuzundan çeldirici dene
     final rawFlashcards = await db.query(
       'flashcards',
       columns: ['meaning'],
@@ -260,7 +295,6 @@ class DatabaseHelper {
         .where((m) => m.isNotEmpty && m != correctMeaning.trim())
         .toSet();
 
-    // 2. Yeterli çeldirici yoksa çevrimdışı sözlük havuzundan tamamla (RangeError Koruması)
     if (distractors.length < count) {
       final needed = count - distractors.length;
       final rawDictionary = await db.query(
@@ -281,7 +315,6 @@ class DatabaseHelper {
       }
     }
 
-    // 3. Çok uç durumda hala eksikse varsayılan fallback anlamlar ekle
     final fallbackList = ['Sonuç, netice', 'Geliştirmek', 'Keşfetmek', 'Hatırlamak', 'Önemli, mühim'];
     for (var fb in fallbackList) {
       if (distractors.length >= count) break;
@@ -446,7 +479,6 @@ class DatabaseHelper {
     );
   }
 
-  /// Aktif Word Boss kelimelerini getirir (Maksimum ilk 3 boss; Fatigue Önleme)
   Future<List<Map<String, dynamic>>> getActiveBossCards({int limit = 3}) async {
     final db = await database;
     final nowIso = DateTime.now().toIso8601String();
@@ -517,10 +549,157 @@ class DatabaseHelper {
   }
 
   // ==========================================================================
+  // KİTAP İLERLEME & READING JOURNEY METOTLARI (v14)
+  // ==========================================================================
+
+  /// Okuyucu kapandığında veya sayfa çevrildiğinde okuma ilerlemesini kaydeder
+  Future<void> updateBookReadingProgress({
+    required String bookId,
+    required String bookTitle,
+    required int currentPage,
+    required int totalPages,
+    String? chapterInfo,
+    int additionalSeconds = 0,
+  }) async {
+    final db = await database;
+    final safeTotalPages = totalPages <= 0 ? 1 : totalPages;
+    final safeCurrentPage = currentPage.clamp(0, safeTotalPages);
+    final nowIso = DateTime.now().toIso8601String();
+
+    // Mevcut süreyi alıp üzerine ekle
+    final existing = await db.query(
+      'book_progress',
+      columns: ['total_read_seconds'],
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      limit: 1,
+    );
+
+    int currentSeconds = 0;
+    if (existing.isNotEmpty) {
+      currentSeconds = existing.first['total_read_seconds'] as int? ?? 0;
+    }
+
+    final newTotalSeconds = currentSeconds + (additionalSeconds > 0 ? additionalSeconds : 0);
+
+    await db.insert(
+      'book_progress',
+      {
+        'book_id': bookId,
+        'book_title': bookTitle.trim(),
+        'current_page': safeCurrentPage,
+        'total_pages': safeTotalPages,
+        'last_chapter': chapterInfo?.trim(),
+        'total_read_seconds': newTotalSeconds,
+        'last_read_at': nowIso,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Kitap silindiğinde ilerleme verisini temizler (Orphan Data Koruması)
+  Future<void> deleteBookProgress(String bookId) async {
+    final db = await database;
+    await db.delete('book_progress', where: 'book_id = ?', whereArgs: [bookId]);
+  }
+
+  /// Belirli bir kitabın hem okuma hem de kelime ilerleme haritasını çeker
+  Future<Map<String, dynamic>> getBookJourneyData({
+    required String bookTitle,
+    String? bookId,
+  }) async {
+    final db = await database;
+    final cleanTitle = bookTitle.trim();
+
+    // 1. Okuma İlerlemesi Bilgisini Al
+    Map<String, dynamic>? progressRow;
+    if (bookId != null && bookId.isNotEmpty) {
+      final res = await db.query('book_progress', where: 'book_id = ?', whereArgs: [bookId], limit: 1);
+      if (res.isNotEmpty) progressRow = res.first;
+    }
+    if (progressRow == null) {
+      final res = await db.query('book_progress', where: 'book_title = ? COLLATE NOCASE', whereArgs: [cleanTitle], limit: 1);
+      if (res.isNotEmpty) progressRow = res.first;
+    }
+
+    final int currentPage = progressRow?['current_page'] as int? ?? 0;
+    final int totalPages = progressRow?['total_pages'] as int? ?? 1;
+    final String lastChapter = progressRow?['last_chapter'] as String? ?? 'Bölüm 1';
+    final int totalReadSec = progressRow?['total_read_seconds'] as int? ?? 0;
+    final double readingRatio = totalPages > 0 ? (currentPage / totalPages).clamp(0.0, 1.0) : 0.0;
+
+    // 2. Bu Kitaba Ait Kelime Durumlarını ve Boss Sayısını Al
+    final wordRows = await db.query(
+      'flashcards',
+      where: 'book_title = ? COLLATE NOCASE',
+      whereArgs: [cleanTitle],
+      orderBy: 'id DESC',
+    );
+
+    int discoveredCount = 0;
+    int learningCount = 0;
+    int reviewingCount = 0;
+    int familiarCount = 0;
+    int masteredCount = 0;
+    int bossCount = 0;
+
+    final List<Map<String, dynamic>> sampleWords = [];
+
+    for (var card in wordRows) {
+      final state = card['learning_state'] as String? ?? 'LEARNING';
+      final bossLvl = card['boss_level'] as int? ?? 0;
+
+      if (bossLvl > 0) bossCount++;
+
+      switch (state) {
+        case 'DISCOVERED':
+          discoveredCount++;
+          break;
+        case 'LEARNING':
+          learningCount++;
+          break;
+        case 'REVIEWING':
+          reviewingCount++;
+          break;
+        case 'FAMILIAR':
+          familiarCount++;
+          break;
+        case 'MASTERED':
+          masteredCount++;
+          break;
+      }
+
+      if (sampleWords.length < 8) {
+        sampleWords.add(card);
+      }
+    }
+
+    final int totalDiscovered = wordRows.length;
+
+    return {
+      'book_id': bookId ?? progressRow?['book_id'] ?? cleanTitle,
+      'book_title': cleanTitle,
+      'current_page': currentPage,
+      'total_pages': totalPages,
+      'reading_ratio': readingRatio,
+      'reading_percentage': (readingRatio * 100).toInt(),
+      'last_chapter': lastChapter,
+      'total_read_seconds': totalReadSec,
+      'total_words': totalDiscovered,
+      'discovered_count': discoveredCount,
+      'learning_count': learningCount,
+      'reviewing_count': reviewingCount,
+      'familiar_count': familiarCount,
+      'mastered_count': masteredCount,
+      'boss_count': bossCount,
+      'sample_words': sampleWords,
+    };
+  }
+
+  // ==========================================================================
   // ÇOK BOYUTLU SRS, MODALİTE & WORD BOSS ALGORİTMASI
   // ==========================================================================
 
-  /// Çok modlu egzersiz sonucunu kaydeder ('srs', 'quiz', 'spelling', 'match', 'boss')
   Future<void> recordMultiModalResult({
     required int cardId,
     required bool isCorrect,
@@ -549,18 +728,14 @@ class DatabaseHelper {
       reps += 1;
       currentInterval = (currentInterval * 1.8).round().clamp(1, 365);
 
-      // Başarılı olunan modaliteyi kaydet
       final modeSet = modesPassed.split(',').where((m) => m.isNotEmpty).toSet();
       modeSet.add(mode);
       modesPassed = modeSet.join(',');
 
-      // Farklı gün kontrolü (Aynı gün içindeki tekrarlar distinct day sayılmaz)
       if (lastReviewStr == null || !lastReviewStr.startsWith(todayStr)) {
         distinctDays += 1;
       }
 
-      // 🎯 ÇOK BOYUTLU MASTERED DEĞERLENDİRMESİ:
-      // Mastered için: 6+ doğru seri, en az 3 farklı gün, en az 21 gün aralık ve en az 2 farklı mod başarısı
       bool meetsMasteryCriteria = currentStreak >= 6 &&
           distinctDays >= 3 &&
           currentInterval >= 21 &&
@@ -577,7 +752,6 @@ class DatabaseHelper {
         nextState = 'LEARNING';
       }
 
-      // Eğer kelime Boss idi ve kazanıldıysa Boss seviyesini sıfırla (Exploit engeli)
       if (mode == 'boss') {
         bossLevel = 0;
         wrongCount = 0;
@@ -602,21 +776,19 @@ class DatabaseHelper {
         whereArgs: [cardId],
       );
     } else {
-      // 🔴 HATALI CEVAP: Streak kırılır, hata sayısı artar ve Boss seviyesi hesaplanır
       wrongCount += 1;
       currentStreak = 0;
       currentInterval = 1;
       reps += 1;
 
-      // 👹 ADAPTİF WORD BOSS SEVİYESİ HESAPLAMA (Level 1 - 4)
       if (wrongCount >= 8) {
-        bossLevel = 4; // Level 4: Legendary Boss (Kronik unutma)
+        bossLevel = 4;
       } else if (wrongCount >= 5 && mode != 'srs') {
-        bossLevel = 3; // Level 3: Elite Boss (Farklı modlarda başarısızlık)
+        bossLevel = 3;
       } else if (wrongCount >= 5) {
-        bossLevel = 2; // Level 2: Rival (Tekrar tekrar unutuluyor)
+        bossLevel = 2;
       } else if (wrongCount >= 3) {
-        bossLevel = 1; // Level 1: Troublemaker (Direniyor)
+        bossLevel = 1;
       }
 
       String nextState;
@@ -644,10 +816,8 @@ class DatabaseHelper {
     }
   }
 
-  /// Boss savaşı kaybedildiğinde soğuma süresi (Cooldown) uygular
   Future<void> recordBossFailureCooldown(int cardId) async {
     final db = await database;
-    // Kullanıcıyı hemen boğmamak için 2 saat soğuma verilir
     final cooldownTime = DateTime.now().add(const Duration(hours: 2)).toIso8601String();
     await db.update(
       'flashcards',
@@ -660,7 +830,6 @@ class DatabaseHelper {
     );
   }
 
-  /// Geriye dönük uyumluluk için standart SRS metodu
   Future<void> recordExerciseResult({
     required int cardId,
     required bool isCorrect,

@@ -1,6 +1,12 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Tür Hataları Giderilmiş ve Semantik Renkli Kitaplık
+// AÇIKLAMA: Dual-Track Progress (Okuma + Kelime) Destekli Kitaplık Ekranı
+// GÖREVLER & DÜZELTMELER:
+//   1. Navigation Ayrımı: Kart Gövdesi -> BookJourneyScreen, Buton -> ReaderScreen.
+//   2. Dual-Track Kart: '%XX okundu' + '🧠 X keşfedildi · ⭐ Y mastered'.
+//   3. Kitap bazlı kelime ve ilerleme verilerini asenkron haritalama (_bookStatsCache).
+//   4. Sıfıra bölme (NaN) ve eksik sayfa koruması.
+//   5. Semantik Renk Standardı: #070B14 zemin, #111827 panel, #F59E0B Action CTA.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -13,6 +19,8 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import 'book_model.dart';
 import 'reader_screen.dart';
+import 'book_journey_screen.dart';
+import 'database_helper.dart';
 import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
 import 'shop_screen.dart';
@@ -36,6 +44,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   int _totalWordsSaved = 0;
   int _userGems = 50;
   int _userTotalXp = 100;
+
+  // Kitap bazlı ilerleme ve kelime istatistikleri önbelleği
+  final Map<String, Map<String, dynamic>> _bookStatsCache = {};
 
   @override
   void initState() {
@@ -88,7 +99,26 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ),
       ];
       setState(() => _books = defaultBooks);
-      _saveBooksToStorage();
+      await _saveBooksToStorage();
+    }
+
+    _loadBookJourneyStats();
+  }
+
+  /// Her kitabın kelime ve okuma ilerlemesini SQLite'dan asenkron çeker
+  Future<void> _loadBookJourneyStats() async {
+    for (var book in _books) {
+      try {
+        final data = await DatabaseHelper.instance.getBookJourneyData(
+          bookTitle: book.title,
+          bookId: book.id,
+        );
+        if (mounted) {
+          setState(() {
+            _bookStatsCache[book.title] = data;
+          });
+        }
+      } catch (_) {}
     }
   }
 
@@ -156,6 +186,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
   }
 
+  /// Doğrudan Okuyucu (Execution / Action)
   Future<void> _openReader(Book book) async {
     HapticFeedback.selectionClick();
     final result = await Navigator.push<ReadingSessionResult>(
@@ -167,6 +198,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
             book.currentPage = newPage;
             book.lastReadDate = DateTime.now();
             _saveBooksToStorage();
+
+            // Veritabanı tablosuna da işle (DB v14)
+            final safeTotal = book.pages.isEmpty ? 1 : book.pages.length;
+            DatabaseHelper.instance.updateBookReadingProgress(
+              bookId: book.id,
+              bookTitle: book.title,
+              currentPage: newPage,
+              totalPages: safeTotal,
+              chapterInfo: 'Sayfa ${newPage + 1}',
+            );
           },
         ),
       ),
@@ -195,6 +236,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
         await _saveStatsToStorage();
       }
     }
+
+    _loadAllData();
+  }
+
+  /// Kitap Yolculuğu / Journey Ekranı (Exploration / Motivation)
+  void _openBookJourney(Book book) {
+    HapticFeedback.lightImpact();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BookJourneyScreen(
+          bookTitle: book.title,
+          bookId: book.id,
+          author: book.author,
+          onContinueReading: () => _openReader(book),
+        ),
+      ),
+    ).then((_) => _loadAllData());
   }
 
   void _openShopScreen() {
@@ -393,42 +452,156 @@ class _LibraryScreenState extends State<LibraryScreen> {
               const SizedBox(height: 18),
               Text('Kitaplarım (${_books.length})', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
               const SizedBox(height: 10),
+
+              // --- DUAL-TRACK KİTAP KARTLARI LİSTESİ ---
               Expanded(
                 child: ListView.separated(
                   physics: const BouncingScrollPhysics(),
                   itemCount: _books.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  separatorBuilder: (context, index) => const SizedBox(height: 14),
                   itemBuilder: (context, index) {
                     final book = _books[index];
+                    final stats = _bookStatsCache[book.title];
+
+                    final int totalPages = book.pages.isEmpty ? 1 : book.pages.length;
+                    final int currentPage = book.currentPage.clamp(0, totalPages);
+                    final double readingRatio = (currentPage / totalPages).clamp(0.0, 1.0);
+                    final int readingPercentage = (readingRatio * 100).toInt();
+
+                    final int discoveredWords = stats?['total_words'] as int? ?? 0;
+                    final int masteredWords = stats?['mastered_count'] as int? ?? 0;
+
                     return Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF1F2937))),
-                      child: Row(
-                        children: [
-                          Text(book.icon, style: const TextStyle(fontSize: 24)),
-                          const SizedBox(width: 14),
-                          Expanded(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111827),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(22),
+                          // KART GÖVDESİ -> JOURNEY (Exploration)
+                          onTap: () => _openBookJourney(book),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.white)),
-                                Text(book.author, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8))),
+                                Row(
+                                  children: [
+                                    Text(book.icon, style: const TextStyle(fontSize: 26)),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            book.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15.5, color: Colors.white),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            book.author,
+                                            style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Icon(PhosphorIcons.caretRightBold, size: 16, color: Color(0xFF64748B)),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+
+                                // 📖 OKUMA İLERLEME ÇUBUĞU
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '📖 %$readingPercentage okundu',
+                                      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                                    ),
+                                    Text(
+                                      'Sayfa ${currentPage + 1} / $totalPages',
+                                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: LinearProgressIndicator(
+                                    value: readingRatio,
+                                    minHeight: 6,
+                                    backgroundColor: const Color(0xFF070B14),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+
+                                // 🧠 KELİME KAZANIMI & DEVAM ET ACTION BUTONU
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF818CF8).withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.3)),
+                                          ),
+                                          child: Text(
+                                            '🧠 $discoveredWords keşif',
+                                            style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF818CF8)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                                          ),
+                                          child: Text(
+                                            '⭐ $masteredWords usta',
+                                            style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    // BUTON -> READER (Direct Action)
+                                    SizedBox(
+                                      height: 38,
+                                      child: FilledButton.icon(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: const Color(0xFFF59E0B),
+                                          foregroundColor: const Color(0xFF070B14),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                                        ),
+                                        onPressed: () {
+                                          HapticFeedback.selectionClick();
+                                          _openReader(book);
+                                        },
+                                        icon: const Icon(PhosphorIcons.playBold, size: 14),
+                                        label: Text(
+                                          book.currentPage > 0 ? 'DEVAM ET' : 'OKU',
+                                          style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFF59E0B),
-                              foregroundColor: const Color(0xFF070B14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            onPressed: () {
-                              HapticFeedback.selectionClick();
-                              _openReader(book);
-                            },
-                            child: Text(book.currentPage > 0 ? 'Devam Et' : 'Oku', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
-                          ),
-                        ],
+                        ),
                       ),
                     );
                   },

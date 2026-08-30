@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/dictionary_screen.dart
-// AÇIKLAMA: 5 Kademeli Learning State + Word Boss & Streak Destekli Sözlük
+// AÇIKLAMA: 5 Kademeli State + Word Boss + Dinamik Kitap Filtreli Sözlük
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -10,7 +10,12 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'database_helper.dart';
 
 class DictionaryScreen extends StatefulWidget {
-  const DictionaryScreen({super.key});
+  final String? initialBookFilter;
+
+  const DictionaryScreen({
+    super.key,
+    this.initialBookFilter,
+  });
 
   @override
   State<DictionaryScreen> createState() => _DictionaryScreenState();
@@ -21,6 +26,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   List<Map<String, dynamic>> _searchResults = [];
   bool _isLoading = false;
   
+  // Aktif kitap filtresi
+  String? _activeBookFilter;
+
   // 0: Tümü, 1: BOSS, 2: DISCOVERED, 3: LEARNING, 4: REVIEWING, 5: FAMILIAR, 6: MASTERED
   int _selectedFilterIndex = 0;
 
@@ -31,6 +39,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   @override
   void initState() {
     super.initState();
+    _activeBookFilter = widget.initialBookFilter?.trim();
     _loadData('');
   }
 
@@ -39,35 +48,45 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final flashcards = await DatabaseHelper.instance.getFlashcards();
+      final allFlashcards = await DatabaseHelper.instance.getFlashcards();
       if (!mounted) return;
 
-      _totalMasteredCount = flashcards.where((c) => (c['learning_state'] == 'MASTERED' || (c['is_mastered'] as int? ?? 0) == 1)).length;
-      _totalLearningCount = flashcards.where((c) => (c['learning_state'] != 'MASTERED' && (c['is_mastered'] as int? ?? 0) == 0)).length;
-      _totalBossCount = flashcards.where((c) => (c['boss_level'] as int? ?? 0) > 0).length;
+      // 1. Kitap filtresi varsa önce kitaba göre filtrele
+      List<Map<String, dynamic>> baseList = allFlashcards;
+      if (_activeBookFilter != null && _activeBookFilter!.isNotEmpty) {
+        baseList = allFlashcards.where((c) {
+          final bookTitle = (c['book_title'] as String? ?? '').trim().toLowerCase();
+          return bookTitle == _activeBookFilter!.toLowerCase();
+        }).toList();
+      }
+
+      _totalMasteredCount = baseList.where((c) => (c['learning_state'] == 'MASTERED' || (c['is_mastered'] as int? ?? 0) == 1)).length;
+      _totalLearningCount = baseList.where((c) => (c['learning_state'] != 'MASTERED' && (c['is_mastered'] as int? ?? 0) == 0)).length;
+      _totalBossCount = baseList.where((c) => (c['boss_level'] as int? ?? 0) > 0).length;
 
       List<Map<String, dynamic>> results = [];
 
+      // 2. Durum (State) Filtresini Uygula
       if (_selectedFilterIndex == 0) {
-        if (query.trim().isNotEmpty) {
+        if (query.trim().isNotEmpty && _activeBookFilter == null) {
           final rawResults = await DatabaseHelper.instance.searchWord(query);
           if (!mounted) return;
           results = rawResults.map((e) => Map<String, dynamic>.from(e)).toList();
         } else {
-          results = flashcards.map((e) => Map<String, dynamic>.from(e)).toList();
+          results = baseList.map((e) => Map<String, dynamic>.from(e)).toList();
         }
       } else if (_selectedFilterIndex == 1) {
-        // 👹 BOSS FİLTRESİ
-        results = flashcards.where((card) => (card['boss_level'] as int? ?? 0) > 0).map((e) => Map<String, dynamic>.from(e)).toList();
+        results = baseList.where((card) => (card['boss_level'] as int? ?? 0) > 0).map((e) => Map<String, dynamic>.from(e)).toList();
       } else {
         final stateFilter = _getStateKeyForIndex(_selectedFilterIndex);
-        results = flashcards.where((card) {
+        results = baseList.where((card) {
           final s = card['learning_state'] as String? ?? 'LEARNING';
           return s == stateFilter;
         }).map((e) => Map<String, dynamic>.from(e)).toList();
       }
 
-      if (query.trim().isNotEmpty && _selectedFilterIndex != 0) {
+      // 3. Arama Metnini Uygula
+      if (query.trim().isNotEmpty && (_selectedFilterIndex != 0 || _activeBookFilter != null)) {
         final q = query.toLowerCase().trim();
         results = results.where((item) {
           final w = (item['word'] as String? ?? '').toLowerCase();
@@ -104,6 +123,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       default:
         return 'ALL';
     }
+  }
+
+  void _clearBookFilter() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _activeBookFilter = null;
+    });
+    _loadData(_searchController.text);
   }
 
   Future<void> _deleteWordPermanently(Map<String, dynamic> item) async {
@@ -155,7 +182,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   }
 
   Widget _buildLearningStateBadge(String state, int bossLevel) {
-    // Eğer aktif bir Boss ise kırmızı Boss etiketi göster
     if (bossLevel > 0) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -241,8 +267,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
-          '📚 Kelime Defteri & Sözlük',
-          style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+          _activeBookFilter != null ? '📖 ${_activeBookFilter!}' : '📚 Kelime Defteri & Sözlük',
+          style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17),
         ),
         centerTitle: true,
       ),
@@ -250,7 +276,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 1. İstatistik Kartı
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
@@ -269,14 +297,61 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
+              // 2. Aktif Kitap Filtresi Çipi
+              if (_activeBookFilter != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(PhosphorIcons.bookBookmarkBold, size: 16, color: Color(0xFF818CF8)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Filtre: "$_activeBookFilter"',
+                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      InkWell(
+                        onTap: _clearBookFilter,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF070B14),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF1F2937)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(PhosphorIcons.xBold, size: 12, color: Color(0xFFEF4444)),
+                              const SizedBox(width: 4),
+                              Text('Tümünü Gör', style: GoogleFonts.outfit(color: const Color(0xFFEF4444), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // 3. Arama Çubuğu
               TextField(
                 controller: _searchController,
                 onChanged: (text) => _loadData(text),
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  hintText: 'Koleksiyonunda ara...',
+                  hintText: _activeBookFilter != null ? 'Bu kitapta ara...' : 'Koleksiyonunda ara...',
                   hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B)),
                   prefixIcon: const Icon(PhosphorIcons.magnifyingGlassBold, color: Color(0xFF64748B), size: 20),
                   suffixIcon: _searchController.text.isNotEmpty
@@ -301,8 +376,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
+              // 4. Durum Filtre Çipleri
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -324,8 +400,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
+              // 5. Kelime Listesi
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
@@ -343,7 +420,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    'Bu filtrede kayıtlı kelime bulunmuyor.',
+                                    _activeBookFilter != null
+                                        ? 'Bu kitapta seçilen filtreye uygun kelime bulunamadı.'
+                                        : 'Bu filtrede kayıtlı kelime bulunmuyor.',
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13.5),
                                   ),
@@ -443,7 +522,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                                   decoration: BoxDecoration(
                                                     color: const Color(0xFF070B14),
                                                     borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(color: const Color(0xFF1F2937)),
                                                   ),
                                                   child: Text(
                                                     '🔥 $streak Seri',

@@ -1,6 +1,11 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
-// AÇIKLAMA: Faz 3 - Vocabulary State (DISCOVERED & LEARNING) Destekli Okuyucu
+// AÇIKLAMA: Dual-Track Book Journey & book_progress (v14) Entegreli Okuyucu
+// GÖREVLER & DÜZELTMELER:
+//   1. DB v14 Senkronizasyonu: Çıkışta ve sayfa geçişinde 'updateBookReadingProgress' tetiklenir.
+//   2. Oturum Süresi Kaydı: 'additionalSeconds' parametresi ile toplam süreye ekleme yapılır.
+//   3. Kelime Avlama ve Keşfetme: 'discoverWord' ve 'addFlashcard' akışları korundu.
+//   4. Sıfıra bölme (NaN) ve PopScope çıkış koruması.
 // ============================================================================
 
 import 'dart:async';
@@ -177,7 +182,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  void _handleExit() {
+  /// Okuyucudan çıkış ve ilerlemeyi kaydetme
+  Future<void> _handleExit() async {
     if (_isExiting) return;
     _isExiting = true;
 
@@ -195,6 +201,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
       XpShopService.instance.addXp(calculatedXp).catchError((_) => 0);
     }
 
+    // 🎯 BOOK JOURNEY: Okuma ilerlemesi ve süresini veritabanına kaydet (DB v14)
+    final safeTotalPages = widget.book.totalPages <= 0 ? 1 : widget.book.totalPages;
+    await DatabaseHelper.instance.updateBookReadingProgress(
+      bookId: widget.book.id,
+      bookTitle: widget.book.title,
+      currentPage: _currentPage,
+      totalPages: safeTotalPages,
+      chapterInfo: 'Sayfa ${_currentPage + 1}',
+      additionalSeconds: totalSeconds,
+    ).catchError((_) {});
+
     final result = ReadingSessionResult(
       durationSeconds: totalSeconds,
       wordsExamined: _wordsExaminedCount,
@@ -203,6 +220,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
       pagesRead: pagesRead,
       earnedXp: calculatedXp,
     );
+
+    if (!mounted) return;
 
     if (pagesRead > 0 || _wordsAddedCount > 0) {
       final int minutes = (totalSeconds / 60).ceil();
@@ -1115,6 +1134,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   });
                   widget.onPageChanged?.call(pageIndex);
                   _loadHighlightsForCurrentPage(pageIndex);
+
+                  // Sayfa geçişinde anlık veritabanı ilerlemesini güncelle
+                  final safeTotal = widget.book.totalPages <= 0 ? 1 : widget.book.totalPages;
+                  DatabaseHelper.instance.updateBookReadingProgress(
+                    bookId: widget.book.id,
+                    bookTitle: widget.book.title,
+                    currentPage: pageIndex,
+                    totalPages: safeTotal,
+                    chapterInfo: 'Sayfa ${pageIndex + 1}',
+                  ).catchError((_) {});
                 },
                 itemBuilder: (context, index) {
                   return SingleChildScrollView(
