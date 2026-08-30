@@ -1,21 +1,21 @@
 // ============================================================================
 // DOSYA ADI: lib/book_model.dart
-// AÇIKLAMA: Kitap Veri Modeli, Tip-Güvenli JSON Ayrıştırma & İlerleme Mantığı
+// AÇIKLAMA: Kitap Veri Modeli ve JSON Dönüştürücüleri
 // ============================================================================
 
 import 'dart:convert';
 
 class Book {
-  final String id;              // Kitaba özel benzersiz UUID / Zaman damgası[cite: 5]
-  final String title;           // Kitap başlığı[cite: 5]
-  final String author;          // Yazar adı[cite: 5]
-  final String level;           // CEFR Seviyesi (A1, A2, B1, B2, C1, C2)[cite: 5]
-  final String icon;            // Kitaplık kartı simgesi[cite: 5]
-  final List<String> pages;     // Ayrıştırılmış sayfa metinleri[cite: 5]
+  final String id;
+  final String title;
+  final String author;
+  final String level;
+  final String icon;
+  final List<String> pages;
   
-  int currentPage;              // En son okunan sayfa indeksi (0 tabanlı)[cite: 5]
-  DateTime? lastReadDate;       // Son erişim tarihi[cite: 5]
-  int totalReadSeconds;         // Toplam okunan süre (sn)[cite: 5]
+  int currentPage;
+  DateTime? lastReadDate;
+  int totalReadSeconds;
 
   Book({
     required this.id,
@@ -29,13 +29,8 @@ class Book {
     this.totalReadSeconds = 0,
   });
 
-  /// Toplam sayfa sayısını güvenli döner[cite: 5]
   int get totalPages => pages.isNotEmpty ? pages.length : 1;
-
-  /// 0.0 - 1.0 aralığında okuma tamamlanma yüzdesi[cite: 5]
   double get progress => totalPages > 0 ? (currentPage + 1) / totalPages : 0.0;
-
-  /// Yüzdelik string formatı (Örn: %45)
   String get progressPercentage => '${(progress * 100).toInt()}%';
 
   Map<String, dynamic> toMap() {
