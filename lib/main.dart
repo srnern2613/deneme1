@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: Dynamic Next Best Action Karar Motorlu & Taşma Hatası Giderilmiş Lobi Mimarisi
+// AÇIKLAMA: Dynamic Next Best Action Karar Motorlu & Gutenberg Telifsiz Kitap Entegreli Lobi Mimarisi
 // GÖREVLER & DÜZELTMELER:
 //   1. Üst Bar Taşma Düzeltmesi (Overflow Fix): Expanded ve kompakt rozet düzeni.
 //   2. 5 Kademeli Öncelik Ağacı: Streak Riski > Word Boss > SRS > Aktif Kitap > Günlük Hedef.
@@ -9,6 +9,7 @@
 //   5. 'DISCOVERED' kartların doğrudan SRS'e sokulmasını engelleyen güvenli filtreleme.
 //   6. 'saved_books' & 'book_progress' (v14) senkronize aktif kitap seçici.
 //   7. Null-safe 'lastReadDate' sıralaması (DateTime? çökme koruması).
+//   8. Project Gutenberg telifsiz kamu malı 5 klasik eserin ilk açılışta otomatik yüklenmesi.
 // ============================================================================
 
 import 'dart:async';
@@ -20,6 +21,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import 'book_model.dart';
+import 'default_books.dart';
 import 'library_screen.dart';
 import 'flashcards_screen.dart';
 import 'flashcards_exercise_screen.dart';
@@ -41,8 +43,10 @@ void main() async {
   
   try {
     await MyAudioHandler.init();
+    // Project Gutenberg telifsiz klasik eserlerini ilk açılışta otomatik yükle (seed)
+    await DefaultBooksManager.seedDefaultBooksIfNeeded();
   } catch (e) {
-    debugPrint('AudioService error: $e');
+    debugPrint('Initialization error: $e');
   }
 
   SystemChrome.setSystemUIOverlayStyle(

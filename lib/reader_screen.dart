@@ -1,11 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
-// AÇIKLAMA: Dual-Track Book Journey & book_progress (v14) Entegreli Okuyucu
-// GÖREVLER & DÜZELTMELER:
-//   1. DB v14 Senkronizasyonu: Çıkışta ve sayfa geçişinde 'updateBookReadingProgress' tetiklenir.
-//   2. Oturum Süresi Kaydı: 'additionalSeconds' parametresi ile toplam süreye ekleme yapılır.
-//   3. Kelime Avlama ve Keşfetme: 'discoverWord' ve 'addFlashcard' akışları korundu.
-//   4. Sıfıra bölme (NaN) ve PopScope çıkış koruması.
+// AÇIKLAMA: Katı Kelime Süzgeci ve Akıllı Sayfalama Entegreli Okuyucu
 // ============================================================================
 
 import 'dart:async';
@@ -22,6 +17,7 @@ import 'tts_service.dart';
 import 'coach_messages.dart';
 import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
+import 'default_books.dart';
 
 enum ReaderTheme { light, sepia, dark }
 enum ReaderFont { serif, sans }
@@ -109,7 +105,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       '',
     ).trim();
 
-    if (!RegExp(r'[a-zA-Z]').hasMatch(cleaned)) {
+    if (!DefaultBooksManager.isValidWordToSave(cleaned)) {
       return '';
     }
     return cleaned;
@@ -182,7 +178,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  /// Okuyucudan çıkış ve ilerlemeyi kaydetme
   Future<void> _handleExit() async {
     if (_isExiting) return;
     _isExiting = true;
@@ -201,7 +196,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
       XpShopService.instance.addXp(calculatedXp).catchError((_) => 0);
     }
 
-    // 🎯 BOOK JOURNEY: Okuma ilerlemesi ve süresini veritabanına kaydet (DB v14)
     final safeTotalPages = widget.book.totalPages <= 0 ? 1 : widget.book.totalPages;
     await DatabaseHelper.instance.updateBookReadingProgress(
       bookId: widget.book.id,
@@ -1135,7 +1129,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   widget.onPageChanged?.call(pageIndex);
                   _loadHighlightsForCurrentPage(pageIndex);
 
-                  // Sayfa geçişinde anlık veritabanı ilerlemesini güncelle
                   final safeTotal = widget.book.totalPages <= 0 ? 1 : widget.book.totalPages;
                   DatabaseHelper.instance.updateBookReadingProgress(
                     bookId: widget.book.id,

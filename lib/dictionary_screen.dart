@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/dictionary_screen.dart
-// AÇIKLAMA: 5 Kademeli State + Word Boss + Dinamik Kitap Filtreli Sözlük
+// AÇIKLAMA: 5 Kademeli State + Word Boss + Dinamik Kitap Filtreli Sözlük (Taşma Giderildi)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -26,10 +26,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   List<Map<String, dynamic>> _searchResults = [];
   bool _isLoading = false;
   
-  // Aktif kitap filtresi
   String? _activeBookFilter;
-
-  // 0: Tümü, 1: BOSS, 2: DISCOVERED, 3: LEARNING, 4: REVIEWING, 5: FAMILIAR, 6: MASTERED
   int _selectedFilterIndex = 0;
 
   int _totalMasteredCount = 0;
@@ -51,7 +48,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       final allFlashcards = await DatabaseHelper.instance.getFlashcards();
       if (!mounted) return;
 
-      // 1. Kitap filtresi varsa önce kitaba göre filtrele
       List<Map<String, dynamic>> baseList = allFlashcards;
       if (_activeBookFilter != null && _activeBookFilter!.isNotEmpty) {
         baseList = allFlashcards.where((c) {
@@ -66,7 +62,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
       List<Map<String, dynamic>> results = [];
 
-      // 2. Durum (State) Filtresini Uygula
       if (_selectedFilterIndex == 0) {
         if (query.trim().isNotEmpty && _activeBookFilter == null) {
           final rawResults = await DatabaseHelper.instance.searchWord(query);
@@ -85,7 +80,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         }).map((e) => Map<String, dynamic>.from(e)).toList();
       }
 
-      // 3. Arama Metnini Uygula
       if (query.trim().isNotEmpty && (_selectedFilterIndex != 0 || _activeBookFilter != null)) {
         final q = query.toLowerCase().trim();
         results = results.where((item) {
@@ -278,7 +272,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. İstatistik Kartı
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
@@ -299,7 +292,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
               ),
               const SizedBox(height: 12),
 
-              // 2. Aktif Kitap Filtresi Çipi
               if (_activeBookFilter != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -345,7 +337,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                 const SizedBox(height: 12),
               ],
 
-              // 3. Arama Çubuğu
               TextField(
                 controller: _searchController,
                 onChanged: (text) => _loadData(text),
@@ -378,7 +369,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
               ),
               const SizedBox(height: 12),
 
-              // 4. Durum Filtre Çipleri
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -402,7 +392,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
               ),
               const SizedBox(height: 14),
 
-              // 5. Kelime Listesi
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
@@ -474,17 +463,19 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                               ),
                                               const SizedBox(width: 8),
                                               if (bookTitle != null && bookTitle.isNotEmpty)
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white.withValues(alpha: 0.06),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                  ),
-                                                  child: Text(
-                                                    bookTitle,
-                                                    style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8)),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
+                                                Flexible( // 🛠️ TAŞMAYI ÖNLEYEN DÜZELTME
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white.withValues(alpha: 0.06),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Text(
+                                                      bookTitle,
+                                                      style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8)),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
                                                   ),
                                                 ),
                                             ],

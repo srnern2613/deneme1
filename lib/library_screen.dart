@@ -1,12 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
 // AÇIKLAMA: Dual-Track Progress (Okuma + Kelime) Destekli Kitaplık Ekranı
-// GÖREVLER & DÜZELTMELER:
-//   1. Navigation Ayrımı: Kart Gövdesi -> BookJourneyScreen, Buton -> ReaderScreen.
-//   2. Dual-Track Kart: '%XX okundu' + '🧠 X keşfedildi · ⭐ Y mastered'.
-//   3. Kitap bazlı kelime ve ilerleme verilerini asenkron haritalama (_bookStatsCache).
-//   4. Sıfıra bölme (NaN) ve eksik sayfa koruması.
-//   5. Semantik Renk Standardı: #070B14 zemin, #111827 panel, #F59E0B Action CTA.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -18,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import 'book_model.dart';
+import 'default_books.dart';
 import 'reader_screen.dart';
 import 'book_journey_screen.dart';
 import 'database_helper.dart';
@@ -62,6 +57,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _loadAllData() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // Gutenberg asset kitaplarını çevrimdışı ve tam metin olarak yükle (Seed)
+    await DefaultBooksManager.seedDefaultBooksIfNeeded();
+
     final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
     final gems = await XpShopService.instance.getGemsBalance();
     final xp = await XpShopService.instance.getTotalXp();
@@ -83,23 +82,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
       setState(() {
         _books = bookDataList.map((str) => Book.fromJson(str)).toList();
       });
-    } else {
-      final defaultBooks = [
-        Book(
-          id: '1',
-          title: "Alice's Adventures in Wonderland",
-          author: 'Lewis Carroll',
-          level: 'Başlangıç / B1',
-          icon: '🐇',
-          lastReadDate: DateTime.now().subtract(const Duration(hours: 2)),
-          totalReadSeconds: 420,
-          pages: [
-            'Alice was beginning to get very tired of sitting by her sister on the bank...',
-          ],
-        ),
-      ];
-      setState(() => _books = defaultBooks);
-      await _saveBooksToStorage();
     }
 
     _loadBookJourneyStats();
@@ -450,6 +432,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
               ),
               const SizedBox(height: 18),
+              
+              // 📜 PROJEC GUTENBERG TELİF ŞEFAFLIK NOTU
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B).withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF334155)),
+                ),
+                child: Row(
+                  children: [
+                    const Text('📜', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Klasik eserler Project Gutenberg (gutenberg.org) kamu malı koleksiyonundandır.',
+                        style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
               Text('Kitaplarım (${_books.length})', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
               const SizedBox(height: 10),
 
