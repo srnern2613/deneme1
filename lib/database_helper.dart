@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/database_helper.dart
-// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Mükerrer Kayıt Korumalı Flashcards v14)
+// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Mükerrer Kayıt Korumalı Flashcards v15)
 // ============================================================================
 
 import 'package:sqflite/sqflite.dart';
@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 14,
+      version: 15,
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
     );
@@ -68,7 +68,7 @@ class DatabaseHelper {
       )
     ''');
 
-    await db.execute('CREATE INDEX idx_flashcards_word ON flashcards(word COLLATE NOCASE)');
+    await db.execute('CREATE UNIQUE INDEX idx_flashcards_unique_word ON flashcards(word COLLATE NOCASE)');
     await db.execute('CREATE INDEX idx_flashcards_mastered ON flashcards(is_mastered)');
     await db.execute('CREATE INDEX idx_flashcards_state ON flashcards(learning_state)');
     await db.execute('CREATE INDEX idx_flashcards_boss ON flashcards(boss_level)');
@@ -184,6 +184,22 @@ class DatabaseHelper {
         ''');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_book_progress_title ON book_progress(book_title COLLATE NOCASE)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_book ON flashcards(book_title COLLATE NOCASE)');
+      } catch (_) {}
+    }
+
+    if (oldVersion < 15) {
+      try {
+        // 1. Önce mükerrer kayıtları temizle (her kelimenin en son/en yüksek id'li satırını koru)
+        await db.execute('''
+          DELETE FROM flashcards 
+          WHERE id NOT IN (
+            SELECT MAX(id) 
+            FROM flashcards 
+            GROUP BY word COLLATE NOCASE
+          )
+        ''');
+        // 2. Mükerrerleri engellemek için UNIQUE indeks oluştur
+        await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_flashcards_unique_word ON flashcards(word COLLATE NOCASE)');
       } catch (_) {}
     }
   }
@@ -369,7 +385,7 @@ class DatabaseHelper {
     return result.isNotEmpty;
   }
 
-  /// Mükerrer kaydı önler: Kelime zaten varsa günceller, yoksa ekler
+  /// Mükerrer kaydı önler: Atomik transaction içinde kontrol eder, varsa günceller, yoksa ekler
   Future<int> addFlashcard(
     String word, 
     String meaning, {
@@ -381,57 +397,60 @@ class DatabaseHelper {
     final db = await database;
     final clean = word.trim();
 
-    final existing = await db.query(
-      'flashcards',
-      where: 'word = ? COLLATE NOCASE',
-      whereArgs: [clean],
-    );
+    return await db.transaction((txn) async {
+      final existing = await txn.query(
+        'flashcards',
+        where: 'word = ? COLLATE NOCASE',
+        whereArgs: [clean],
+      );
 
-    if (existing.isNotEmpty) {
-      final firstId = existing.first['id'] as int;
+      if (existing.isNotEmpty) {
+        final firstId = existing.first['id'] as int;
 
-      // Fazlalık kopyalar varsa temizle
-      if (existing.length > 1) {
-        for (int i = 1; i < existing.length; i++) {
-          await db.delete('flashcards', where: 'id = ?', whereArgs: [existing[i]['id']]);
+        // Varsa fazlalık diğer kopyaları anında temizle
+        if (existing.length > 1) {
+          for (int i = 1; i < existing.length; i++) {
+            await txn.delete('flashcards', where: 'id = ?', whereArgs: [existing[i]['id']]);
+          }
         }
+
+        await txn.update(
+          'flashcards',
+          {
+            if (meaning.trim().isNotEmpty && meaning.trim() != 'kelime anlamı') 'meaning': meaning.trim(),
+            'learning_state': learningState,
+            'is_mastered': learningState == 'MASTERED' ? 1 : 0,
+            if (contextSentence != null && contextSentence.trim().isNotEmpty) 'context_sentence': contextSentence.trim(),
+            if (bookTitle != null && bookTitle.trim().isNotEmpty) 'book_title': bookTitle.trim(),
+            if (chapterInfo != null && chapterInfo.trim().isNotEmpty) 'chapter_info': chapterInfo.trim(),
+          },
+          where: 'id = ?',
+          whereArgs: [firstId],
+        );
+        return firstId;
       }
 
-      await db.update(
+      return await txn.insert(
         'flashcards',
         {
+          'word': clean,
           'meaning': meaning.trim(),
-          'learning_state': learningState,
+          'interval': 1,
+          'repetitions': 0,
           'is_mastered': learningState == 'MASTERED' ? 1 : 0,
-          if (contextSentence != null) 'context_sentence': contextSentence.trim(),
-          if (bookTitle != null) 'book_title': bookTitle.trim(),
-          if (chapterInfo != null) 'chapter_info': chapterInfo.trim(),
+          'learning_state': learningState,
+          'success_streak': 0,
+          'wrong_count': 0,
+          'boss_level': 0,
+          'modes_passed': '',
+          'distinct_days_count': 0,
+          'context_sentence': contextSentence?.trim(),
+          'book_title': bookTitle?.trim(),
+          'chapter_info': chapterInfo?.trim(),
         },
-        where: 'id = ?',
-        whereArgs: [firstId],
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      return firstId;
-    }
-
-    return await db.insert(
-      'flashcards',
-      {
-        'word': clean,
-        'meaning': meaning.trim(),
-        'interval': 1,
-        'repetitions': 0,
-        'is_mastered': learningState == 'MASTERED' ? 1 : 0,
-        'learning_state': learningState,
-        'success_streak': 0,
-        'wrong_count': 0,
-        'boss_level': 0,
-        'modes_passed': '',
-        'distinct_days_count': 0,
-        'context_sentence': contextSentence?.trim(),
-        'book_title': bookTitle?.trim(),
-        'chapter_info': chapterInfo?.trim(),
-      },
-    );
+    });
   }
 
   Future<int> discoverWord({
@@ -443,24 +462,39 @@ class DatabaseHelper {
     final db = await database;
     final clean = word.trim();
     
-    final existing = await db.query(
-      'flashcards',
-      where: 'word = ? COLLATE NOCASE',
-      whereArgs: [clean],
-      limit: 1,
-    );
+    return await db.transaction((txn) async {
+      final existing = await txn.query(
+        'flashcards',
+        where: 'word = ? COLLATE NOCASE',
+        whereArgs: [clean],
+        limit: 1,
+      );
 
-    if (existing.isNotEmpty) {
-      return existing.first['id'] as int;
-    }
+      // Kelime zaten varsa (öğreniliyor, aşina veya keşfedildi) dokunma, statüsünü bozma
+      if (existing.isNotEmpty) {
+        return existing.first['id'] as int;
+      }
 
-    return await addFlashcard(
-      clean,
-      meaning,
-      contextSentence: contextSentence,
-      bookTitle: bookTitle,
-      learningState: 'DISCOVERED',
-    );
+      return await txn.insert(
+        'flashcards',
+        {
+          'word': clean,
+          'meaning': meaning.trim(),
+          'interval': 1,
+          'repetitions': 0,
+          'is_mastered': 0,
+          'learning_state': 'DISCOVERED',
+          'success_streak': 0,
+          'wrong_count': 0,
+          'boss_level': 0,
+          'modes_passed': '',
+          'distinct_days_count': 0,
+          'context_sentence': contextSentence?.trim(),
+          'book_title': bookTitle?.trim(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    });
   }
 
   Future<void> promoteToLearning(String word) async {
@@ -473,7 +507,21 @@ class DatabaseHelper {
     );
   }
 
-  /// Tüm eşleşen kopyaları temizler
+  /// Kelimeyi çalışma havuzundan çıkarır (İstatistik kaybını önlemek için DISCOVERED yapar)
+  Future<int> demoteToDiscovered(String word) async {
+    final db = await database;
+    return await db.update(
+      'flashcards',
+      {
+        'learning_state': 'DISCOVERED',
+        'is_mastered': 0,
+      },
+      where: 'word = ? COLLATE NOCASE',
+      whereArgs: [word.trim()],
+    );
+  }
+
+  /// Tüm eşleşen kopyaları tamamen siler
   Future<int> removeFlashcardByWord(String word) async {
     final db = await database;
     return await db.delete('flashcards', where: 'word = ? COLLATE NOCASE', whereArgs: [word.trim()]);

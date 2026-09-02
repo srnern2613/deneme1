@@ -468,7 +468,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     bool isWordHighlighted = _pageHighlightData.any((h) => h['start'] == globalWordIndex && h['end'] == globalWordIndex);
     bool isSentenceHighlighted = _pageHighlightData.any((h) => h['start'] == safeStart && h['end'] == safeEnd);
 
-    // Modal öncesinde DB durumunu önceden sorgula
+    // Modal açılmadan önce veritabanındaki güncel durumu kontrol et
     final initialCardQuery = await DatabaseHelper.instance.database.then((db) => db.query(
       'flashcards',
       where: 'word = ? COLLATE NOCASE',
@@ -506,7 +506,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 final rawMeaning = result?.alternativeMeanings.take(3).join(', ') ?? result?.primaryMeaning ?? '';
                 final hasValidMeaning = rawMeaning.trim().isNotEmpty && rawMeaning.trim() != 'Tanım yok';
 
-                if (!isLoading && hasValidMeaning) {
+                // Kelime ilk kez keşfediliyorsa ve henüz öğrenme havuzunda değilse veritabanına kaydet
+                if (!isLoading && hasValidMeaning && !isAddedToStudyPool) {
                   DatabaseHelper.instance.discoverWord(
                     word: cleanWord,
                     meaning: rawMeaning,
@@ -627,7 +628,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
                               ),
                               child: Row(
                                 children: [
@@ -795,14 +796,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                 HapticFeedback.heavyImpact();
 
                                 if (isAddedToStudyPool) {
-                                  // Anında UI'ı avlanabilir moda çevir
                                   setSheetState(() {
                                     isAddedToStudyPool = false;
                                     currentLearningState = 'DISCOVERED';
                                   });
                                   if (mounted) setState(() {});
 
-                                  await DatabaseHelper.instance.removeFlashcardByWord(cleanWord);
+                                  // Havuzdan çıkarırken kelimeyi DISCOVERED statüsüne çek
+                                  await DatabaseHelper.instance.demoteToDiscovered(cleanWord);
 
                                   if (!sheetContext.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -825,7 +826,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                     return;
                                   }
 
-                                  // Anında UI'ı kaldırılabilir kırmızı moda çevir
                                   setSheetState(() {
                                     isAddedToStudyPool = true;
                                     currentLearningState = 'LEARNING';
