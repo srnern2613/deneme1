@@ -1,8 +1,3 @@
-// ============================================================================
-// DOSYA ADI: lib/shop_screen.dart
-// AÇIKLAMA: Taşma Hatası Giderilmiş ve Analiz Uyarıları Temizlenmiş Mağaza
-// ============================================================================
-
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
@@ -22,8 +17,6 @@ class ShopScreen extends StatefulWidget {
 }
 
 class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
-  int _userGems = 50;
-  int _userTotalXp = 100;
   bool _hasFreezeShield = false;
   bool _isDoubleXpActive = false;
   bool _hasGoldenCrown = false;
@@ -91,8 +84,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   Future<void> _loadShopData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final gems = await XpShopService.instance.getGemsBalance();
-      final xp = await XpShopService.instance.getTotalXp();
+      await XpShopService.instance.getGemsBalance();
+      await XpShopService.instance.getTotalXp();
       final shield = await XpShopService.instance.hasFreezeShield();
       final doubleXp = await XpShopService.instance.isDoubleXpActive();
       final crown = await XpShopService.instance.hasItem('golden_crown');
@@ -112,8 +105,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
 
       if (!mounted) return;
       setState(() {
-        _userGems = gems;
-        _userTotalXp = xp;
         _hasFreezeShield = shield;
         _isDoubleXpActive = doubleXp;
         _hasGoldenCrown = crown;
@@ -179,8 +170,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     final xpTarget = xpBox.localToGlobal(Offset.zero) + Offset(xpBox.size.width / 2, xpBox.size.height / 2);
 
     const particleCount = 8;
-    final gemIncrementPerHit = (addedGems / particleCount).ceil();
-    final xpIncrementPerHit = (addedXp / particleCount).ceil();
 
     late OverlayEntry overlayEntry;
     int completedParticles = 0;
@@ -199,7 +188,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 delay: Duration(milliseconds: index * 65),
                 onImpact: () {
                   HapticFeedback.selectionClick();
-                  setState(() => _userGems += gemIncrementPerHit);
                   completedParticles++;
                   if (completedParticles >= particleCount * 2) {
                     overlayEntry.remove();
@@ -218,7 +206,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 delay: Duration(milliseconds: (index * 65) + 160),
                 onImpact: () {
                   HapticFeedback.selectionClick();
-                  setState(() => _userTotalXp += xpIncrementPerHit);
                   completedParticles++;
                   if (completedParticles >= particleCount * 2) {
                     overlayEntry.remove();
@@ -237,7 +224,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
 
   void _showInsufficientGemsDialog(int requiredGems) {
     HapticFeedback.vibrate();
-    final missingGems = requiredGems - _userGems;
+    final missingGems = requiredGems - XpShopService.instance.gemsNotifier.value;
 
     showGeneralDialog(
       context: context,
@@ -330,7 +317,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }) async {
     HapticFeedback.mediumImpact();
 
-    if (_userGems < price) {
+    if (XpShopService.instance.gemsNotifier.value < price) {
       _showInsufficientGemsDialog(price);
       return;
     }
@@ -445,7 +432,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     isActive: _hasFreezeShield,
                     activeLabel: 'Kalkan Aktif',
                     onBuy: () async {
-                      if (_userGems >= 30) {
+                      if (XpShopService.instance.gemsNotifier.value >= 30) {
                         await XpShopService.instance.spendGems(30);
                         await XpShopService.instance.setFreezeShield(true);
                         _loadShopData();
@@ -464,7 +451,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     isActive: _isDoubleXpActive,
                     activeLabel: '2X Aktif',
                     onBuy: () async {
-                      if (_userGems >= 50) {
+                      if (XpShopService.instance.gemsNotifier.value >= 50) {
                         await XpShopService.instance.spendGems(50);
                         await XpShopService.instance.activateDoubleXp();
                         _loadShopData();
@@ -532,34 +519,44 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              key: _hudGemsKey,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF38BDF8))),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
-                  const SizedBox(width: 4),
-                  Text('$_userGems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(width: 6),
-                  InkWell(onTap: _addDebugGems, child: const Icon(PhosphorIcons.plusBold, color: Color(0xFF38BDF8), size: 14)),
-                ],
-              ),
+            ValueListenableBuilder<int>(
+              valueListenable: XpShopService.instance.gemsNotifier,
+              builder: (context, gems, _) {
+                return Container(
+                  key: _hudGemsKey,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF38BDF8))),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
+                      const SizedBox(width: 4),
+                      Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(width: 6),
+                      InkWell(onTap: _addDebugGems, child: const Icon(PhosphorIcons.plusBold, color: Color(0xFF38BDF8), size: 14)),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(width: 6),
-            Container(
-              key: _hudXpKey,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFF59E0B))),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
-                  const SizedBox(width: 3),
-                  Text('$_userTotalXp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
-                ],
-              ),
+            ValueListenableBuilder<int>(
+              valueListenable: XpShopService.instance.xpNotifier,
+              builder: (context, xp, _) {
+                return Container(
+                  key: _hudXpKey,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFF59E0B))),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
+                      const SizedBox(width: 3),
+                      Text('$xp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -644,19 +641,19 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEC4899), foregroundColor: Colors.white),
             onPressed: () async {
-              if (_userGems >= 45) {
+              if (XpShopService.instance.gemsNotifier.value >= 45) {
                 await XpShopService.instance.spendGems(45);
                 _startChestOpeningCeremony();
               } else {
                 _showInsufficientGemsDialog(45);
               }
             },
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('45', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                const SizedBox(width: 3),
-                const Icon(PhosphorIcons.diamondBold, size: 13, color: Colors.white),
+                Text('45', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                SizedBox(width: 3),
+                Icon(PhosphorIcons.diamondBold, size: 13, color: Colors.white),
               ],
             ),
           ),

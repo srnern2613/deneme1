@@ -1,8 +1,3 @@
-// ============================================================================
-// DOSYA ADI: lib/flashcards_screen.dart
-// AÇIKLAMA: Dinamik Word Boss Afişi & Semantik Renkli Pratik Merkezi
-// ============================================================================
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -25,15 +20,9 @@ class FlashcardsScreen extends StatefulWidget {
 }
 
 class _FlashcardsScreenState extends State<FlashcardsScreen> {
-  // Normal aktif pratik kartları havuzu (DISCOVERED olanlar dahil edilmez)
   List<Map<String, dynamic>> _cards = [];
-  
-  // Aktif Word Boss kelimeleri listesi
   List<Map<String, dynamic>> _bossCards = [];
-
   bool _isLoading = true;
-  int _userGems = 50;
-  int _userTotalXp = 100;
 
   @override
   void initState() {
@@ -47,20 +36,17 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     _loadCardsAndStats();
   }
 
-  /// Tüm pratik kartlarını, aktif bossları ve kullanıcı bakiyelerini senkronize çeker
   Future<void> _loadCardsAndStats() async {
     try {
       final cards = await DatabaseHelper.instance.getActivePracticeCards();
       final bossCards = await DatabaseHelper.instance.getActiveBossCards(limit: 3);
-      final gems = await XpShopService.instance.getGemsBalance();
-      final xp = await XpShopService.instance.getTotalXp();
+      await XpShopService.instance.getGemsBalance();
+      await XpShopService.instance.getTotalXp();
 
       if (!mounted) return;
       setState(() {
         _cards = cards;
         _bossCards = bossCards;
-        _userGems = gems;
-        _userTotalXp = xp;
         _isLoading = false;
       });
     } catch (e) {
@@ -113,7 +99,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     ).then((_) => _loadCardsAndStats());
   }
 
-  /// Word Boss Savaş Arenasını Başlatır
   void _startBossBattle(Map<String, dynamic> bossCard) {
     HapticFeedback.heavyImpact();
     Navigator.of(context).push(
@@ -162,11 +147,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   children: [
                     _buildModernHeader(),
                     const SizedBox(height: 18),
-
-                    // --- 1. DİNAMİK WORD BOSS BANNER'I (SADECE BOSS VARSA GÖRÜNÜR) ---
                     _buildDynamicBossBanner(),
-
-                    // --- 2. ARENA ÖZET KARTI ---
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -206,8 +187,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-
-                    // --- 3. ÖĞRENME VE OYUN MODLARI LİSTESİ ---
                     Text(
                       'Öğrenme & Oyun Modları',
                       style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3),
@@ -256,7 +235,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     );
   }
 
-  /// Word Boss varsa gösterilen, yoksa hiçbir alan kaplamayan dinamik afiş
   Widget _buildDynamicBossBanner() {
     if (_bossCards.isEmpty) {
       return const SizedBox.shrink();
@@ -393,40 +371,49 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
         ),
         Row(
           children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: _openShop,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
+            ValueListenableBuilder<int>(
+              valueListenable: XpShopService.instance.gemsNotifier,
+              builder: (context, gems, _) {
+                return InkWell(
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF38BDF8)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
-                    const SizedBox(width: 5),
-                    Text('$_userGems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                  ],
-                ),
-              ),
+                  onTap: _openShop,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111827),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF38BDF8)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
+                        const SizedBox(width: 5),
+                        Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111827),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFF59E0B)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
-                  const SizedBox(width: 4),
-                  Text('$_userTotalXp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
-                ],
-              ),
+            ValueListenableBuilder<int>(
+              valueListenable: XpShopService.instance.xpNotifier,
+              builder: (context, xp, _) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111827),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFF59E0B))),
+                  child: Row(
+                    children: [
+                      const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
+                      const SizedBox(width: 4),
+                      Text('$xp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),

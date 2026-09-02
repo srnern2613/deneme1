@@ -1,30 +1,39 @@
-// ============================================================================
-// DOSYA ADI: lib/xp_shop_service.dart
-// AÇIKLAMA: Duolingo / Clash Royale Modeli XP & Elmas Ekonomisi Servisi
-// GÖREVLER & DÜZELTMELER:
-//   1. Eşya anahtarları standartlaştırıldı.
-//   2. Aktif kuşanılan kozmetikler (wardrobe) için get/set metotları eklendi.
-// ============================================================================
-
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class XpShopService {
   static final XpShopService instance = XpShopService._init();
   XpShopService._init();
 
+  final ValueNotifier<int> gemsNotifier = ValueNotifier<int>(50);
+  final ValueNotifier<int> xpNotifier = ValueNotifier<int>(100);
+  bool _isInitialized = false;
+
+  Future<void> init() async {
+    if (_isInitialized) return;
+    final prefs = await SharedPreferences.getInstance();
+    gemsNotifier.value = prefs.getInt('user_gems_balance') ?? 50;
+    xpNotifier.value = prefs.getInt('user_total_xp') ?? 100;
+    _isInitialized = true;
+  }
+
   Future<int> getTotalXp() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('user_total_xp') ?? 100;
+    final xp = prefs.getInt('user_total_xp') ?? 100;
+    xpNotifier.value = xp;
+    return xp;
   }
 
   Future<int> getGemsBalance() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('user_gems_balance') ?? 50;
+    final gems = prefs.getInt('user_gems_balance') ?? 50;
+    gemsNotifier.value = gems;
+    return gems;
   }
 
   Future<int> addXp(int amount) async {
     final prefs = await SharedPreferences.getInstance();
-    int currentXp = await getTotalXp();
+    int currentXp = prefs.getInt('user_total_xp') ?? 100;
 
     final doubleXpExpiry = prefs.getInt('double_xp_expiry_time') ?? 0;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -36,22 +45,26 @@ class XpShopService {
 
     int updatedXp = currentXp + finalXp;
     await prefs.setInt('user_total_xp', updatedXp);
+    xpNotifier.value = updatedXp;
     return updatedXp;
   }
 
   Future<int> addGems(int amount) async {
     final prefs = await SharedPreferences.getInstance();
-    int currentGems = await getGemsBalance();
+    int currentGems = prefs.getInt('user_gems_balance') ?? 50;
     int updatedGems = currentGems + amount;
     await prefs.setInt('user_gems_balance', updatedGems);
+    gemsNotifier.value = updatedGems;
     return updatedGems;
   }
 
   Future<bool> spendGems(int amount) async {
     final prefs = await SharedPreferences.getInstance();
-    int currentGems = await getGemsBalance();
+    int currentGems = prefs.getInt('user_gems_balance') ?? 50;
     if (currentGems >= amount) {
-      await prefs.setInt('user_gems_balance', currentGems - amount);
+      final updated = currentGems - amount;
+      await prefs.setInt('user_gems_balance', updated);
+      gemsNotifier.value = updated;
       return true;
     }
     return false;
@@ -102,7 +115,6 @@ class XpShopService {
     await prefs.setBool('item_$itemId', false);
   }
 
-  // --- AKTİF KUŞANILAN KOZMETİK YÖNETİMİ (Wardrobe) ---
   Future<String> getActiveCosmetic(String category, {String defaultVal = 'none'}) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('active_cosmetic_$category') ?? defaultVal;

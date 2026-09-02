@@ -1,8 +1,3 @@
-// ============================================================================
-// DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Dual-Track Progress (Okuma + Kelime) ve Seviye Rozeti Destekli Kitaplık
-// ============================================================================
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
@@ -37,8 +32,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
   int _totalWordsSaved = 0;
-  int _userGems = 50;
-  int _userTotalXp = 100;
 
   final Map<String, Map<String, dynamic>> _bookStatsCache = {};
 
@@ -60,8 +53,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await DefaultBooksManager.seedDefaultBooksIfNeeded();
 
     final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
-    final gems = await XpShopService.instance.getGemsBalance();
-    final xp = await XpShopService.instance.getTotalXp();
+    await XpShopService.instance.getGemsBalance();
+    await XpShopService.instance.getTotalXp();
     final shieldStatus = await XpShopService.instance.hasFreezeShield();
 
     if (!mounted) return;
@@ -71,8 +64,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _totalWordsSaved = prefs.getInt('stats_total_words_saved') ?? 0;
       _streakDays = streakResult['streakDays'] ?? 1;
       _hasFreezeShield = shieldStatus;
-      _userGems = gems;
-      _userTotalXp = xp;
     });
 
     final bookDataList = prefs.getStringList('saved_books');
@@ -198,7 +189,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       
       if (actualMinutes > 0 && addedPages > 0) {
         final earnedXp = actualMinutes * 10;
-        final updatedXp = await XpShopService.instance.addXp(earnedXp);
+        await XpShopService.instance.addXp(earnedXp);
 
         setState(() {
           book.currentPage = result.lastPage;
@@ -206,7 +197,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
           book.totalReadSeconds += validDurationSeconds;
           _totalReadMinutes += actualMinutes;
           _totalWordsExamined += result.wordsExamined;
-          _userTotalXp = updatedXp;
         });
 
         await _saveBooksToStorage();
@@ -353,32 +343,42 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   ),
                   Row(
                     children: [
-                      InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        onTap: _openShopScreen,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF38BDF8))),
-                          child: Row(
-                            children: [
-                              const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
-                              const SizedBox(width: 5),
-                              Text('$_userGems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                            ],
-                          ),
-                        ),
+                      ValueListenableBuilder<int>(
+                        valueListenable: XpShopService.instance.gemsNotifier,
+                        builder: (context, gems, _) {
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: _openShopScreen,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF38BDF8))),
+                              child: Row(
+                                children: [
+                                  const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
+                                  const SizedBox(width: 5),
+                                  Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFF59E0B))),
-                        child: Row(
-                          children: [
-                            const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
-                            const SizedBox(width: 4),
-                            Text('$_userTotalXp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
-                          ],
-                        ),
+                      ValueListenableBuilder<int>(
+                        valueListenable: XpShopService.instance.xpNotifier,
+                        builder: (context, xp, _) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFF59E0B))),
+                            child: Row(
+                              children: [
+                                const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
+                                const SizedBox(width: 4),
+                                Text('$xp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

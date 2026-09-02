@@ -1,8 +1,3 @@
-// ============================================================================
-// DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Analiz Uyarıları Giderilmiş Tam Profil Odası
-// ============================================================================
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,8 +30,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _masteredFlashcardsCount = 0;
   int _streakDays = 1;
   bool _hasFreezeShield = false;
-  int _userTotalXp = 100;
-  int _userGems = 50;
   int _selectedTab = 0;
 
   bool _hasGoldenCrown = false;
@@ -72,8 +65,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       int masteredCount = cards.where((c) => (c['is_mastered'] as int? ?? 0) == 1).length;
 
       final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
-      final xp = await XpShopService.instance.getTotalXp();
-      final gems = await XpShopService.instance.getGemsBalance();
+      await XpShopService.instance.getTotalXp();
+      await XpShopService.instance.getGemsBalance();
       final crown = await XpShopService.instance.hasItem('golden_crown');
       final flame = await XpShopService.instance.hasItem('flame_border');
 
@@ -95,8 +88,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _streakDays = streakResult['streakDays'] ?? 1;
         _hasFreezeShield = streakResult['hasFreezeShield'] ?? false;
         _heatmapDailyPages = heatmapData;
-        _userTotalXp = xp;
-        _userGems = gems;
         _hasGoldenCrown = crown;
         _hasFlameBorder = flame;
       });
@@ -159,28 +150,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF38BDF8))),
-                  child: Row(
-                    children: [
-                      const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
-                      const SizedBox(width: 5),
-                      Text('$_userGems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                    ],
-                  ),
+                ValueListenableBuilder<int>(
+                  valueListenable: XpShopService.instance.gemsNotifier,
+                  builder: (context, gems, _) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF38BDF8))),
+                      child: Row(
+                        children: [
+                          const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
+                          const SizedBox(width: 5),
+                          Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFF59E0B))),
-                  child: Row(
-                    children: [
-                      const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
-                      const SizedBox(width: 4),
-                      Text('$_userTotalXp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
-                    ],
-                  ),
+                ValueListenableBuilder<int>(
+                  valueListenable: XpShopService.instance.xpNotifier,
+                  builder: (context, xp, _) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFF59E0B))),
+                      child: Row(
+                        children: [
+                          const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
+                          const SizedBox(width: 4),
+                          Text('$xp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

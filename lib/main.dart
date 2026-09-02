@@ -1,17 +1,3 @@
-// ============================================================================
-// DOSYA ADI: lib/main.dart
-// AÇIKLAMA: Dynamic Next Best Action Karar Motorlu & Gutenberg Telifsiz Kitap Entegreli Lobi Mimarisi
-// GÖREVLER & DÜZELTMELER:
-//   1. Üst Bar Taşma Düzeltmesi (Overflow Fix): Expanded ve kompakt rozet düzeni.
-//   2. 5 Kademeli Öncelik Ağacı: Streak Riski > Word Boss > SRS > Aktif Kitap > Günlük Hedef.
-//   3. Above-the-Fold (Action): Personal State + Next Best Action + Aktif Kitabın Kartı.
-//   4. Below-the-Fold (Reflection): Haftalık Karne, Arena Durumu ve Boss Bilgisi.
-//   5. 'DISCOVERED' kartların doğrudan SRS'e sokulmasını engelleyen güvenli filtreleme.
-//   6. 'saved_books' & 'book_progress' (v14) senkronize aktif kitap seçici.
-//   7. Null-safe 'lastReadDate' sıralaması (DateTime? çökme koruması).
-//   8. Project Gutenberg telifsiz kamu malı 5 klasik eserin ilk açılışta otomatik yüklenmesi.
-// ============================================================================
-
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -43,8 +29,8 @@ void main() async {
   
   try {
     await MyAudioHandler.init();
-    // Project Gutenberg telifsiz klasik eserlerini ilk açılışta otomatik yükle (seed)
     await DefaultBooksManager.seedDefaultBooksIfNeeded();
+    await XpShopService.instance.init();
   } catch (e) {
     debugPrint('Initialization error: $e');
   }
@@ -293,9 +279,6 @@ class _RootScreenState extends State<RootScreen> {
   }
 }
 
-// ============================================================================
-// DİNAMİK NEXT BEST ACTION KARAR MOTORU MODELİ
-// ============================================================================
 enum ActionPriorityType {
   streakAtRisk,
   wordBoss,
@@ -356,8 +339,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _dueReviewCount = 0;
   int _currentStreak = 1;
   bool _isStreakProtectedToday = false;
-  int _userGems = 50;
-  int _userTotalXp = 100;
   int _totalReadMinutes = 0;
 
   List<Map<String, dynamic>> _activePracticeCards = [];
@@ -387,8 +368,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
       final streak = streakResult['streakDays'] ?? (prefs.getInt('current_streak_days') ?? 1);
-      final gems = await XpShopService.instance.getGemsBalance();
-      final xp = await XpShopService.instance.getTotalXp();
+      
+      await XpShopService.instance.getGemsBalance();
+      await XpShopService.instance.getTotalXp();
 
       final learnedToday = prefs.getInt('daily_learned_words_$todayKey') ?? 0;
       final target = prefs.getInt('active_daily_word_target') ?? 5;
@@ -430,8 +412,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _dueReviewCount = reviewCount;
         _currentStreak = streak;
         _isStreakProtectedToday = streakSaved;
-        _userGems = gems;
-        _userTotalXp = xp;
         _totalReadMinutes = readMins;
         _topBossCard = topBoss;
         _activeBossCount = bossCount;
@@ -627,35 +607,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. ÜST BAR: TAŞMA KORUMALI BAŞLIK VE ROZETLER
               _buildPersonalStateHeader(),
               const SizedBox(height: 16),
-
-              // 2. HERO CARD: DİNAMİK NEXT BEST ACTION
               _buildHeroNextBestActionCard(action),
               const SizedBox(height: 16),
-
-              // 3. AKTİF KİTABIN KARTI
               if (_activeBook != null) ...[
                 _buildActiveBookSection(_activeBook!, _activeBookStats),
                 const SizedBox(height: 20),
               ],
-
-              // 4. BELOW THE FOLD: GELİŞİM VE İLERLEME
               Text(
                 'Gelişim ve İlerleme',
                 style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
               ),
               const SizedBox(height: 10),
-
               if (_activeBossCount > 0 && action.type != ActionPriorityType.wordBoss && _topBossCard != null) ...[
                 _buildBossQuickBanner(_topBossCard!, _activeBossCount),
                 const SizedBox(height: 10),
               ],
-
               _buildWeeklySummaryBanner(),
               const SizedBox(height: 10),
-
               InkWell(
                 borderRadius: BorderRadius.circular(18),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())).then((_) => refreshDashboardStats()),
@@ -701,8 +671,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- WIDGET BİLEŞENLERİ ---
-
   Widget _buildPersonalStateHeader() {
     final greeting = _getTimeBasedGreeting();
 
@@ -742,28 +710,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: widget.onNavigateToShop,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
+            ValueListenableBuilder<int>(
+              valueListenable: XpShopService.instance.gemsNotifier,
+              builder: (context, gems, _) {
+                return InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35), width: 1.2),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 13),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$_userGems',
-                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
+                  onTap: widget.onNavigateToShop,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111827),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35), width: 1.2),
                     ),
-                  ],
-                ),
-              ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$gems',
+                          style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(width: 5),
             InkWell(
@@ -805,24 +778,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(width: 5),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111827),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 1.2),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 13),
-                  const SizedBox(width: 3),
-                  Text(
-                    '$_userTotalXp',
-                    style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 11.5),
+            ValueListenableBuilder<int>(
+              valueListenable: XpShopService.instance.xpNotifier,
+              builder: (context, xp, _) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111827),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 1.2),
                   ),
-                ],
-              ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 13),
+                      const SizedBox(width: 3),
+                      Text(
+                        '$xp',
+                        style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
