@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/dictionary_screen.dart
-// AÇIKLAMA: 5 Kademeli State + Word Boss + Dinamik Kitap Filtreli Sözlük (Taşma Giderildi)
+// AÇIKLAMA: 5 Kademeli State + Word Boss + Dinamik Kitap Filtreli Sözlük
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -57,7 +57,13 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       }
 
       _totalMasteredCount = baseList.where((c) => (c['learning_state'] == 'MASTERED' || (c['is_mastered'] as int? ?? 0) == 1)).length;
-      _totalLearningCount = baseList.where((c) => (c['learning_state'] != 'MASTERED' && (c['is_mastered'] as int? ?? 0) == 0)).length;
+      
+      // DÜZELTME: Süslü parantez hatası giderildi, doğru lambda syntax kullanıldı.
+      _totalLearningCount = baseList.where((c) {
+        final state = c['learning_state'] as String? ?? 'LEARNING';
+        return state == 'LEARNING' || state == 'REVIEWING' || state == 'FAMILIAR';
+      }).length;
+      
       _totalBossCount = baseList.where((c) => (c['boss_level'] as int? ?? 0) > 0).length;
 
       List<Map<String, dynamic>> results = [];
@@ -463,7 +469,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                               ),
                                               const SizedBox(width: 8),
                                               if (bookTitle != null && bookTitle.isNotEmpty)
-                                                Flexible( // 🛠️ TAŞMAYI ÖNLEYEN DÜZELTME
+                                                Flexible(
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                     decoration: BoxDecoration(

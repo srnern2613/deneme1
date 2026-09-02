@@ -1,3 +1,8 @@
+// ============================================================================
+// DOSYA ADI: lib/flashcards_screen.dart
+// AÇIKLAMA: Pratik ve Oyun Modları Ekranı (Otomatik Veri Yenileme Desteğiyle)
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,7 +24,7 @@ class FlashcardsScreen extends StatefulWidget {
   State<FlashcardsScreen> createState() => _FlashcardsScreenState();
 }
 
-class _FlashcardsScreenState extends State<FlashcardsScreen> {
+class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _cards = [];
   List<Map<String, dynamic>> _bossCards = [];
   bool _isLoading = true;
@@ -27,7 +32,21 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadCardsAndStats();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadCardsAndStats();
+    }
   }
 
   @override
@@ -134,6 +153,11 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Sekmeler arasında geçiş yapıldığında her build tetiklendiğinde veriyi tazeleyelim
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadCardsAndStats();
+    });
+
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
       body: SafeArea(

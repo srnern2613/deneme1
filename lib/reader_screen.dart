@@ -1,3 +1,9 @@
+// ============================================================================
+// DOSYA ADI: lib/reader_screen.dart
+// AÇIKLAMA: Akıllı Cümle Kırpmalı (Windowing), Gelişmiş Noktalama Bölücülü,
+//            Fosforlu Kalem Destekli ve Stop-Word Korumalı SRS Reader Arayüzü
+// ============================================================================
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +11,7 @@ import 'package:flutter/gestures.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+// Modeller, veritabanı yardımcıları ve harici servisler
 import 'book_model.dart';
 import 'database_helper.dart';
 import 'dictionary_service.dart';
@@ -14,16 +21,20 @@ import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'default_books.dart';
 
+// Okuma ekranının tema paletleri (Sepya, Koyu, Açık)
 enum ReaderTheme { light, sepia, dark }
+
+// Font ailesi tercihi (Tırnaklı klasik kitap fontu / Tırnaksız modern font)
 enum ReaderFont { serif, sans }
 
+/// Okuma oturumu bittiğinde ana ekrana ve istatistiklere döndürülen sonuç modeli.
 class ReadingSessionResult {
-  final int durationSeconds;
-  final int wordsExamined;
-  final int wordsAdded;
-  final int lastPage;
-  final int pagesRead;
-  final int earnedXp;
+  final int durationSeconds; // Okuma yapılan toplam süre (saniye)
+  final int wordsExamined;   // Üzerine tıklanıp sözlükte incelenen kelime sayısı
+  final int wordsAdded;      // 'Kelimeyi Avla' denilerek koleksiyona eklenen yeni kelimeler
+  final int lastPage;        // Kullanıcının kitabı bıraktığı son sayfa indeksi
+  final int pagesRead;       // Bu oturumda çevrilen / okunan net sayfa sayısı
+  final int earnedXp;        // Oturum sonunda kazanılan toplam deneyim puanı (XP)
 
   ReadingSessionResult({
     required this.durationSeconds,
@@ -36,8 +47,8 @@ class ReadingSessionResult {
 }
 
 class ReaderScreen extends StatefulWidget {
-  final Book book;
-  final Function(int pageIndex)? onPageChanged;
+  final Book book;                                   // Okunacak kitap verisi (içerik, sayfalar vb.)
+  final Function(int pageIndex)? onPageChanged;      // Sayfa her değiştiğinde dışarıya haber veren callback
 
   const ReaderScreen({
     super.key,
@@ -50,31 +61,40 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
+  // Sayfa kaydırma kontrolcüsü (PageView)
   late PageController _pageController;
+
+  // Mevcut aktif sayfa ve oturumun başladığı ilk sayfa (okunan net sayfa farkını bulmak için)
   late int _currentPage;
   late int _initialStartPage;
 
-  double _fontSize = 17.5;
-  ReaderTheme _currentTheme = ReaderTheme.sepia;
-  final ReaderFont _currentFont = ReaderFont.serif;
+  // Okuma tipografisi ve tema ayarları
+  double _fontSize = 17.5;                           // Varsayılan metin boyutu (pt)
+  ReaderTheme _currentTheme = ReaderTheme.sepia;      // Varsayılan tema (Göz yormayan sepya)
+  final ReaderFont _currentFont = ReaderFont.serif;  // Tipografi türü
 
-  bool _showControls = true;
-  String? _selectedWord;
-  bool _isExiting = false;
+  // Arayüz durum değişkenleri
+  bool _showControls = true;                          // Üst ve alt menü çubuklarının görünürlüğü
+  String? _selectedWord;                             // O an modalda incelenen kelimenin saf hali
+  bool _isExiting = false;                            // Çıkış işleminin birden fazla kez tetiklenmesini önleyen bayrak
 
-  final List<Map<String, dynamic>> _pageHighlightData = [];
-  final Map<int, List<InlineSpan>> _spansCache = {};
+  // Fosforlu kalem işaretlemeleri ve performans önbellekleri
+  final List<Map<String, dynamic>> _pageHighlightData = []; // Bu sayfadaki boyanmış kelime aralıkları
+  final Map<int, List<InlineSpan>> _spansCache = {};        // Sayfaların TextSpan ağacını tutan önbellek
 
-  DateTime _sessionStartTime = DateTime.now();
-  int _wordsExaminedCount = 0;
-  int _wordsAddedCount = 0;
+  // Oturum ve İlerleme Takip Değişkenleri
+  DateTime _sessionStartTime = DateTime.now();       // Kronometrenin başladığı an
+  int _wordsExaminedCount = 0;                       // Oturumda dokunulan kelime sayısı
+  int _wordsAddedCount = 0;                          // Oturumda avlanan kelime sayısı
 
-  Timer? _sessionTimer;
-  int _sessionSeconds = 0;
-  bool _notified15Min = false;
-  bool _notified30Min = false;
-  String? _activeCoachToast;
+  // Koçluk ve Süre Bildirimleri
+  Timer? _sessionTimer;                              // Arka planda her saniye işleyen oturum sayacı
+  int _sessionSeconds = 0;                           // Geçen toplam saniye
+  bool _notified15Min = false;                       // 15. dakika tebrik mesajının gösterilip gösterilmediği
+  bool _notified30Min = false;                       // 30. dakika tebrik mesajının gösterilip gösterilmediği
+  String? _activeCoachToast;                         // Ekranda yüzen koçluk mesajı kutusu
 
+  // İngilizce dilbilgisi kısaltmalarını Türkçe etiketlere çeviren sözlük
   static const Map<String, String> _posTranslations = {
     'noun': 'İsim',
     'verb': 'Fiil',
@@ -88,22 +108,68 @@ class _ReaderScreenState extends State<ReaderScreen> {
     'phrase': 'Deyim / İfade',
   };
 
+  /// İngilizce kelime türünü (POS) Türkçeleştirir.
   String _getTurkishPos(String? pos) {
     if (pos == null || pos.trim().isEmpty) return '';
     final clean = pos.trim().toLowerCase();
     return _posTranslations[clean] ?? pos.toUpperCase();
   }
 
+  /// Kelimenin başındaki ve sonundaki tırnak, parantez, noktalama gibi yabancı karakterleri temizler.
+  /// TIKLAMA ÖZGÜRLÜĞÜ: Stop-word kısıtlaması buradan kaldırıldı. 'see', 'of', 'that' gibi
+  /// tüm kelimelerin sözlük modalının açılmasına izin verilir.
   String _cleanWordText(String raw) {
-    var cleaned = raw.replaceAll(
+    return raw.replaceAll(
       RegExp(r'''^[\s"“”'‘’\(\)\[\]\{\}\.,;:!?\-—_]+|[\s"“”'‘’\(\)\[\]\{\}\.,;:!?\-—_]+$'''), 
       '',
     ).trim();
+  }
 
-    if (!DefaultBooksManager.isValidWordToSave(cleaned)) {
-      return '';
+  /// Kelimenin stop-word veya temel gramer kelimesi olup olmadığını doğrular.
+  /// Büyük/küçük harf duyarsızlığı ve kesme işaretli ekleri (örn: "that's" -> "that") normalize eder.
+  bool _isLearnableTargetWord(String word) {
+    var normalized = word.toLowerCase().trim();
+    if (normalized.contains("'")) {
+      normalized = normalized.split("'")[0];
     }
-    return cleaned;
+    if (normalized.contains("’")) {
+      normalized = normalized.split("’")[0];
+    }
+    return DefaultBooksManager.isValidWordToSave(normalized);
+  }
+
+  /// Sözlük API'sinde arama yaparken kesme işaretli ekleri temizleyip yalın kökü hazırlar.
+  String _getLookupWord(String word) {
+    var lookup = word.trim();
+    if (lookup.contains("'")) {
+      lookup = lookup.split("'")[0];
+    }
+    if (lookup.contains("’")) {
+      lookup = lookup.split("’")[0];
+    }
+    return lookup.trim();
+  }
+
+  /// [WINDOWING MEKANİZMASI]
+  /// Cümle aşırı uzun olduğunda (16 kelimeden fazla), hedef kelimenin 6 kelime öncesi
+  /// ve 6 kelime sonrasını alıp araya '...' koyarak temiz, odaklı bir bağlam cümlesi üretir.
+  String _formatContextSentence(String fullSentence, int wordIndexInSentence) {
+    final words = fullSentence.split(' ').where((w) => w.isNotEmpty).toList();
+    if (words.length <= 16) {
+      return fullSentence.trim();
+    }
+
+    final safeIdx = wordIndexInSentence.clamp(0, words.length - 1);
+    final start = (safeIdx - 6).clamp(0, words.length);
+    final end = (safeIdx + 7).clamp(0, words.length);
+
+    final subList = words.sublist(start, end);
+    var snippet = subList.join(' ');
+
+    if (start > 0) snippet = '...$snippet';
+    if (end < words.length) snippet = '$snippet...';
+
+    return snippet.trim();
   }
 
   @override
@@ -233,69 +299,53 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
+  // --- TEMA VE RENK PALETİ GETTER'LARI ---
+
   Color get _backgroundColor {
     switch (_currentTheme) {
-      case ReaderTheme.sepia:
-        return const Color(0xFFF4ECD8);
-      case ReaderTheme.dark:
-        return const Color(0xFF070B14);
-      case ReaderTheme.light:
-        return const Color(0xFFFAF9F6);
+      case ReaderTheme.sepia: return const Color(0xFFF4ECD8);
+      case ReaderTheme.dark:  return const Color(0xFF070B14);
+      case ReaderTheme.light: return const Color(0xFFFAF9F6);
     }
   }
 
   Color get _textColor {
     switch (_currentTheme) {
-      case ReaderTheme.sepia:
-        return const Color(0xFF2C241D);
-      case ReaderTheme.dark:
-        return const Color(0xFFE2E8F0);
-      case ReaderTheme.light:
-        return const Color(0xFF1E293B);
+      case ReaderTheme.sepia: return const Color(0xFF2C241D);
+      case ReaderTheme.dark:  return const Color(0xFFE2E8F0);
+      case ReaderTheme.light: return const Color(0xFF1E293B);
     }
   }
 
   Color get _surfacePanelColor {
     switch (_currentTheme) {
-      case ReaderTheme.sepia:
-        return const Color(0xFFE5DAC0);
-      case ReaderTheme.dark:
-        return const Color(0xFF111827);
-      case ReaderTheme.light:
-        return const Color(0xFFF1F5F9);
+      case ReaderTheme.sepia: return const Color(0xFFE5DAC0);
+      case ReaderTheme.dark:  return const Color(0xFF111827);
+      case ReaderTheme.light: return const Color(0xFFF1F5F9);
     }
   }
 
   Color get _panelBorderColor {
     switch (_currentTheme) {
-      case ReaderTheme.sepia:
-        return const Color(0xFFD3C3A3);
-      case ReaderTheme.dark:
-        return const Color(0xFF1F2937);
-      case ReaderTheme.light:
-        return const Color(0xFFE2E8F0);
+      case ReaderTheme.sepia: return const Color(0xFFD3C3A3);
+      case ReaderTheme.dark:  return const Color(0xFF1F2937);
+      case ReaderTheme.light: return const Color(0xFFE2E8F0);
     }
   }
 
   Color get _accentColor {
     switch (_currentTheme) {
-      case ReaderTheme.sepia:
-        return const Color(0xFFB45309);
-      case ReaderTheme.dark:
-        return const Color(0xFFF59E0B);
-      case ReaderTheme.light:
-        return const Color(0xFF2563EB);
+      case ReaderTheme.sepia: return const Color(0xFFB45309);
+      case ReaderTheme.dark:  return const Color(0xFFF59E0B);
+      case ReaderTheme.light: return const Color(0xFF2563EB);
     }
   }
 
   Color get _sliderInactiveColor {
     switch (_currentTheme) {
-      case ReaderTheme.dark:
-        return const Color(0xFF1F2937);
-      case ReaderTheme.sepia:
-        return const Color(0xFFD3C3A3);
-      case ReaderTheme.light:
-        return const Color(0xFFCBD5E1);
+      case ReaderTheme.dark:  return const Color(0xFF1F2937);
+      case ReaderTheme.sepia: return const Color(0xFFD3C3A3);
+      case ReaderTheme.light: return const Color(0xFFCBD5E1);
     }
   }
 
@@ -442,6 +492,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  /// Kelimeye tıklandığında alttan açılan sözlük ve kelime inceleme penceresi.
   Future<void> _showWordDetails(
     String word, 
     int pageIndex, 
@@ -452,6 +503,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
   ) async {
     final cleanWord = _cleanWordText(word);
     if (cleanWord.isEmpty) return;
+
+    final isLearnable = _isLearnableTargetWord(cleanWord);
+    final lookupWord = _getLookupWord(cleanWord);
 
     HapticFeedback.lightImpact();
     setState(() {
@@ -468,7 +522,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     bool isWordHighlighted = _pageHighlightData.any((h) => h['start'] == globalWordIndex && h['end'] == globalWordIndex);
     bool isSentenceHighlighted = _pageHighlightData.any((h) => h['start'] == safeStart && h['end'] == safeEnd);
 
-    // Modal açılmadan önce veritabanındaki güncel durumu kontrol et
+    // Modal açılmadan önce veritabanındaki kayıt durumunu sorgula
     final initialCardQuery = await DatabaseHelper.instance.database.then((db) => db.query(
       'flashcards',
       where: 'word = ? COLLATE NOCASE',
@@ -497,7 +551,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return FutureBuilder<WordDefinitionResult>(
-              future: DictionaryService.instance.fetchWordMeaning(cleanWord),
+              // Kesme işaretli ekleri temizlenmiş kök ile sözlük araması yapılır
+              future: DictionaryService.instance.fetchWordMeaning(lookupWord),
               builder: (context, snapshot) {
                 final isLoading = snapshot.connectionState == ConnectionState.waiting;
                 final result = snapshot.data;
@@ -506,8 +561,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 final rawMeaning = result?.alternativeMeanings.take(3).join(', ') ?? result?.primaryMeaning ?? '';
                 final hasValidMeaning = rawMeaning.trim().isNotEmpty && rawMeaning.trim() != 'Tanım yok';
 
-                // Kelime ilk kez keşfediliyorsa ve henüz öğrenme havuzunda değilse veritabanına kaydet
-                if (!isLoading && hasValidMeaning && !isAddedToStudyPool) {
+                // VERİTABANI KORUMASI: Sadece öğrenilebilir gerçek kelimeler 'DISCOVERED' olarak kaydedilir.
+                // Stop-word veya temel gramer kelimeleri ('see', 'of', 'that') veritabanına sessizce yazılmaz!
+                if (!isLoading && hasValidMeaning && !isAddedToStudyPool && isLearnable) {
                   DatabaseHelper.instance.discoverWord(
                     word: cleanWord,
                     meaning: rawMeaning,
@@ -545,6 +601,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                           const SizedBox(height: 12),
 
+                          // 1. ÜST BAŞLIK: Kelime, Fonetik, Rozet ve Telaffuz Butonu
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -567,7 +624,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        _buildStateBadge(isAddedToStudyPool ? currentLearningState : 'DISCOVERED'),
+                                        // ROZET KORUMASI: Stop-word kelimelerde veya henüz havuza eklenmemiş temel kelimelerde rozet gizlenir
+                                        if (isAddedToStudyPool || isLearnable)
+                                          _buildStateBadge(isAddedToStudyPool ? currentLearningState : 'DISCOVERED'),
                                       ],
                                     ),
                                     if (result?.phonetic != null) ...[
@@ -607,6 +666,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                           const SizedBox(height: 10),
 
+                          // 2. SÖZLÜK ANLAMLARI VE ÇEVRİMDIŞI DURUMU
                           if (isLoading) ...[
                             Row(
                               children: [
@@ -683,6 +743,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                           const SizedBox(height: 10),
 
+                          // 3. BAĞLAM CÜMLESİ (Kırpılmış & Odaklanmış)
                           if (contextSentence.trim().isNotEmpty)
                             Container(
                               width: double.infinity,
@@ -704,6 +765,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                           const SizedBox(height: 10),
 
+                          // 4. FOSFORLU KALEM BUTONLARI (Tek Kelime)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -740,6 +802,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                           const SizedBox(height: 8),
 
+                          // 5. FOSFORLU KALEM BUTONLARI (Tüm Cümle)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -776,97 +839,141 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                           const SizedBox(height: 12),
 
+                          // 6. ANA AKSİYON BUTONU
+                          // LEGACY & STOP-WORD KORUMASI:
+                          // - Eğer eski sürümlerde havuza eklenmişse: Kullanıcıya silme imkanı tanınır (Koleksiyondan Kaldır - Kırmızı).
+                          // - Yeni bir stop-word ise: Buton soluk gri (disabled) kalarak kullanıcıyı bilgilendirir.
+                          // - Normal kelime ise: Standart yeşil "Kelimeyi Avla & Öğren" butonu çalışır.
                           SizedBox(
                             width: double.infinity,
                             height: 44,
-                            child: FilledButton.icon(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: isAddedToStudyPool 
-                                    ? const Color(0xFFEF4444).withValues(alpha: 0.15) 
-                                    : (isLoading ? const Color(0xFF10B981).withValues(alpha: 0.5) : const Color(0xFF10B981)),
-                                foregroundColor: isAddedToStudyPool ? const Color(0xFFEF4444) : Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  side: isAddedToStudyPool 
-                                      ? const BorderSide(color: Color(0xFFEF4444), width: 1.5) 
-                                      : BorderSide.none,
-                                ),
-                              ),
-                              onPressed: () async {
-                                HapticFeedback.heavyImpact();
-
-                                if (isAddedToStudyPool) {
-                                  setSheetState(() {
-                                    isAddedToStudyPool = false;
-                                    currentLearningState = 'DISCOVERED';
-                                  });
-                                  if (mounted) setState(() {});
-
-                                  // Havuzdan çıkarırken kelimeyi DISCOVERED statüsüne çek
-                                  await DatabaseHelper.instance.demoteToDiscovered(cleanWord);
-
-                                  if (!sheetContext.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      behavior: SnackBarBehavior.floating,
-                                      content: Text('"$cleanWord" koleksiyondan çıkarıldı.'),
-                                      duration: const Duration(seconds: 1),
-                                    ),
-                                  );
-                                } else {
-                                  if (isLoading) {
-                                    if (!sheetContext.mounted) return;
-                                    ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                      const SnackBar(
-                                        behavior: SnackBarBehavior.floating,
-                                        content: Text('Kelime anlamı yüklenirken lütfen bekleyin...'),
-                                        duration: Duration(seconds: 1),
+                            child: isAddedToStudyPool
+                                ? FilledButton.icon(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                                      foregroundColor: const Color(0xFFEF4444),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        side: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
                                       ),
-                                    );
-                                    return;
-                                  }
+                                    ),
+                                    onPressed: () async {
+                                      HapticFeedback.heavyImpact();
+                                      setSheetState(() {
+                                        isAddedToStudyPool = false;
+                                        currentLearningState = 'DISCOVERED';
+                                      });
+                                      if (mounted) setState(() {});
 
-                                  setSheetState(() {
-                                    isAddedToStudyPool = true;
-                                    currentLearningState = 'LEARNING';
-                                  });
-                                  if (mounted) {
-                                    setState(() {
-                                      _wordsAddedCount++;
-                                    });
-                                  }
+                                      await DatabaseHelper.instance.demoteToDiscovered(cleanWord);
 
-                                  final saveMeaning = hasValidMeaning 
-                                      ? rawMeaning 
-                                      : 'kelime anlamı';
+                                      if (!sheetContext.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          behavior: SnackBarBehavior.floating,
+                                          content: Text('"$cleanWord" koleksiyondan çıkarıldı.'),
+                                          duration: const Duration(seconds: 1),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(PhosphorIcons.trashBold, size: 18, color: Color(0xFFEF4444)),
+                                    label: Text(
+                                      'KOLEKSİYONDAN KALDIR',
+                                      style: GoogleFonts.outfit(
+                                        fontWeight: FontWeight.w900, 
+                                        fontSize: 13, 
+                                        letterSpacing: 0.3,
+                                        color: const Color(0xFFEF4444),
+                                      ),
+                                    ),
+                                  )
+                                : (!isLearnable)
+                                    ? FilledButton.icon(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: _textColor.withValues(alpha: 0.08),
+                                          foregroundColor: _textColor.withValues(alpha: 0.45),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(14),
+                                            side: BorderSide(color: _panelBorderColor.withValues(alpha: 0.5)),
+                                          ),
+                                        ),
+                                        onPressed: null, // Buton pasif (disabled)
+                                        icon: Icon(
+                                          PhosphorIcons.infoBold, 
+                                          size: 18, 
+                                          color: _textColor.withValues(alpha: 0.45),
+                                        ),
+                                        label: Text(
+                                          'TEMEL KELİME (HAVUZA EKLENEMEZ)',
+                                          style: GoogleFonts.outfit(
+                                            fontWeight: FontWeight.w800, 
+                                            fontSize: 12, 
+                                            letterSpacing: 0.3,
+                                            color: _textColor.withValues(alpha: 0.45),
+                                          ),
+                                        ),
+                                      )
+                                    : FilledButton.icon(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: isLoading 
+                                              ? const Color(0xFF10B981).withValues(alpha: 0.5) 
+                                              : const Color(0xFF10B981),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(14),
+                                          ),
+                                        ),
+                                        onPressed: () async {
+                                          HapticFeedback.heavyImpact();
 
-                                  await DatabaseHelper.instance.addFlashcard(
-                                    cleanWord, 
-                                    saveMeaning,
-                                    contextSentence: contextSentence.trim(),
-                                    bookTitle: widget.book.title,
-                                    chapterInfo: 'Sayfa ${pageIndex + 1}',
-                                    learningState: 'LEARNING',
-                                  );
+                                          if (isLoading) {
+                                            if (!sheetContext.mounted) return;
+                                            ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                              const SnackBar(
+                                                behavior: SnackBarBehavior.floating,
+                                                content: Text('Kelime anlamı yüklenirken lütfen bekleyin...'),
+                                                duration: Duration(seconds: 1),
+                                              ),
+                                            );
+                                            return;
+                                          }
 
-                                  _showCoachToast('🏹 +1 Kelime Avlandı! ("$cleanWord" • Öğrenme Havuzunda)');
-                                }
-                              },
-                              icon: Icon(
-                                isAddedToStudyPool ? PhosphorIcons.trashBold : PhosphorIcons.crosshairBold, 
-                                size: 18,
-                                color: isAddedToStudyPool ? const Color(0xFFEF4444) : Colors.white,
-                              ),
-                              label: Text(
-                                isAddedToStudyPool ? 'KOLEKSİYONDAN KALDIR' : (isLoading ? 'Anlam Yükleniyor...' : '🎯 KELİMEYİ AVLA & ÖĞREN'),
-                                style: GoogleFonts.outfit(
-                                  fontWeight: FontWeight.w900, 
-                                  fontSize: 13, 
-                                  letterSpacing: 0.3,
-                                  color: isAddedToStudyPool ? const Color(0xFFEF4444) : Colors.white,
-                                ),
-                              ),
-                            ),
+                                          setSheetState(() {
+                                            isAddedToStudyPool = true;
+                                            currentLearningState = 'LEARNING';
+                                          });
+                                          if (mounted) {
+                                            setState(() {
+                                              _wordsAddedCount++;
+                                            });
+                                          }
+
+                                          final saveMeaning = hasValidMeaning 
+                                              ? rawMeaning 
+                                              : 'kelime anlamı';
+
+                                          await DatabaseHelper.instance.addFlashcard(
+                                            cleanWord, 
+                                            saveMeaning,
+                                            contextSentence: contextSentence.trim(),
+                                            bookTitle: widget.book.title,
+                                            chapterInfo: 'Sayfa ${pageIndex + 1}',
+                                            learningState: 'LEARNING',
+                                          );
+
+                                          _showCoachToast('🏹 +1 Kelime Avlandı! ("$cleanWord" • Öğrenme Havuzunda)');
+                                        },
+                                        icon: const Icon(PhosphorIcons.crosshairBold, size: 18, color: Colors.white),
+                                        label: Text(
+                                          isLoading ? 'Anlam Yükleniyor...' : '🎯 KELİMEYİ AVLA & ÖĞREN',
+                                          style: GoogleFonts.outfit(
+                                            fontWeight: FontWeight.w900, 
+                                            fontSize: 13, 
+                                            letterSpacing: 0.3,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
                           ),
                         ],
                       ),
@@ -918,6 +1025,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  /// [METİN AYRIŞTIRICI & SPAN ÜRETİCİ]
+  /// Sayfa metnini ayrıştırır; noktalı virgül, iki nokta ve diyalog tırnaklarına göre
+  /// edebi cümle bloklarına böler. Her kelimeye global index verip tıklanabilirlik kazandırır.
   List<InlineSpan> _buildOptimizedSpans(int pageIndex) {
     if (_spansCache.containsKey(pageIndex)) {
       return _spansCache[pageIndex]!;
@@ -939,7 +1049,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
 
     final clean = _normalizePdfText(pageContent);
-    final regExp = RegExp(r'(?<=[.!?])\s+');
+    // Gelişmiş Noktalama Bölücüsü: Noktalı virgül, iki nokta ve tırnak boşluklarını da yakalar
+    final regExp = RegExp(r'(?<=[.!?;:])\s+|(?<=[”"])\s+');
     var sentences = clean.split(regExp).where((s) => s.trim().length > 1).toList();
     if (sentences.isEmpty && clean.isNotEmpty) {
       sentences = [clean];
@@ -980,6 +1091,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
           bg = _getHighlightColorBg(matchedColorTag);
         }
 
+        final windowedContext = _formatContextSentence(sentence, w);
+
         spans.add(
           TextSpan(
             text: '$word ',
@@ -994,7 +1107,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               currentWordIndex, 
               sentenceStartIndex, 
               sentenceEndIndex,
-              sentence,
+              windowedContext,
             ),
           ),
         );

@@ -118,78 +118,8 @@ class DatabaseHelper {
   }
 
   Future _onUpgradeDB(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 8) {
-      try {
-        await db.execute('ALTER TABLE flashcards ADD COLUMN context_sentence TEXT');
-        await db.execute('ALTER TABLE flashcards ADD COLUMN book_title TEXT');
-        await db.execute('ALTER TABLE flashcards ADD COLUMN chapter_info TEXT');
-      } catch (_) {}
-    }
-
-    if (oldVersion < 9) {
-      try {
-        await db.execute('ALTER TABLE dictionary ADD COLUMN pos TEXT');
-        await db.execute('ALTER TABLE dictionary ADD COLUMN phonetic TEXT');
-      } catch (_) {}
-    }
-
-    if (oldVersion < 10) {
-      try {
-        await db.execute('ALTER TABLE flashcards ADD COLUMN is_mastered INTEGER DEFAULT 0');
-      } catch (_) {}
-    }
-
-    if (oldVersion < 11) {
-      try {
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_word ON flashcards(word COLLATE NOCASE)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_mastered ON flashcards(is_mastered)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_repetitions ON flashcards(repetitions)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_highlights_lookup ON highlights(book_id, page_index)');
-      } catch (_) {}
-    }
-
-    if (oldVersion < 12) {
-      try {
-        await db.execute("ALTER TABLE flashcards ADD COLUMN learning_state TEXT DEFAULT 'LEARNING'");
-        await db.execute("ALTER TABLE flashcards ADD COLUMN success_streak INTEGER DEFAULT 0");
-        await db.execute("UPDATE flashcards SET learning_state = 'MASTERED' WHERE is_mastered = 1");
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_state ON flashcards(learning_state)');
-      } catch (_) {}
-    }
-
-    if (oldVersion < 13) {
-      try {
-        await db.execute("ALTER TABLE flashcards ADD COLUMN wrong_count INTEGER DEFAULT 0");
-        await db.execute("ALTER TABLE flashcards ADD COLUMN boss_level INTEGER DEFAULT 0");
-        await db.execute("ALTER TABLE flashcards ADD COLUMN modes_passed TEXT DEFAULT ''");
-        await db.execute("ALTER TABLE flashcards ADD COLUMN distinct_days_count INTEGER DEFAULT 0");
-        await db.execute("ALTER TABLE flashcards ADD COLUMN last_reviewed_at TEXT");
-        await db.execute("ALTER TABLE flashcards ADD COLUMN cooldown_until TEXT");
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_boss ON flashcards(boss_level)');
-      } catch (_) {}
-    }
-
-    if (oldVersion < 14) {
-      try {
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS book_progress (
-            book_id TEXT PRIMARY KEY,
-            book_title TEXT NOT NULL COLLATE NOCASE,
-            current_page INTEGER DEFAULT 0,
-            total_pages INTEGER DEFAULT 1,
-            last_chapter TEXT,
-            total_read_seconds INTEGER DEFAULT 0,
-            last_read_at TEXT
-          )
-        ''');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_book_progress_title ON book_progress(book_title COLLATE NOCASE)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_book ON flashcards(book_title COLLATE NOCASE)');
-      } catch (_) {}
-    }
-
     if (oldVersion < 15) {
       try {
-        // 1. Önce mükerrer kayıtları temizle (her kelimenin en son/en yüksek id'li satırını koru)
         await db.execute('''
           DELETE FROM flashcards 
           WHERE id NOT IN (
@@ -198,7 +128,6 @@ class DatabaseHelper {
             GROUP BY word COLLATE NOCASE
           )
         ''');
-        // 2. Mükerrerleri engellemek için UNIQUE indeks oluştur
         await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_flashcards_unique_word ON flashcards(word COLLATE NOCASE)');
       } catch (_) {}
     }
@@ -216,10 +145,6 @@ class DatabaseHelper {
       await db.insert('dictionary', item, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
   }
-
-  // ==========================================================================
-  // SÖZLÜK METOTLARI
-  // ==========================================================================
 
   Future<Map<String, dynamic>?> getWordDefinition(String word) async {
     final db = await database;
@@ -316,10 +241,6 @@ class DatabaseHelper {
     return distractors.take(count).toList();
   }
 
-  // ==========================================================================
-  // HIGHLIGHT METOTLARI
-  // ==========================================================================
-
   Future<void> addHighlightRange({
     required String bookId,
     required int pageIndex,
@@ -369,10 +290,6 @@ class DatabaseHelper {
     await db.delete('highlights', where: 'book_id = ?', whereArgs: [bookId]);
   }
 
-  // ==========================================================================
-  // FLASHCARD & MÜKERRER KAYIT KORUMALI METOTLAR
-  // ==========================================================================
-
   Future<bool> isWordInFlashcards(String word) async {
     final db = await database;
     final clean = word.trim();
@@ -385,7 +302,6 @@ class DatabaseHelper {
     return result.isNotEmpty;
   }
 
-  /// Mükerrer kaydı önler: Atomik transaction içinde kontrol eder, varsa günceller, yoksa ekler
   Future<int> addFlashcard(
     String word, 
     String meaning, {
@@ -407,7 +323,6 @@ class DatabaseHelper {
       if (existing.isNotEmpty) {
         final firstId = existing.first['id'] as int;
 
-        // Varsa fazlalık diğer kopyaları anında temizle
         if (existing.length > 1) {
           for (int i = 1; i < existing.length; i++) {
             await txn.delete('flashcards', where: 'id = ?', whereArgs: [existing[i]['id']]);
@@ -470,7 +385,6 @@ class DatabaseHelper {
         limit: 1,
       );
 
-      // Kelime zaten varsa (öğreniliyor, aşina veya keşfedildi) dokunma, statüsünü bozma
       if (existing.isNotEmpty) {
         return existing.first['id'] as int;
       }
@@ -507,7 +421,6 @@ class DatabaseHelper {
     );
   }
 
-  /// Kelimeyi çalışma havuzundan çıkarır (İstatistik kaybını önlemek için DISCOVERED yapar)
   Future<int> demoteToDiscovered(String word) async {
     final db = await database;
     return await db.update(
@@ -521,7 +434,6 @@ class DatabaseHelper {
     );
   }
 
-  /// Tüm eşleşen kopyaları tamamen siler
   Future<int> removeFlashcardByWord(String word) async {
     final db = await database;
     return await db.delete('flashcards', where: 'word = ? COLLATE NOCASE', whereArgs: [word.trim()]);
@@ -568,10 +480,6 @@ class DatabaseHelper {
     return await db.delete('flashcards', where: 'id = ?', whereArgs: [id]);
   }
 
-  // ==========================================================================
-  // HIZLI SAYAÇ & İSTATİSTİK METOTLARI
-  // ==========================================================================
-
   Future<int> getMasteredCount() async {
     final db = await database;
     final result = await db.rawQuery("SELECT COUNT(*) as cnt FROM flashcards WHERE learning_state = 'MASTERED' OR is_mastered = 1");
@@ -609,10 +517,6 @@ class DatabaseHelper {
     }
     return counts;
   }
-
-  // ==========================================================================
-  // KİTAP İLERLEME & READING JOURNEY METOTLARI (v14)
-  // ==========================================================================
 
   Future<void> updateBookReadingProgress({
     required String bookId,
@@ -751,10 +655,6 @@ class DatabaseHelper {
       'sample_words': sampleWords,
     };
   }
-
-  // ==========================================================================
-  // SRS, MODALİTE & WORD BOSS METOTLARI
-  // ==========================================================================
 
   Future<void> recordMultiModalResult({
     required int cardId,
