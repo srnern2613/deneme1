@@ -1,8 +1,3 @@
-// ============================================================================
-// DOSYA ADI: lib/reader_screen.dart
-// AÇIKLAMA: Katı Kelime Süzgeci ve Akıllı Sayfalama Entegreli Okuyucu
-// ============================================================================
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -473,6 +468,23 @@ class _ReaderScreenState extends State<ReaderScreen> {
     bool isWordHighlighted = _pageHighlightData.any((h) => h['start'] == globalWordIndex && h['end'] == globalWordIndex);
     bool isSentenceHighlighted = _pageHighlightData.any((h) => h['start'] == safeStart && h['end'] == safeEnd);
 
+    // Modal öncesinde DB durumunu önceden sorgula
+    final initialCardQuery = await DatabaseHelper.instance.database.then((db) => db.query(
+      'flashcards',
+      where: 'word = ? COLLATE NOCASE',
+      whereArgs: [cleanWord],
+      limit: 1,
+    ));
+
+    bool isAddedToStudyPool = false;
+    String currentLearningState = 'DISCOVERED';
+    if (initialCardQuery.isNotEmpty) {
+      currentLearningState = initialCardQuery.first['learning_state'] as String? ?? 'LEARNING';
+      isAddedToStudyPool = currentLearningState != 'DISCOVERED';
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: _surfacePanelColor,
@@ -503,352 +515,363 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   );
                 }
 
-                return FutureBuilder<List<Map<String, dynamic>>>(
-                  future: DatabaseHelper.instance.database.then((db) => db.query(
-                    'flashcards',
-                    where: 'word = ? COLLATE NOCASE',
-                    whereArgs: [cleanWord],
-                    limit: 1,
-                  )),
-                  builder: (context, cardSnap) {
-                    final existingCard = (cardSnap.data != null && cardSnap.data!.isNotEmpty) ? cardSnap.data!.first : null;
-                    final String currentState = existingCard != null ? (existingCard['learning_state'] as String? ?? 'LEARNING') : 'DISCOVERED';
-                    final bool isAddedToStudyPool = existingCard != null && currentState != 'DISCOVERED';
-
-                    return Container(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(sheetContext).size.height * 0.82,
+                return Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(sheetContext).size.height * 0.82,
+                  ),
+                  child: SafeArea(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(
+                        22, 
+                        12, 
+                        22, 
+                        MediaQuery.of(sheetContext).viewInsets.bottom + 16,
                       ),
-                      child: SafeArea(
-                        child: SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          padding: EdgeInsets.fromLTRB(
-                            22, 
-                            12, 
-                            22, 
-                            MediaQuery.of(sheetContext).viewInsets.bottom + 16,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Center(
-                                child: Container(
-                                  width: 36,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: _textColor.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: _textColor.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(2),
                               ),
-                              const SizedBox(height: 12),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
 
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
                                       children: [
-                                        Row(
-                                          children: [
-                                            Flexible(
-                                              child: Text(
-                                                cleanWord,
-                                                style: TextStyle(
-                                                  fontSize: 24,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontFamily: 'serif',
-                                                  color: _textColor,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            _buildStateBadge(currentState),
-                                          ],
-                                        ),
-                                        if (result?.phonetic != null) ...[
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            result!.phonetic!,
+                                        Flexible(
+                                          child: Text(
+                                            cleanWord,
                                             style: TextStyle(
-                                              fontSize: 12,
-                                              fontStyle: FontStyle.italic,
-                                              color: _accentColor,
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                              fontFamily: 'serif',
+                                              color: _textColor,
                                             ),
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                        ],
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _buildStateBadge(isAddedToStudyPool ? currentLearningState : 'DISCOVERED'),
                                       ],
                                     ),
-                                  ),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (isAddedToStudyPool)
-                                        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 24),
-                                      const SizedBox(width: 6),
-                                      IconButton.filledTonal(
-                                        style: IconButton.styleFrom(
-                                          backgroundColor: _accentColor.withValues(alpha: 0.15),
+                                    if (result?.phonetic != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        result!.phonetic!,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                          color: _accentColor,
                                         ),
-                                        icon: Icon(Icons.volume_up_rounded, size: 20, color: _accentColor),
-                                        tooltip: 'Telaffuzu Dinle',
-                                        onPressed: () {
-                                          HapticFeedback.selectionClick();
-                                          TtsService.instance.speakWord(cleanWord);
-                                        },
                                       ),
                                     ],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-
-                              if (isLoading) ...[
-                                Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: _accentColor),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      'Gelişmiş sözlük taranıyor...',
-                                      style: TextStyle(fontSize: 13, color: _textColor.withValues(alpha: 0.7)),
-                                    ),
                                   ],
                                 ),
-                              ] else if (isOffline && !hasValidMeaning) ...[
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.wifi_off_rounded, color: Color(0xFFF59E0B), size: 20),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'Çevrimdışısınız. İnternet bağlandığında otomatik güncellenecektir.',
-                                          style: TextStyle(fontSize: 11.5, color: _textColor),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ] else ...[
-                                if (result?.partOfSpeech != null && result!.partOfSpeech!.isNotEmpty) ...[
-                                  Text(
-                                    _getTurkishPos(result.partOfSpeech).toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.0,
-                                      color: _textColor.withValues(alpha: 0.55),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                ],
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: (result?.alternativeMeanings ?? [result?.primaryMeaning ?? ''])
-                                      .where((m) => m.trim().isNotEmpty)
-                                      .map((mean) => Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: _accentColor.withValues(alpha: 0.12),
-                                              borderRadius: BorderRadius.circular(10),
-                                              border: Border.all(color: _accentColor.withValues(alpha: 0.25)),
-                                            ),
-                                            child: Text(
-                                              mean,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: _accentColor,
-                                              ),
-                                            ),
-                                          ))
-                                      .toList(),
-                                ),
-                              ],
-
-                              const SizedBox(height: 10),
-
-                              if (contextSentence.trim().isNotEmpty)
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: _textColor.withValues(alpha: 0.04),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: _panelBorderColor.withValues(alpha: 0.6)),
-                                  ),
-                                  child: Text(
-                                    '“$contextSentence”',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontStyle: FontStyle.italic,
-                                      color: _textColor.withValues(alpha: 0.8),
-                                    ),
-                                  ),
-                                ),
-
-                              const SizedBox(height: 10),
-
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'FOSFORLU KALEM (KELİME)',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: _textColor.withValues(alpha: 0.6)),
-                                  ),
-                                  if (isWordHighlighted)
-                                    GestureDetector(
-                                      onTap: () async {
-                                        await _removeHighlight(pageIndex, globalWordIndex, globalWordIndex);
-                                        if (!sheetContext.mounted) return;
-                                        Navigator.pop(sheetContext);
-                                      },
-                                      child: Text('İşareti Kaldır', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red[400])),
-                                    ),
-                                ],
                               ),
-                              const SizedBox(height: 4),
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Expanded(
-                                    child: _buildColorButton(sheetContext, pageIndex, globalWordIndex, globalWordIndex, 'yellow', 'Sarı', Colors.amber.shade700),
-                                  ),
+                                  if (isAddedToStudyPool)
+                                    const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 24),
                                   const SizedBox(width: 6),
-                                  Expanded(
-                                    child: _buildColorButton(sheetContext, pageIndex, globalWordIndex, globalWordIndex, 'green', 'Yeşil', Colors.green.shade700),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: _buildColorButton(sheetContext, pageIndex, globalWordIndex, globalWordIndex, 'blue', 'Mavi', Colors.blue.shade700),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'FOSFORLU KALEM (TÜM CÜMLE)',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: _textColor.withValues(alpha: 0.6)),
-                                  ),
-                                  if (isSentenceHighlighted)
-                                    GestureDetector(
-                                      onTap: () async {
-                                        await _removeHighlight(pageIndex, safeStart, safeEnd);
-                                        if (!sheetContext.mounted) return;
-                                        Navigator.pop(sheetContext);
-                                      },
-                                      child: Text('Cümle İşaretini Kaldır', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red[400])),
+                                  IconButton.filledTonal(
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: _accentColor.withValues(alpha: 0.15),
                                     ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildColorButton(sheetContext, pageIndex, safeStart, safeEnd, 'yellow', 'Sarı (Cümle)', Colors.amber.shade700),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: _buildColorButton(sheetContext, pageIndex, safeStart, safeEnd, 'green', 'Yeşil (Cümle)', Colors.green.shade700),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: _buildColorButton(sheetContext, pageIndex, safeStart, safeEnd, 'blue', 'Mavi (Cümle)', Colors.blue.shade700),
+                                    icon: Icon(Icons.volume_up_rounded, size: 20, color: _accentColor),
+                                    tooltip: 'Telaffuzu Dinle',
+                                    onPressed: () {
+                                      HapticFeedback.selectionClick();
+                                      TtsService.instance.speakWord(cleanWord);
+                                    },
                                   ),
                                 ],
-                              ),
-                              const SizedBox(height: 12),
-
-                              SizedBox(
-                                width: double.infinity,
-                                height: 44,
-                                child: FilledButton.icon(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: isAddedToStudyPool 
-                                        ? const Color(0xFF1F2937) 
-                                        : (isLoading ? const Color(0xFF10B981).withValues(alpha: 0.5) : const Color(0xFF10B981)),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                  ),
-                                  onPressed: () async {
-                                    HapticFeedback.heavyImpact();
-
-                                    if (isAddedToStudyPool) {
-                                      await DatabaseHelper.instance.removeFlashcardByWord(cleanWord);
-                                      if (sheetContext.mounted) {
-                                        setSheetState(() {});
-                                      }
-                                      if (mounted) setState(() {});
-                                      if (!sheetContext.mounted) return;
-                                      ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                        SnackBar(behavior: SnackBarBehavior.floating, content: Text('"$cleanWord" öğrenme havuzundan çıkarıldı.')),
-                                      );
-                                    } else {
-                                      if (isLoading) {
-                                        if (!sheetContext.mounted) return;
-                                        ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                          const SnackBar(
-                                            behavior: SnackBarBehavior.floating,
-                                            content: Text('Kelime anlamı yüklenirken lütfen bekleyin...'),
-                                            duration: Duration(seconds: 1),
-                                          ),
-                                        );
-                                        return;
-                                      }
-
-                                      final saveMeaning = hasValidMeaning 
-                                          ? rawMeaning 
-                                          : 'kelime anlamı';
-
-                                      await DatabaseHelper.instance.addFlashcard(
-                                        cleanWord, 
-                                        saveMeaning,
-                                        contextSentence: contextSentence.trim(),
-                                        bookTitle: widget.book.title,
-                                        chapterInfo: 'Sayfa ${pageIndex + 1}',
-                                        learningState: 'LEARNING',
-                                      );
-
-                                      if (sheetContext.mounted) {
-                                        setSheetState(() {});
-                                      }
-                                      if (mounted) {
-                                        setState(() {
-                                          _wordsAddedCount++;
-                                        });
-                                        _showCoachToast('🏹 +1 Kelime Avlandı! ("$cleanWord" • Öğrenme Havuzunda)');
-                                      }
-                                    }
-                                  },
-                                  icon: Icon(isAddedToStudyPool ? Icons.bookmark_remove_rounded : PhosphorIcons.crosshairBold, size: 18),
-                                  label: Text(
-                                    isAddedToStudyPool ? 'Havuzdan Çıkar' : (isLoading ? 'Anlam Yükleniyor...' : '🎯 KELİMEYİ AVLA & ÖĞREN'),
-                                    style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.3),
-                                  ),
-                                ),
                               ),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 10),
+
+                          if (isLoading) ...[
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: _accentColor),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Gelişmiş sözlük taranıyor...',
+                                  style: TextStyle(fontSize: 13, color: _textColor.withValues(alpha: 0.7)),
+                                ),
+                              ],
+                            ),
+                          ] else if (isOffline && !hasValidMeaning) ...[
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.wifi_off_rounded, color: Color(0xFFF59E0B), size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Çevrimdışısınız. İnternet bağlandığında otomatik güncellenecektir.',
+                                      style: TextStyle(fontSize: 11.5, color: _textColor),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else ...[
+                            if (result?.partOfSpeech != null && result!.partOfSpeech!.isNotEmpty) ...[
+                              Text(
+                                _getTurkishPos(result.partOfSpeech).toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
+                                  color: _textColor.withValues(alpha: 0.55),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                            ],
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: (result?.alternativeMeanings ?? [result?.primaryMeaning ?? ''])
+                                  .where((m) => m.trim().isNotEmpty)
+                                  .map((mean) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: _accentColor.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: _accentColor.withValues(alpha: 0.25)),
+                                        ),
+                                        child: Text(
+                                          mean,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: _accentColor,
+                                          ),
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
+                          ],
+
+                          const SizedBox(height: 10),
+
+                          if (contextSentence.trim().isNotEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: _textColor.withValues(alpha: 0.04),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: _panelBorderColor.withValues(alpha: 0.6)),
+                              ),
+                              child: Text(
+                                '“$contextSentence”',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontStyle: FontStyle.italic,
+                                  color: _textColor.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ),
+
+                          const SizedBox(height: 10),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'FOSFORLU KALEM (KELİME)',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: _textColor.withValues(alpha: 0.6)),
+                              ),
+                              if (isWordHighlighted)
+                                GestureDetector(
+                                  onTap: () async {
+                                    await _removeHighlight(pageIndex, globalWordIndex, globalWordIndex);
+                                    if (!sheetContext.mounted) return;
+                                    Navigator.pop(sheetContext);
+                                  },
+                                  child: Text('İşareti Kaldır', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red[400])),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildColorButton(sheetContext, pageIndex, globalWordIndex, globalWordIndex, 'yellow', 'Sarı', Colors.amber.shade700),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _buildColorButton(sheetContext, pageIndex, globalWordIndex, globalWordIndex, 'green', 'Yeşil', Colors.green.shade700),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _buildColorButton(sheetContext, pageIndex, globalWordIndex, globalWordIndex, 'blue', 'Mavi', Colors.blue.shade700),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'FOSFORLU KALEM (TÜM CÜMLE)',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: _textColor.withValues(alpha: 0.6)),
+                              ),
+                              if (isSentenceHighlighted)
+                                GestureDetector(
+                                  onTap: () async {
+                                    await _removeHighlight(pageIndex, safeStart, safeEnd);
+                                    if (!sheetContext.mounted) return;
+                                    Navigator.pop(sheetContext);
+                                  },
+                                  child: Text('Cümle İşaretini Kaldır', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red[400])),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildColorButton(sheetContext, pageIndex, safeStart, safeEnd, 'yellow', 'Sarı (Cümle)', Colors.amber.shade700),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _buildColorButton(sheetContext, pageIndex, safeStart, safeEnd, 'green', 'Yeşil (Cümle)', Colors.green.shade700),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _buildColorButton(sheetContext, pageIndex, safeStart, safeEnd, 'blue', 'Mavi (Cümle)', Colors.blue.shade700),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          SizedBox(
+                            width: double.infinity,
+                            height: 44,
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: isAddedToStudyPool 
+                                    ? const Color(0xFFEF4444).withValues(alpha: 0.15) 
+                                    : (isLoading ? const Color(0xFF10B981).withValues(alpha: 0.5) : const Color(0xFF10B981)),
+                                foregroundColor: isAddedToStudyPool ? const Color(0xFFEF4444) : Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  side: isAddedToStudyPool 
+                                      ? const BorderSide(color: Color(0xFFEF4444), width: 1.5) 
+                                      : BorderSide.none,
+                                ),
+                              ),
+                              onPressed: () async {
+                                HapticFeedback.heavyImpact();
+
+                                if (isAddedToStudyPool) {
+                                  // Anında UI'ı avlanabilir moda çevir
+                                  setSheetState(() {
+                                    isAddedToStudyPool = false;
+                                    currentLearningState = 'DISCOVERED';
+                                  });
+                                  if (mounted) setState(() {});
+
+                                  await DatabaseHelper.instance.removeFlashcardByWord(cleanWord);
+
+                                  if (!sheetContext.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      behavior: SnackBarBehavior.floating,
+                                      content: Text('"$cleanWord" koleksiyondan çıkarıldı.'),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                } else {
+                                  if (isLoading) {
+                                    if (!sheetContext.mounted) return;
+                                    ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                      const SnackBar(
+                                        behavior: SnackBarBehavior.floating,
+                                        content: Text('Kelime anlamı yüklenirken lütfen bekleyin...'),
+                                        duration: Duration(seconds: 1),
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  // Anında UI'ı kaldırılabilir kırmızı moda çevir
+                                  setSheetState(() {
+                                    isAddedToStudyPool = true;
+                                    currentLearningState = 'LEARNING';
+                                  });
+                                  if (mounted) {
+                                    setState(() {
+                                      _wordsAddedCount++;
+                                    });
+                                  }
+
+                                  final saveMeaning = hasValidMeaning 
+                                      ? rawMeaning 
+                                      : 'kelime anlamı';
+
+                                  await DatabaseHelper.instance.addFlashcard(
+                                    cleanWord, 
+                                    saveMeaning,
+                                    contextSentence: contextSentence.trim(),
+                                    bookTitle: widget.book.title,
+                                    chapterInfo: 'Sayfa ${pageIndex + 1}',
+                                    learningState: 'LEARNING',
+                                  );
+
+                                  _showCoachToast('🏹 +1 Kelime Avlandı! ("$cleanWord" • Öğrenme Havuzunda)');
+                                }
+                              },
+                              icon: Icon(
+                                isAddedToStudyPool ? PhosphorIcons.trashBold : PhosphorIcons.crosshairBold, 
+                                size: 18,
+                                color: isAddedToStudyPool ? const Color(0xFFEF4444) : Colors.white,
+                              ),
+                              label: Text(
+                                isAddedToStudyPool ? 'KOLEKSİYONDAN KALDIR' : (isLoading ? 'Anlam Yükleniyor...' : '🎯 KELİMEYİ AVLA & ÖĞREN'),
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w900, 
+                                  fontSize: 13, 
+                                  letterSpacing: 0.3,
+                                  color: isAddedToStudyPool ? const Color(0xFFEF4444) : Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 );
               },
             );

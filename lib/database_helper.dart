@@ -1,12 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/database_helper.dart
-// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Word Boss + Book Journey & Progress v14)
-// GÖREVLER & DÜZELTMELER:
-//   1. Versiyon 14: 'book_progress' tablosu eklendi (Okuma yüzdesi, bölüm, süre).
-//   2. Dual-Track İlerleme Sorgusu: 'getBookJourneyData' (Reading + Vocabulary).
-//   3. Okuma İlerlemesi Kaydı: 'updateBookReadingProgress' (NaN ve sıfıra bölme korumalı).
-//   4. Başlık ve ID uyuşmazlığını önleyen COLLATE NOCASE sorguları.
-//   5. Sıfır veri kaybı ve geriye dönük güvenli migration.
+// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Mükerrer Kayıt Korumalı Flashcards v14)
 // ============================================================================
 
 import 'package:sqflite/sqflite.dart';
@@ -30,16 +24,13 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 14, // Book Journey & Progress entegrasyonu için Versiyon 14
+      version: 14,
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
     );
   }
 
   Future _createDB(Database db, int version) async {
-    // ------------------------------------------------------------------------
-    // 1. SÖZLÜK TABLOSU (Çevrimdışı Sözlük Havuzu & Çeldirici Kaynağı)
-    // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE dictionary (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,9 +46,6 @@ class DatabaseHelper {
       CREATE INDEX idx_dictionary_word ON dictionary(word COLLATE NOCASE)
     ''');
 
-    // ------------------------------------------------------------------------
-    // 2. GELİŞMİŞ FLASHCARD, KELİME TAKİP & WORD BOSS TABLOSU
-    // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE flashcards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,7 +68,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Hızlı sorgulama ve filtreleme indeksleri
     await db.execute('CREATE INDEX idx_flashcards_word ON flashcards(word COLLATE NOCASE)');
     await db.execute('CREATE INDEX idx_flashcards_mastered ON flashcards(is_mastered)');
     await db.execute('CREATE INDEX idx_flashcards_state ON flashcards(learning_state)');
@@ -88,9 +75,6 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_flashcards_book ON flashcards(book_title COLLATE NOCASE)');
     await db.execute('CREATE INDEX idx_flashcards_repetitions ON flashcards(repetitions)');
 
-    // ------------------------------------------------------------------------
-    // 3. FOSFORLU KALEM (HIGHLIGHTS) TABLOSU
-    // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE highlights (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,9 +90,6 @@ class DatabaseHelper {
       CREATE INDEX idx_highlights_lookup ON highlights(book_id, page_index)
     ''');
 
-    // ------------------------------------------------------------------------
-    // 4. KİTAP İLERLEME & READING JOURNEY TABLOSU (v14)
-    // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE book_progress (
         book_id TEXT PRIMARY KEY,
@@ -125,9 +106,6 @@ class DatabaseHelper {
       CREATE INDEX idx_book_progress_title ON book_progress(book_title COLLATE NOCASE)
     ''');
 
-    // ------------------------------------------------------------------------
-    // 5. ÖNBELLEK TABLOSU
-    // ------------------------------------------------------------------------
     await db.execute('''
       CREATE TABLE IF NOT EXISTS cacheObject (
         key TEXT PRIMARY KEY,
@@ -191,7 +169,6 @@ class DatabaseHelper {
       } catch (_) {}
     }
 
-    // SÜRÜM 14 GÜNCELLEMESİ: Book Journey & Reading Progress Tablosu
     if (oldVersion < 14) {
       try {
         await db.execute('''
@@ -207,10 +184,7 @@ class DatabaseHelper {
         ''');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_book_progress_title ON book_progress(book_title COLLATE NOCASE)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_flashcards_book ON flashcards(book_title COLLATE NOCASE)');
-      } catch (e) {
-        // ignore: avoid_print
-        print('DB Upgrade v14 Error: $e');
-      }
+      } catch (_) {}
     }
   }
 
@@ -228,7 +202,7 @@ class DatabaseHelper {
   }
 
   // ==========================================================================
-  // SÖZLÜK METOTLARI & ÇELDİRİCİ (DISTRACTOR) ÜRETECİ
+  // SÖZLÜK METOTLARI
   // ==========================================================================
 
   Future<Map<String, dynamic>?> getWordDefinition(String word) async {
@@ -380,16 +354,22 @@ class DatabaseHelper {
   }
 
   // ==========================================================================
-  // FLASHCARD, VOCABULARY STATES & WORD BOSS METOTLARI
+  // FLASHCARD & MÜKERRER KAYIT KORUMALI METOTLAR
   // ==========================================================================
 
   Future<bool> isWordInFlashcards(String word) async {
     final db = await database;
-    final clean = word.trim().toLowerCase();
-    final result = await db.query('flashcards', where: 'word = ? COLLATE NOCASE', whereArgs: [clean], limit: 1);
+    final clean = word.trim();
+    final result = await db.query(
+      'flashcards', 
+      where: "word = ? COLLATE NOCASE AND learning_state != 'DISCOVERED'", 
+      whereArgs: [clean], 
+      limit: 1,
+    );
     return result.isNotEmpty;
   }
 
+  /// Mükerrer kaydı önler: Kelime zaten varsa günceller, yoksa ekler
   Future<int> addFlashcard(
     String word, 
     String meaning, {
@@ -399,10 +379,44 @@ class DatabaseHelper {
     String learningState = 'LEARNING',
   }) async {
     final db = await database;
+    final clean = word.trim();
+
+    final existing = await db.query(
+      'flashcards',
+      where: 'word = ? COLLATE NOCASE',
+      whereArgs: [clean],
+    );
+
+    if (existing.isNotEmpty) {
+      final firstId = existing.first['id'] as int;
+
+      // Fazlalık kopyalar varsa temizle
+      if (existing.length > 1) {
+        for (int i = 1; i < existing.length; i++) {
+          await db.delete('flashcards', where: 'id = ?', whereArgs: [existing[i]['id']]);
+        }
+      }
+
+      await db.update(
+        'flashcards',
+        {
+          'meaning': meaning.trim(),
+          'learning_state': learningState,
+          'is_mastered': learningState == 'MASTERED' ? 1 : 0,
+          if (contextSentence != null) 'context_sentence': contextSentence.trim(),
+          if (bookTitle != null) 'book_title': bookTitle.trim(),
+          if (chapterInfo != null) 'chapter_info': chapterInfo.trim(),
+        },
+        where: 'id = ?',
+        whereArgs: [firstId],
+      );
+      return firstId;
+    }
+
     return await db.insert(
       'flashcards',
       {
-        'word': word.trim(),
+        'word': clean,
         'meaning': meaning.trim(),
         'interval': 1,
         'repetitions': 0,
@@ -417,7 +431,6 @@ class DatabaseHelper {
         'book_title': bookTitle?.trim(),
         'chapter_info': chapterInfo?.trim(),
       },
-      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
@@ -460,6 +473,7 @@ class DatabaseHelper {
     );
   }
 
+  /// Tüm eşleşen kopyaları temizler
   Future<int> removeFlashcardByWord(String word) async {
     final db = await database;
     return await db.delete('flashcards', where: 'word = ? COLLATE NOCASE', whereArgs: [word.trim()]);
@@ -552,7 +566,6 @@ class DatabaseHelper {
   // KİTAP İLERLEME & READING JOURNEY METOTLARI (v14)
   // ==========================================================================
 
-  /// Okuyucu kapandığında veya sayfa çevrildiğinde okuma ilerlemesini kaydeder
   Future<void> updateBookReadingProgress({
     required String bookId,
     required String bookTitle,
@@ -566,7 +579,6 @@ class DatabaseHelper {
     final safeCurrentPage = currentPage.clamp(0, safeTotalPages);
     final nowIso = DateTime.now().toIso8601String();
 
-    // Mevcut süreyi alıp üzerine ekle
     final existing = await db.query(
       'book_progress',
       columns: ['total_read_seconds'],
@@ -597,13 +609,11 @@ class DatabaseHelper {
     );
   }
 
-  /// Kitap silindiğinde ilerleme verisini temizler (Orphan Data Koruması)
   Future<void> deleteBookProgress(String bookId) async {
     final db = await database;
     await db.delete('book_progress', where: 'book_id = ?', whereArgs: [bookId]);
   }
 
-  /// Belirli bir kitabın hem okuma hem de kelime ilerleme haritasını çeker
   Future<Map<String, dynamic>> getBookJourneyData({
     required String bookTitle,
     String? bookId,
@@ -611,7 +621,6 @@ class DatabaseHelper {
     final db = await database;
     final cleanTitle = bookTitle.trim();
 
-    // 1. Okuma İlerlemesi Bilgisini Al
     Map<String, dynamic>? progressRow;
     if (bookId != null && bookId.isNotEmpty) {
       final res = await db.query('book_progress', where: 'book_id = ?', whereArgs: [bookId], limit: 1);
@@ -628,7 +637,6 @@ class DatabaseHelper {
     final int totalReadSec = progressRow?['total_read_seconds'] as int? ?? 0;
     final double readingRatio = totalPages > 0 ? (currentPage / totalPages).clamp(0.0, 1.0) : 0.0;
 
-    // 2. Bu Kitaba Ait Kelime Durumlarını ve Boss Sayısını Al
     final wordRows = await db.query(
       'flashcards',
       where: 'book_title = ? COLLATE NOCASE',
@@ -697,7 +705,7 @@ class DatabaseHelper {
   }
 
   // ==========================================================================
-  // ÇOK BOYUTLU SRS, MODALİTE & WORD BOSS ALGORİTMASI
+  // SRS, MODALİTE & WORD BOSS METOTLARI
   // ==========================================================================
 
   Future<void> recordMultiModalResult({

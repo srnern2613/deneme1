@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Dual-Track Progress (Okuma + Kelime) Destekli Kitaplık Ekranı
+// AÇIKLAMA: Dual-Track Progress (Okuma + Kelime) ve Seviye Rozeti Destekli Kitaplık
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -40,7 +40,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   int _userGems = 50;
   int _userTotalXp = 100;
 
-  // Kitap bazlı ilerleme ve kelime istatistikleri önbelleği
   final Map<String, Map<String, dynamic>> _bookStatsCache = {};
 
   @override
@@ -58,7 +57,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Future<void> _loadAllData() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Gutenberg asset kitaplarını çevrimdışı ve tam metin olarak yükle (Seed)
     await DefaultBooksManager.seedDefaultBooksIfNeeded();
 
     final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
@@ -87,7 +85,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _loadBookJourneyStats();
   }
 
-  /// Her kitabın kelime ve okuma ilerlemesini SQLite'dan asenkron çeker
   Future<void> _loadBookJourneyStats() async {
     for (var book in _books) {
       try {
@@ -168,7 +165,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
   }
 
-  /// Doğrudan Okuyucu (Execution / Action)
   Future<void> _openReader(Book book) async {
     HapticFeedback.selectionClick();
     final result = await Navigator.push<ReadingSessionResult>(
@@ -181,7 +177,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
             book.lastReadDate = DateTime.now();
             _saveBooksToStorage();
 
-            // Veritabanı tablosuna da işle (DB v14)
             final safeTotal = book.pages.isEmpty ? 1 : book.pages.length;
             DatabaseHelper.instance.updateBookReadingProgress(
               bookId: book.id,
@@ -222,7 +217,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _loadAllData();
   }
 
-  /// Kitap Yolculuğu / Journey Ekranı (Exploration / Motivation)
   void _openBookJourney(Book book) {
     HapticFeedback.lightImpact();
     Navigator.push(
@@ -433,7 +427,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
               const SizedBox(height: 18),
               
-              // 📜 PROJEC GUTENBERG TELİF ŞEFAFLIK NOTU
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -460,7 +453,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
               Text('Kitaplarım (${_books.length})', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
               const SizedBox(height: 10),
 
-              // --- DUAL-TRACK KİTAP KARTLARI LİSTESİ ---
               Expanded(
                 child: ListView.separated(
                   physics: const BouncingScrollPhysics(),
@@ -488,7 +480,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(22),
-                          // KART GÖVDESİ -> JOURNEY (Exploration)
                           onTap: () => _openBookJourney(book),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
@@ -503,11 +494,32 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            book.title,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15.5, color: Colors.white),
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  book.title,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15.5, color: Colors.white),
+                                                ),
+                                              ),
+                                              if (book.level.isNotEmpty && book.level != 'Kullanıcı Kitabı') ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+                                                  ),
+                                                  child: Text(
+                                                    book.level,
+                                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
@@ -522,7 +534,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                 ),
                                 const SizedBox(height: 12),
 
-                                // 📖 OKUMA İLERLEME ÇUBUĞU
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
@@ -548,7 +559,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                 ),
                                 const SizedBox(height: 14),
 
-                                // 🧠 KELİME KAZANIMI & DEVAM ET ACTION BUTONU
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
@@ -582,7 +592,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                       ],
                                     ),
 
-                                    // BUTON -> READER (Direct Action)
                                     SizedBox(
                                       height: 38,
                                       child: FilledButton.icon(
