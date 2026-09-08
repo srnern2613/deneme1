@@ -1,13 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/spelling_exercise_screen.dart
 // AÇIKLAMA: Dinle & Yaz (Spelling) & Çok Boyutlu Modalite/Boss Entegreli Mod
-// GÖREVLER & DÜZELTMELER:
-//   1. Modalite Entegrasyonu: 'recordMultiModalResult(mode: "spelling")' üzerinden atomik kayıt.
-//   2. Boss Tetikleme: Hatalı harf diziliminde kelimenin hata sayacı güncellenir.
-//   3. Çok Boyutlu Mastery: Başarılı yazımlar 'modes_passed' alanına 'spelling' olarak işlenir.
-//   4. Harf/sembol koruması ve dinamik klavye yapısı korundu.
-//   5. Semantik Renk Standardı: %70-80 koyu zemin (#070B14), %10-20 panel (#111827).
-//   6. Asenkron Yaşam Döngüsü Zırhı: 'if (!mounted) return;' kontrolleriyle crash önlendi.
+//           (Arena Ayarları, SharedPreferences Filtreleme ve Yaşam Döngüsü Zırhlı)
 // ============================================================================
 
 import 'dart:math';
@@ -15,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database_helper.dart';
 import 'tts_service.dart';
@@ -44,7 +39,7 @@ class SpellingExerciseScreen extends StatefulWidget {
 }
 
 class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
-  late List<Map<String, dynamic>> _questions;
+  List<Map<String, dynamic>> _questions = [];
   int _currentIndex = 0;
   int _score = 0;
   int _streak = 0;
@@ -56,19 +51,55 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   bool _isAnswerChecked = false;
   bool _isCorrect = false;
   String? _cheerToast;
+  bool _isLoading = true;
+
+  int _sessionLimit = 0;
+  String _learningStateFilter = 'ALL';
 
   @override
   void initState() {
     super.initState();
     TtsService.instance.initService();
-    // KORUMA: İçinde en az bir İngilizce harf barındırmayan kartları ele
-    _questions = widget.cards.where((c) {
-      final w = (c['word'] ?? '').toString().trim().toUpperCase();
-      final clean = w.replaceAll(RegExp(r'[^A-Z]'), '');
-      return clean.isNotEmpty;
-    }).toList()..shuffle();
+    _loadSettingsAndInitQuestions();
+  }
 
-    _loadCurrentWord();
+  Future<void> _loadSettingsAndInitQuestions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+
+      _sessionLimit = prefs.getInt('arena_session_limit') ?? 0;
+      _learningStateFilter = prefs.getString('arena_state_filter') ?? 'ALL';
+
+      var filteredCards = widget.cards.where((c) {
+        final w = (c['word'] ?? '').toString().trim().toUpperCase();
+        final clean = w.replaceAll(RegExp(r'[^A-Z]'), '');
+        if (clean.isEmpty) return false;
+        if (_learningStateFilter == 'LEARNING' && c['learning_state'] != 'LEARNING') {
+          return false;
+        }
+        return true;
+      }).toList();
+
+      if (_sessionLimit > 0 && filteredCards.length > _sessionLimit) {
+        filteredCards = filteredCards.sublist(0, _sessionLimit);
+      }
+
+      filteredCards.shuffle();
+
+      if (!mounted) return;
+      setState(() {
+        _questions = filteredCards;
+        _isLoading = false;
+      });
+
+      _loadCurrentWord();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _loadCurrentWord() {
@@ -206,7 +237,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       _isCorrect = correct;
     });
 
-    // 🎯 ÇOK BOYUTLU MODALİTE & BOSS ENTEGRASYONU (Asenkron Bekleme)
+    // 🎯 ÇOK BOYUTLU MODALİTE & BOSS ENTEGRASYONU (Asenkron Bekleme)[cite: 2]
     if (cardId > 0) {
       await DatabaseHelper.instance.recordMultiModalResult(
         cardId: cardId,
@@ -215,7 +246,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       );
     }
 
-    if (!mounted) return; // ASENKRON BOŞLUK KORUMASI
+    if (!mounted) return; // ASENKRON BOŞLUK KORUMASI[cite: 2]
 
     if (correct) {
       HapticFeedback.mediumImpact();
@@ -225,7 +256,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       _totalEarnedXp += earnedXp;
       await XpShopService.instance.addXp(earnedXp);
 
-      if (!mounted) return; // ASENKRON BOŞLUK KORUMASI
+      if (!mounted) return; // ASENKRON BOŞLUK KORUMASI[cite: 2]
 
       final cheer = CoachMessages.getFlashcardCheer(_streak);
       if (cheer != null) {
@@ -285,6 +316,20 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF070B14),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF070B14),
+          elevation: 0,
+          title: Text('Dinle & Yaz', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
+        ),
+      );
+    }
+
     if (_questions.isEmpty) {
       return Scaffold(
         backgroundColor: const Color(0xFF070B14),

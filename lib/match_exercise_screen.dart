@@ -1,12 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/match_exercise_screen.dart
 // AÇIKLAMA: Kelime Eşleştirme & Çok Boyutlu Modalite/Boss Entegreli Oyun
-// GÖREVLER & DÜZELTMELER:
-//   1. Modalite Entegrasyonu: 'recordMultiModalResult(mode: "match")' üzerinden atomik kayıt.
-//   2. Boss Tetikleme: Hatalı eşleşmelerde ilgili kelimenin hata sayacı güncellenir.
-//   3. Çok Boyutlu Mastery: Başarılı eşleştirmeler 'modes_passed' alanına 'match' olarak işlenir.
-//   4. Boş anlam filtrelemesi ve dinamik grid yapısı korundu.
-//   5. Semantik Renk Standardı: %70-80 koyu zemin (#070B14), %10-20 panel (#111827).
+//           (Arena Ayarları, SharedPreferences Filtreleme ve Yaşam Döngüsü Zırhlı)
 // ============================================================================
 
 import 'dart:async';
@@ -15,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database_helper.dart';
 import 'xp_shop_service.dart';
@@ -58,29 +54,65 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
   int _timeLeft = 45;
   Timer? _timer;
   String? _cheerToast;
+  bool _isLoading = true;
+
+  int _sessionLimit = 0;
+  String _learningStateFilter = 'ALL';
 
   @override
   void initState() {
     super.initState();
     TtsService.instance.initService();
-    _restartGame();
+    _loadSettingsAndInitGame();
+  }
+
+  Future<void> _loadSettingsAndInitGame() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+
+      _sessionLimit = prefs.getInt('arena_session_limit') ?? 0;
+      _learningStateFilter = prefs.getString('arena_state_filter') ?? 'ALL';
+
+      var filteredCards = widget.cards.where((c) {
+        final w = (c['word'] ?? '').toString().trim();
+        final m = (c['meaning'] ?? '').toString().trim();
+        if (w.isEmpty || m.isEmpty || m == 'Tanım yok') return false;
+        if (_learningStateFilter == 'LEARNING' && c['learning_state'] != 'LEARNING') {
+          return false;
+        }
+        return true;
+      }).toList();
+
+      if (_sessionLimit > 0 && filteredCards.length > _sessionLimit) {
+        filteredCards = filteredCards.sublist(0, _sessionLimit);
+      }
+
+      filteredCards.shuffle();
+
+      if (!mounted) return;
+      setState(() {
+        _pool = filteredCards;
+        _score = 0;
+        _combo = 0;
+        _totalEarnedXp = 0;
+        _timeLeft = 45;
+        _selectedItem = null;
+        _isLoading = false;
+      });
+
+      _setupBoard();
+      _startTimer();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _restartGame() {
-    // Sadece hem kelimesi hem de anlamı dolu olan kartları havuza al
-    _pool = widget.cards.where((c) {
-      final w = (c['word'] ?? '').toString().trim();
-      final m = (c['meaning'] ?? '').toString().trim();
-      return w.isNotEmpty && m.isNotEmpty && m != 'Tanım yok';
-    }).toList()..shuffle();
-
-    _score = 0;
-    _combo = 0;
-    _totalEarnedXp = 0;
-    _timeLeft = 45;
-    _selectedItem = null;
-    _setupBoard();
-    _startTimer();
+    _loadSettingsAndInitGame();
   }
 
   @override
@@ -103,6 +135,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
   }
 
   void _setupBoard() {
+    if (!mounted) return;
     final count = min(3, _pool.length);
     final selectedPairs = _pool.take(count).toList();
     _pool.removeRange(0, count);
@@ -129,10 +162,12 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
     }
 
     items.shuffle();
+    if (!mounted) return;
     setState(() => _activeItems = items);
   }
 
   void _triggerCheer(String msg) {
+    if (!mounted) return;
     setState(() => _cheerToast = msg);
     Future.delayed(const Duration(milliseconds: 1800), () {
       if (mounted && _cheerToast == msg) {
@@ -149,11 +184,13 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
     }
 
     if (_selectedItem == null) {
+      if (!mounted) return;
       setState(() => _selectedItem = item);
       return;
     }
 
     if (_selectedItem!.id == item.id) {
+      if (!mounted) return;
       setState(() => _selectedItem = null);
       return;
     }
@@ -164,19 +201,23 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       _combo++;
       _score += 2;
 
-      // 🎯 ÇOK BOYUTLU MODALİTE BAŞARISI KAYDI
+      // 🎯 ÇOK BOYUTLU MODALİTE BAŞARISI KAYDI[cite: 4]
       if (item.cardId > 0) {
-        DatabaseHelper.instance.recordMultiModalResult(
+        await DatabaseHelper.instance.recordMultiModalResult(
           cardId: item.cardId,
           isCorrect: true,
           mode: 'match',
         );
       }
 
+      if (!mounted) return;
+
       final multiplier = _combo >= 6 ? 2 : 1;
       final earnedXp = 4 * multiplier;
       _totalEarnedXp += earnedXp;
       await XpShopService.instance.addXp(earnedXp);
+
+      if (!mounted) return;
 
       final firstId = _selectedItem!.id;
       final secondId = item.id;
@@ -202,24 +243,26 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
         }
       }
     } else {
-      // 🔴 Yanlış eşleşme: Hata bildirimi ve Boss adaylığı tetiklemesi
+      // 🔴 Yanlış eşleşme: Hata bildirimi ve Boss adaylığı tetiklemesi[cite: 4]
       HapticFeedback.heavyImpact();
       _combo = 0;
       _triggerCheer(CoachMessages.getWrongAnswerEncouragement());
 
       if (_selectedItem!.cardId > 0) {
-        DatabaseHelper.instance.recordMultiModalResult(
+        await DatabaseHelper.instance.recordMultiModalResult(
           cardId: _selectedItem!.cardId,
           isCorrect: false,
           mode: 'match',
         );
       }
 
+      if (!mounted) return;
       setState(() => _selectedItem = null);
     }
   }
 
   void _finishGame() {
+    if (!mounted) return;
     _timer?.cancel();
     final totalExpected = max(6, widget.cards.length * 2);
     final feedback = CoachMessages.getFeedback(
@@ -237,6 +280,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       earnedGems: _score >= 12 ? 5 : 0,
       actionLabel: feedback.actionLabel,
       onAction: () {
+        if (!mounted) return;
         if (feedback.shouldOfferRetry) {
           setState(() {
             _restartGame();
@@ -250,6 +294,20 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF070B14),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF070B14),
+          elevation: 0,
+          title: Text('Kelime Eşleştirme', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+        ),
+      );
+    }
+
     if (_activeItems.isEmpty && _pool.isEmpty) {
       return Scaffold(
         backgroundColor: const Color(0xFF070B14),

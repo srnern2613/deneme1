@@ -1,12 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/quiz_exercise_screen.dart
 // AÇIKLAMA: 4 Şıklı Hızlı Test & Çok Boyutlu Modalite/Boss Entegreli Sınav
-// GÖREVLER & DÜZELTMELER:
-//   1. Modalite Entegrasyonu: 'recordMultiModalResult(mode: "quiz")' üzerinden atomik kayıt.
-//   2. Boss Tetikleme: Hatalı veya süresi dolan cevaplarda hata sayacı & Boss seviyesi güncellenir.
-//   3. Çok Boyutlu Mastery: Test başarısı 'modes_passed' alanına işlenerek ustalığa katkı sağlar.
-//   4. RangeError ve çakışma önleyici çeldirici algoritması korundu.
-//   5. Semantik Renk Standardı: %70-80 koyu zemin (#070B14), %10-20 panel (#111827).
+//           (Arena Ayarları, SharedPreferences Filtreleme ve Yaşam Döngüsü Zırhlı)
 // ============================================================================
 
 import 'dart:async';
@@ -14,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'tts_service.dart';
 import 'xp_shop_service.dart';
@@ -31,7 +27,7 @@ class QuizExerciseScreen extends StatefulWidget {
 }
 
 class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
-  late List<Map<String, dynamic>> _questions;
+  List<Map<String, dynamic>> _questions = [];
   int _currentIndex = 0;
   int _score = 0;
   int _streak = 0;
@@ -43,6 +39,9 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
   Timer? _questionTimer;
   double _timeRemaining = 10.0;
+
+  int _sessionLimit = 0;
+  String _learningStateFilter = 'ALL';
 
   static const List<String> _fallbackDistractors = [
     'başlangıç, ilk adım',
@@ -59,19 +58,52 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   @override
   void initState() {
     super.initState();
-    _questions = widget.cards.where((c) {
-      final w = (c['word'] ?? '').toString().trim();
-      final m = (c['meaning'] ?? '').toString().trim();
-      return w.isNotEmpty && m.isNotEmpty;
-    }).toList()..shuffle();
-
-    _loadOptionsForCurrent();
+    TtsService.instance.initService();
+    _loadSettingsAndInitQuiz();
   }
 
   @override
   void dispose() {
     _questionTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadSettingsAndInitQuiz() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+
+      _sessionLimit = prefs.getInt('arena_session_limit') ?? 0;
+      _learningStateFilter = prefs.getString('arena_state_filter') ?? 'ALL';
+
+      var filteredCards = widget.cards.where((c) {
+        final w = (c['word'] ?? '').toString().trim();
+        final m = (c['meaning'] ?? '').toString().trim();
+        if (w.isEmpty || m.isEmpty) return false;
+        if (_learningStateFilter == 'LEARNING' && c['learning_state'] != 'LEARNING') {
+          return false;
+        }
+        return true;
+      }).toList();
+
+      if (_sessionLimit > 0 && filteredCards.length > _sessionLimit) {
+        filteredCards = filteredCards.sublist(0, _sessionLimit);
+      }
+
+      filteredCards.shuffle();
+
+      if (!mounted) return;
+      setState(() {
+        _questions = filteredCards;
+      });
+
+      _loadOptionsForCurrent();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _questions = [];
+      });
+    }
   }
 
   void _startTimer() {
@@ -89,7 +121,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   }
 
   void _timeOut() async {
-    if (_answered) return;
+    if (_answered || !mounted) return;
     HapticFeedback.heavyImpact();
     setState(() {
       _answered = true;
@@ -97,7 +129,6 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
     });
     _triggerCheer('⏳ Süre doldu! Odaklan ve devam et.');
 
-    // Süre dolduğunda hatalı sayılır ve Boss sayacına işlenir
     final currentCard = _questions[_currentIndex];
     final cardId = currentCard['id'] as int? ?? 0;
     if (cardId > 0) {
@@ -107,6 +138,8 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
         mode: 'quiz',
       );
     }
+
+    if (!mounted) return;
 
     Future.delayed(const Duration(milliseconds: 1300), () {
       if (!mounted) return;
@@ -125,6 +158,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   }
 
   void _loadOptionsForCurrent() {
+    if (!mounted) return;
     if (_questions.isEmpty || _currentIndex >= _questions.length) return;
 
     final currentCard = _questions[_currentIndex];
@@ -132,7 +166,6 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
     final List<String> distinctOptions = [correctAnswer];
 
-    // 1. Kullanıcının mevcut diğer kelimelerinden benzer olmayanları topla
     final otherMeanings = widget.cards
         .map((c) => (c['meaning'] ?? '').toString().trim())
         .where((m) => m.isNotEmpty && m != correctAnswer)
@@ -146,7 +179,6 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       }
     }
 
-    // 2. Yetersizse fallback listesinden ekle
     if (distinctOptions.length < 4) {
       final availableFallbacks = _fallbackDistractors
           .where((f) => !distinctOptions.any((opt) => _isTooSimilar(opt, f)))
@@ -160,6 +192,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
     distinctOptions.shuffle();
 
+    if (!mounted) return;
     setState(() {
       _currentOptions = distinctOptions;
       _selectedOption = null;
@@ -172,6 +205,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   }
 
   void _triggerCheer(String msg) {
+    if (!mounted) return;
     setState(() => _cheerToast = msg);
     Future.delayed(const Duration(milliseconds: 1800), () {
       if (mounted && _cheerToast == msg) {
@@ -181,7 +215,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   }
 
   void _selectOption(String option) async {
-    if (_answered) return;
+    if (_answered || !mounted) return;
     _questionTimer?.cancel();
 
     final currentCard = _questions[_currentIndex];
@@ -189,12 +223,12 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
     final isCorrect = (option == correctAnswer);
     final cardId = currentCard['id'] as int? ?? 0;
 
+    if (!mounted) return;
     setState(() {
       _selectedOption = option;
       _answered = true;
     });
 
-    // 🎯 ÇOK BOYUTLU MODALİTE & BOSS ENTEGRASYONU
     if (cardId > 0) {
       await DatabaseHelper.instance.recordMultiModalResult(
         cardId: cardId,
@@ -202,6 +236,8 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
         mode: 'quiz',
       );
     }
+
+    if (!mounted) return;
 
     if (isCorrect) {
       HapticFeedback.mediumImpact();
@@ -211,6 +247,8 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       final earnedXp = _timeRemaining > 4.5 ? 8 : 6;
       _totalEarnedXp += earnedXp;
       await XpShopService.instance.addXp(earnedXp);
+
+      if (!mounted) return;
 
       final cheer = CoachMessages.getFlashcardCheer(_streak);
       if (cheer != null) {
@@ -229,6 +267,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   }
 
   void _nextQuestionOrFinish() {
+    if (!mounted) return;
     if (_currentIndex + 1 < _questions.length) {
       setState(() => _currentIndex++);
       _loadOptionsForCurrent();
@@ -238,6 +277,8 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
   }
 
   void _finishQuiz() {
+    if (!mounted) return;
+
     final feedback = CoachMessages.getFeedback(
       exerciseType: 'quiz',
       score: _score,
@@ -253,6 +294,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       earnedGems: _score >= (_questions.length * 0.8) ? 5 : 0,
       actionLabel: feedback.actionLabel,
       onAction: () {
+        if (!mounted) return;
         if (feedback.shouldOfferRetry) {
           setState(() {
             _currentIndex = 0;
@@ -327,7 +369,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                           const SizedBox(width: 12),
                           const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 16),
                           const SizedBox(width: 2),
-                          Text('$_score', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B))),
+                          Text('$_score', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Color(0xFFF59E0B))),
                         ],
                       ),
                     ],
