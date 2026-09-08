@@ -1,12 +1,14 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_screen.dart
-// AÇIKLAMA: Pratik ve Oyun Modları Ekranı (Otomatik Veri Yenileme Desteğiyle)
+// AÇIKLAMA: Pratik ve Oyun Modları Ekranı (Arena Ayarları, Filtreleme, 
+//            Minimum Kart Emniyeti ve Asenkron Yaşam Döngüsü Zırhlı)
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database_helper.dart';
 import 'flashcards_exercise_screen.dart';
@@ -29,11 +31,15 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   List<Map<String, dynamic>> _bossCards = [];
   bool _isLoading = true;
 
+  // Arena Ayarları Değişkenleri
+  int _sessionLimit = 0; // 0 = Tümü, aksi takdirde 10, 20, 30
+  String _learningStateFilter = 'ALL'; // 'ALL' veya 'LEARNING'
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadCardsAndStats();
+    _loadSettingsAndCards();
   }
 
   @override
@@ -45,22 +51,51 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _loadCardsAndStats();
+      _loadSettingsAndCards();
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _loadCardsAndStats();
+    _loadSettingsAndCards();
+  }
+
+  Future<void> _loadSettingsAndCards() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      
+      setState(() {
+        _sessionLimit = prefs.getInt('arena_session_limit') ?? 0;
+        _learningStateFilter = prefs.getString('arena_state_filter') ?? 'ALL';
+      });
+
+      await _loadCardsAndStats();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _loadCardsAndStats() async {
     try {
-      final cards = await DatabaseHelper.instance.getActivePracticeCards();
+      var cards = await DatabaseHelper.instance.getActivePracticeCards();
       final bossCards = await DatabaseHelper.instance.getActiveBossCards(limit: 3);
       await XpShopService.instance.getGemsBalance();
       await XpShopService.instance.getTotalXp();
+
+      if (!mounted) return;
+
+      // Durum Filtresi Uygula
+      if (_learningStateFilter == 'LEARNING') {
+        cards = cards.where((c) => c['learning_state'] == 'LEARNING').toList();
+      }
+
+      // Seans Limiti Uygula
+      if (_sessionLimit > 0 && cards.length > _sessionLimit) {
+        cards = cards.sublist(0, _sessionLimit);
+      }
 
       if (!mounted) return;
       setState(() {
@@ -68,10 +103,164 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
         _bossCards = bossCards;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
+  }
+
+  void _openArenaSettings() {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF111827),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 36),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF334155),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Icon(PhosphorIcons.gearSixBold, color: Color(0xFFF59E0B), size: 22),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Arena Pratik Ayarları',
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'SEANS BAŞINA KART LİMİTİ',
+                    style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _buildLimitChip(setModalState, 0, 'Tümü'),
+                      _buildLimitChip(setModalState, 10, '10 Kart'),
+                      _buildLimitChip(setModalState, 20, '20 Kart'),
+                      _buildLimitChip(setModalState, 30, '30 Kart'),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'KOLEKSİYON FİLTRESİ',
+                    style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _buildStateChip(setModalState, 'ALL', 'Tüm Kelimeler'),
+                      const SizedBox(width: 8),
+                      _buildStateChip(setModalState, 'LEARNING', 'Sadece Öğrenilenler'),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFF59E0B),
+                        foregroundColor: const Color(0xFF070B14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        final prefs = await SharedPreferences.getInstance();
+                        if (!mounted) return;
+                        await prefs.setInt('arena_session_limit', _sessionLimit);
+                        await prefs.setString('arena_state_filter', _learningStateFilter);
+                        if (!mounted) return;
+                        _loadCardsAndStats();
+                      },
+                      child: Text('Kaydet ve Uygula', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLimitChip(StateSetter setModalState, int limitValue, String label) {
+    final isSelected = _sessionLimit == limitValue;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setModalState(() => _sessionLimit = limitValue);
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFF59E0B).withValues(alpha: 0.2) : const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isSelected ? const Color(0xFFF59E0B) : Colors.transparent, width: 1.5),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: GoogleFonts.outfit(
+              color: isSelected ? const Color(0xFFFDE68A) : Colors.white,
+              fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStateChip(StateSetter setModalState, String stateValue, String label) {
+    final isSelected = _learningStateFilter == stateValue;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setModalState(() => _learningStateFilter = stateValue);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF38BDF8).withValues(alpha: 0.2) : const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isSelected ? const Color(0xFF38BDF8) : Colors.transparent, width: 1.5),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: GoogleFonts.outfit(
+              color: isSelected ? const Color(0xFF7DD3FC) : Colors.white,
+              fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _startSrsExercise() {
@@ -82,7 +271,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     HapticFeedback.mediumImpact();
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => FlashcardsExerciseScreen(cards: _cards)),
-    ).then((_) => _loadCardsAndStats());
+    ).then((_) {
+      if (!mounted) return;
+      _loadCardsAndStats();
+    });
   }
 
   void _startQuizExercise() {
@@ -93,7 +285,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     HapticFeedback.mediumImpact();
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => QuizExerciseScreen(cards: _cards)),
-    ).then((_) => _loadCardsAndStats());
+    ).then((_) {
+      if (!mounted) return;
+      _loadCardsAndStats();
+    });
   }
 
   void _startMatchExercise() {
@@ -104,7 +299,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     HapticFeedback.mediumImpact();
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => MatchExerciseScreen(cards: _cards)),
-    ).then((_) => _loadCardsAndStats());
+    ).then((_) {
+      if (!mounted) return;
+      _loadCardsAndStats();
+    });
   }
 
   void _startSpellingExercise() {
@@ -115,7 +313,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     HapticFeedback.mediumImpact();
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => SpellingExerciseScreen(cards: _cards)),
-    ).then((_) => _loadCardsAndStats());
+    ).then((_) {
+      if (!mounted) return;
+      _loadCardsAndStats();
+    });
   }
 
   void _startBossBattle(Map<String, dynamic> bossCard) {
@@ -124,10 +325,14 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
       MaterialPageRoute(
         builder: (context) => WordBossBattleScreen(bossCard: bossCard),
       ),
-    ).then((_) => _loadCardsAndStats());
+    ).then((_) {
+      if (!mounted) return;
+      _loadCardsAndStats();
+    });
   }
 
   void _showEmptyWarning() {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         behavior: SnackBarBehavior.floating,
@@ -137,6 +342,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   }
 
   void _showMinCardsWarning(int min) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
@@ -148,12 +354,14 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   void _openShop() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const ShopScreen()),
-    ).then((_) => _loadCardsAndStats());
+    ).then((_) {
+      if (!mounted) return;
+      _loadCardsAndStats();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Sekmeler arasında geçiş yapıldığında her build tetiklendiğinde veriyi tazeleyelim
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadCardsAndStats();
     });
@@ -205,6 +413,18 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                                   style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500),
                                 ),
                               ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _openArenaSettings,
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E293B),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFF334155)),
+                              ),
+                              child: const Icon(PhosphorIcons.slidersBold, color: Color(0xFF38BDF8), size: 18),
                             ),
                           ),
                         ],

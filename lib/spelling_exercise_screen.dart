@@ -7,6 +7,7 @@
 //   3. Çok Boyutlu Mastery: Başarılı yazımlar 'modes_passed' alanına 'spelling' olarak işlenir.
 //   4. Harf/sembol koruması ve dinamik klavye yapısı korundu.
 //   5. Semantik Renk Standardı: %70-80 koyu zemin (#070B14), %10-20 panel (#111827).
+//   6. Asenkron Yaşam Döngüsü Zırhı: 'if (!mounted) return;' kontrolleriyle crash önlendi.
 // ============================================================================
 
 import 'dart:math';
@@ -71,6 +72,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   }
 
   void _loadCurrentWord() {
+    if (!mounted) return;
     if (_questions.isEmpty || _currentIndex >= _questions.length) return;
 
     _hintsUsedInWord = 0;
@@ -103,6 +105,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
 
     blocks.shuffle();
 
+    if (!mounted) return;
     setState(() {
       _availableLetters = blocks;
       _placedLetters = [];
@@ -115,6 +118,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   }
 
   void _triggerCheer(String msg) {
+    if (!mounted) return;
     setState(() => _cheerToast = msg);
     Future.delayed(const Duration(milliseconds: 2000), () {
       if (mounted && _cheerToast == msg) {
@@ -124,7 +128,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   }
 
   void _useHint() {
-    if (_isAnswerChecked) return;
+    if (_isAnswerChecked || !mounted) return;
 
     final targetWord = (_questions[_currentIndex]['word'] ?? '')
         .toString()
@@ -144,6 +148,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
     if (matchingIndex != -1) {
       final matchingBlock = _availableLetters[matchingIndex];
       HapticFeedback.selectionClick();
+      if (!mounted) return;
       setState(() {
         _hintsUsedInWord++;
         matchingBlock.isUsed = true;
@@ -157,7 +162,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   }
 
   void _onLetterTap(LetterBlock block) {
-    if (_isAnswerChecked || block.isUsed) return;
+    if (_isAnswerChecked || block.isUsed || !mounted) return;
 
     final targetWord = (_questions[_currentIndex]['word'] ?? '')
         .toString()
@@ -168,6 +173,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
     if (_placedLetters.length >= targetWord.length) return;
 
     HapticFeedback.selectionClick();
+    if (!mounted) return;
     setState(() {
       block.isUsed = true;
       _placedLetters.add(block);
@@ -179,7 +185,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   }
 
   void _onPlacedLetterTap(LetterBlock block) {
-    if (_isAnswerChecked) return;
+    if (_isAnswerChecked || !mounted) return;
 
     HapticFeedback.selectionClick();
     setState(() {
@@ -194,12 +200,13 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
     final currentCard = _questions[_currentIndex];
     final cardId = currentCard['id'] as int? ?? 0;
 
+    if (!mounted) return;
     setState(() {
       _isAnswerChecked = true;
       _isCorrect = correct;
     });
 
-    // 🎯 ÇOK BOYUTLU MODALİTE & BOSS ENTEGRASYONU
+    // 🎯 ÇOK BOYUTLU MODALİTE & BOSS ENTEGRASYONU (Asenkron Bekleme)
     if (cardId > 0) {
       await DatabaseHelper.instance.recordMultiModalResult(
         cardId: cardId,
@@ -208,6 +215,8 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       );
     }
 
+    if (!mounted) return; // ASENKRON BOŞLUK KORUMASI
+
     if (correct) {
       HapticFeedback.mediumImpact();
       _score++;
@@ -215,6 +224,8 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       final earnedXp = _hintsUsedInWord > 0 ? 5 : 8;
       _totalEarnedXp += earnedXp;
       await XpShopService.instance.addXp(earnedXp);
+
+      if (!mounted) return; // ASENKRON BOŞLUK KORUMASI
 
       final cheer = CoachMessages.getFlashcardCheer(_streak);
       if (cheer != null) {
@@ -238,6 +249,8 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
   }
 
   void _finishSpelling() {
+    if (!mounted) return;
+
     final feedback = CoachMessages.getFeedback(
       exerciseType: 'spelling',
       score: _score,
@@ -253,6 +266,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       earnedGems: _score >= (_questions.length * 0.8) ? 5 : 0,
       actionLabel: feedback.actionLabel,
       onAction: () {
+        if (!mounted) return;
         if (feedback.shouldOfferRetry) {
           setState(() {
             _currentIndex = 0;
