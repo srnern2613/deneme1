@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Profil, Okuma Isı Haritası ve İhtişamlı Başarılar (Achievements) Vitrini
+// AÇIKLAMA: Profil, Okuma Isı Haritası, İhtişamlı Başarılar ve Dinamik Mağaza Kozmetikleri
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -26,10 +26,9 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, this.onToggleTheme});
 
   @override
-  State<ProfileScreen> createState() => ProfileScreenState(); // Public yapıldı
+  State<ProfileScreen> createState() => ProfileScreenState();
 }
 
-// Sınıf adı public (ProfileScreenState) olarak değiştirildi ki main.dart'tan tetiklenebilsin
 class ProfileScreenState extends State<ProfileScreen> {
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
@@ -40,12 +39,11 @@ class ProfileScreenState extends State<ProfileScreen> {
   int _selectedTab = 0;
 
   bool _hasGoldenCrown = false;
-  bool _hasFlameBorder = false;
+  String _activeFrame = 'none';
 
   List<int> _heatmapDailyPages = [];
   Set<String> _unlockedBadges = {};
 
-  // Başarılar Vitrini İçin Görsel ve Metin Eşleştirmeleri
   final List<Map<String, dynamic>> _allBadges = [
     {'id': 'first_step', 'title': 'İlk Adım', 'emoji': '🐣', 'hint': 'Sisteme giriş yap ve ilk kitabını incele.', 'color': const Color(0xFF38BDF8)},
     {'id': 'librarian', 'title': 'Kütüphaneci Adayı', 'emoji': '📕', 'hint': 'Kütüphanene bir kitap ekle.', 'color': const Color(0xFF10B981)},
@@ -83,7 +81,6 @@ class ProfileScreenState extends State<ProfileScreen> {
     _loadProfileData();
   }
 
-  // DIŞARIDAN TETİKLENECEK CANLI TAZELEME FONKSİYONU
   Future<void> refreshProfileData() async {
     await _loadProfileData();
   }
@@ -91,19 +88,21 @@ class ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfileData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+
       final cards = await DatabaseHelper.instance.getFlashcards();
-      
       if (!mounted) return;
 
       int masteredCount = cards.where((c) => (c['is_mastered'] as int? ?? 0) == 1).length;
 
       final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
+      if (!mounted) return;
+
       await XpShopService.instance.getTotalXp();
       await XpShopService.instance.getGemsBalance();
       final crown = await XpShopService.instance.hasItem('golden_crown');
-      final flame = await XpShopService.instance.hasItem('flame_border');
+      final frame = await XpShopService.instance.getActiveCosmetic('frame', defaultVal: 'none');
 
-      // Başarımların Kilit Durumlarını Oku
       final unlocked = <String>{};
       for (var badge in _allBadges) {
         if (await AchievementService.instance.isBadgeUnlocked(badge['id']!)) {
@@ -121,6 +120,7 @@ class ProfileScreenState extends State<ProfileScreen> {
         heatmapData.add(prefs.getInt(key) ?? 0);
       }
 
+      if (!mounted) return;
       setState(() {
         _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
         _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
@@ -130,7 +130,7 @@ class ProfileScreenState extends State<ProfileScreen> {
         _hasFreezeShield = streakResult['hasFreezeShield'] ?? false;
         _heatmapDailyPages = heatmapData;
         _hasGoldenCrown = crown;
-        _hasFlameBorder = flame;
+        _activeFrame = frame;
         _unlockedBadges = unlocked;
       });
     } catch (_) {}
@@ -205,6 +205,72 @@ class ProfileScreenState extends State<ProfileScreen> {
         );
       },
     );
+  }
+
+  // DİNAMİK AVATAR ÇERÇEVE RENDER YÖNETİCİSİ
+  Widget _buildCosmeticAvatar() {
+    Gradient? frameGradient;
+    Color borderColor = const Color(0xFF38BDF8);
+    bool shouldAnimate = false;
+
+    switch (_activeFrame) {
+      case 'flame_border':
+        frameGradient = const LinearGradient(colors: [Color(0xFFEC4899), Color(0xFFF59E0B)]);
+        borderColor = const Color(0xFFEC4899);
+        shouldAnimate = true;
+        break;
+      case 'neon_frame':
+        frameGradient = const LinearGradient(colors: [Color(0xFFA855F7), Color(0xFF38BDF8)]);
+        borderColor = const Color(0xFFA855F7);
+        shouldAnimate = true;
+        break;
+      case 'emerald_frame':
+        frameGradient = const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF34D399)]);
+        borderColor = const Color(0xFF10B981);
+        break;
+      case 'titan_frame':
+        frameGradient = const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFF78350F)]);
+        borderColor = const Color(0xFFF59E0B);
+        break;
+      case 'storm_frame':
+        frameGradient = const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF1E3A8A)]);
+        borderColor = const Color(0xFF38BDF8);
+        shouldAnimate = true;
+        break;
+      case 'cosmic_frame':
+        frameGradient = const LinearGradient(colors: [Color(0xFFC084FC), Color(0xFF6366F1), Color(0xFFEC4899)]);
+        borderColor = const Color(0xFFC084FC);
+        shouldAnimate = true;
+        break;
+      default:
+        frameGradient = null;
+        borderColor = const Color(0xFF38BDF8).withValues(alpha: 0.4);
+    }
+
+    Widget avatarWidget = Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: frameGradient,
+        border: frameGradient == null ? Border.all(color: borderColor, width: 2) : null,
+      ),
+      child: Center(
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
+          child: const Center(child: Icon(PhosphorIcons.userBold, color: Color(0xFF38BDF8), size: 28)),
+        ),
+      ),
+    );
+
+    if (shouldAnimate) {
+      return avatarWidget
+          .animate(onPlay: (c) => c.repeat(reverse: true))
+          .scale(begin: const Offset(1, 1), end: const Offset(1.04, 1.04), duration: 1200.ms);
+    }
+    return avatarWidget;
   }
 
   @override
@@ -387,22 +453,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                 alignment: Alignment.center,
                 clipBehavior: Clip.none,
                 children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: _hasFlameBorder ? const LinearGradient(colors: [Color(0xFFEC4899), Color(0xFFF59E0B)]) : null,
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
-                        child: const Center(child: Icon(PhosphorIcons.userBold, color: Color(0xFF38BDF8), size: 28)),
-                      ),
-                    ),
-                  ),
+                  _buildCosmeticAvatar(),
                   if (_hasGoldenCrown)
                     Positioned(
                       top: -14,
