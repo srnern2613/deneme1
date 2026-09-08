@@ -2,7 +2,7 @@
 // DOSYA ADI: lib/main.dart
 // AÇIKLAMA: Uygulamanın Ana Giriş Kapısı, Global Tema Yapılandırması,
 //            IndexedStack Tabanlı 5 Sekmeli Navigasyon Çerçevesi ve
-//            Bilişsel Karar Motorlu (Next-Best-Action) Dashboard Lobi Ekranı.
+//            Bilişsel Karar Motorlu (Next-Best-Action) + Kompakt Günün Kelimesi Lobi Ekranı.
 // ============================================================================
 
 import 'dart:async';
@@ -378,6 +378,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _currentStreak = 1;
   bool _isStreakProtectedToday = false;
   int _totalReadMinutes = 0;
+  bool _isDailyWordAdded = false;
 
   // Veritabanı Önbellekleri
   List<Map<String, dynamic>> _activePracticeCards = [];
@@ -387,6 +388,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Book? _activeBook;
   Map<String, dynamic>? _activeBookStats;
   bool _isLoading = true;
+
+  // Statik, her güne özel seçkin kelimeler (Tohum algoritması ile çalışır)
+  static const List<Map<String, String>> _prestigiousWords = [
+    {'word': 'Ubiquitous', 'meaning': 'Her yerde birden bulunan', 'phonetic': '/juːˈbɪk.wɪ.təs/', 'example': 'Smartphones have become ubiquitous in our daily lives.'},
+    {'word': 'Ephemeral', 'meaning': 'Kısa ömürlü, geçici', 'phonetic': '/ɪˈfem.ər.əl/', 'example': 'Fame in the world of social media is often ephemeral.'},
+    {'word': 'Eloquent', 'meaning': 'Güzel ve etkili konuşan', 'phonetic': '/ˈel.ə.kwənt/', 'example': 'She made an eloquent appeal for human rights.'},
+    {'word': 'Resilient', 'meaning': 'Dirençli, çabuk toparlanan', 'phonetic': '/rɪˈzɪl.i.ənt/', 'example': 'Children are often highly resilient.'},
+    {'word': 'Pragmatic', 'meaning': 'Pragmatik, uygulamacı, faydacı', 'phonetic': '/præɡˈmæt.ɪk/', 'example': 'In business, the pragmatic approach to problems is often more successful.'},
+    {'word': 'Tenacious', 'meaning': 'Azimli, inatçı, bırakmayan', 'phonetic': '/təˈneɪ.ʃəs/', 'example': 'There has been tenacious local opposition to the new airport.'},
+    {'word': 'Lucid', 'meaning': 'Açık, anlaşılır, berrak', 'phonetic': '/ˈluː.sɪd/', 'example': 'She gave a clear and lucid account of her plans for the company.'},
+    {'word': 'Meticulous', 'meaning': 'Titiz, kılı kırk yaran', 'phonetic': '/məˈtɪk.jə.ləs/', 'example': 'Many hours of meticulous preparation have gone into writing the book.'},
+    {'word': 'Serendipity', 'meaning': 'Mutlu tesadüf', 'phonetic': '/ˌser.ənˈdɪp.ə.ti/', 'example': 'They found each other by pure serendipity.'},
+    {'word': 'Profound', 'meaning': 'Derin, anlamlı, etkili', 'phonetic': '/prəˈfaʊnd/', 'example': 'His mother\'s death when he was aged six had a very profound effect on him.'},
+    {'word': 'Diligent', 'meaning': 'Çalışkan, gayretli', 'phonetic': '/ˈdɪl.ɪ.dʒənt/', 'example': 'He is a diligent student who always completes his assignments on time.'},
+    {'word': 'Inevitable', 'meaning': 'Kaçınılmaz, beklenen', 'phonetic': '/ɪˈnev.ɪ.tə.bəl/', 'example': 'The accident was the inevitable consequence of carelessness.'},
+    {'word': 'Vivid', 'meaning': 'Canlı, parlak, hayat dolu', 'phonetic': '/ˈvɪv.ɪd/', 'example': 'She gave a very vivid and entertaining account of her life in London.'},
+    {'word': 'Enigma', 'meaning': 'Muamma, gizem', 'phonetic': '/ɪˈnɪɡ.mə/', 'example': 'She is something of an enigma.'},
+  ];
 
   @override
   void initState() {
@@ -417,6 +436,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final target = prefs.getInt('active_daily_word_target') ?? 5;
       final streakSaved = prefs.getBool('streak_completed_$todayKey') ?? (learnedToday > 0);
       final readMins = prefs.getInt('stats_total_read_minutes') ?? 0;
+      final dailyWordAdded = prefs.getBool('added_daily_word_$todayKey') ?? false;
 
       // Veritabanından pratik ve boss kartlarını çek
       final practiceCards = await DatabaseHelper.instance.getActivePracticeCards();
@@ -456,6 +476,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _currentStreak = streak;
         _isStreakProtectedToday = streakSaved;
         _totalReadMinutes = readMins;
+        _isDailyWordAdded = dailyWordAdded;
         _topBossCard = topBoss;
         _activeBossCount = bossCount;
         _activeBook = mostRecentBook;
@@ -486,13 +507,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  /// Günün kelimesini veritabanına ekler
+  void _addDailyWordToPool(Map<String, String> wordData) async {
+    HapticFeedback.heavyImpact();
+    
+    await DatabaseHelper.instance.addFlashcard(
+      wordData['word']!,
+      wordData['meaning']!,
+      contextSentence: wordData['example']!,
+      bookTitle: 'Günün Kelimesi',
+      learningState: 'LEARNING',
+    );
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('added_daily_word_${_getTodayKey()}', true);
+    
+    setState(() {
+      _isDailyWordAdded = true;
+    });
+    
+    refreshDashboardStats();
+    _showCoachToast('🏹 Günün kelimesi başarıyla avlandı! Öğrenme havuzuna eklendi.');
+  }
+
+  /// Ekranda geçici olarak beliren koçluk mesajı
+  void _showCoachToast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(20),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   /// [BİLİŞSEL KARAR MOTORU]
-  /// Kullanıcının mevcut durumunu analiz ederek en faydalı aksiyonu belirler:
-  /// 1. Seri tehlikedeyse -> Seriyi kurtarma görevi.
-  /// 2. Word Boss varsa -> Arenada rövanş savaşı.
-  /// 3. Bekleyen SRS kartı çoksa -> Hafıza kartı tekrarı.
-  /// 4. Yarım kitap varsa -> Kitaba devam etme çağrısı.
-  /// 5. Hiçbiri yoksa -> Günlük kelime hedefi tamamlama.
+  /// Kullanıcının mevcut durumunu analiz ederek en faydalı aksiyonu belirler
   NextBestActionData _determineNextBestAction() {
     final nowHour = DateTime.now().hour;
     final isEvening = nowHour >= 17;
@@ -673,17 +727,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildPersonalStateHeader(),
               const SizedBox(height: 16),
 
-              // 2. MERKEZİ KAHRAMAN AKSİYON KARTI (Next-Best-Action)
+              // 2. GÜNÜN KELİMESİ WIDGET'I (Dinamik ve Kompakt Kanca)
+              _buildWordOfTheDayBanner(),
+              const SizedBox(height: 16),
+
+              // 3. MERKEZİ KAHRAMAN AKSİYON KARTI (Next-Best-Action)
               _buildHeroNextBestActionCard(action),
               const SizedBox(height: 16),
 
-              // 3. AKTİF OKUNAN KİTAP BÖLÜMÜ (Varsa)
+              // 4. AKTİF OKUNAN KİTAP BÖLÜMÜ (Varsa)
               if (_activeBook != null) ...[
                 _buildActiveBookSection(_activeBook!, _activeBookStats),
                 const SizedBox(height: 20),
               ],
 
-              // 4. GELİŞİM VE İLERLEME VİTRİNİ
+              // 5. GELİŞİM VE İLERLEME VİTRİNİ
               Text(
                 'Gelişim ve İlerleme',
                 style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
@@ -886,6 +944,122 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  /// Günün Kelimesi kartını oluşturan yatay, kompakt ve dinamik widget
+  Widget _buildWordOfTheDayBanner() {
+    final today = DateTime.now();
+    // Günü tohum olarak kullan: Örn. 20260908
+    final seed = today.year * 10000 + today.month * 100 + today.day;
+    final wordData = _prestigiousWords[seed % _prestigiousWords.length];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF38BDF8).withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Sol Kısım: Rozet, Kelime, Okunuş ve Anlam
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(PhosphorIcons.sparkleBold, color: Color(0xFF38BDF8), size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'GÜNÜN KELİMESİ', 
+                      style: GoogleFonts.outfit(color: const Color(0xFF7DD3FC), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        wordData['word']!, 
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.3),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2.0),
+                      child: Text(
+                        wordData['phonetic']!, 
+                        style: GoogleFonts.inter(color: const Color(0xFF38BDF8), fontSize: 11, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  wordData['meaning']!, 
+                  style: GoogleFonts.inter(color: const Color(0xFFE2E8F0), fontSize: 12, fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          
+          // Sağ Kısım: Kompakt Aksiyon Butonu / Onay Rozeti
+          _isDailyWordAdded
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15), 
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(PhosphorIcons.checkBold, color: Color(0xFF34D399), size: 14),
+                      const SizedBox(width: 4),
+                      Text('Eklendi', style: GoogleFonts.outfit(color: const Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                    ],
+                  ),
+                )
+              : FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                    foregroundColor: const Color(0xFF38BDF8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14), 
+                      side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.4), width: 1.5),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: () => _addDailyWordToPool(wordData),
+                  child: Row(
+                    children: [
+                      const Icon(PhosphorIcons.crosshairBold, size: 14),
+                      const SizedBox(width: 4),
+                      Text('Avla', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12)),
+                    ],
+                  ),
+                ),
+        ],
+      ),
     );
   }
 
