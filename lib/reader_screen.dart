@@ -1,7 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/reader_screen.dart
 // AÇIKLAMA: Akıllı Cümle Kırpmalı (Windowing), Gelişmiş Noktalama Bölücülü,
-//            Fosforlu Kalem Destekli ve Stop-Word Korumalı SRS Reader Arayüzü
+//            Fosforlu Kalem Destekli, Adil XP Barajlı (25 Sn) SRS Reader Arayüzü
 // ============================================================================
 
 import 'dart:async';
@@ -250,13 +250,27 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final totalSeconds = duration.inSeconds;
 
     int pagesDelta = _currentPage - _initialStartPage;
-    int pagesRead = pagesDelta > 0 ? pagesDelta : (totalSeconds >= 20 ? 1 : 0);
+    int pagesRead = pagesDelta > 0 ? pagesDelta : 0;
 
-    final calculatedXp = (pagesRead * 10) + (_wordsAddedCount * 15);
-    if (calculatedXp > 0) {
-      XpShopService.instance.addXp(calculatedXp).catchError((_) => 0);
+    // --- YENİ KURAL: 25 Saniye Barajı VEYA En Az 1 Kelime Avı ---
+    final bool meetsRewardCriteria = (totalSeconds >= 25) || (_wordsAddedCount >= 1);
+
+    int calculatedXp = 0;
+    if (meetsRewardCriteria) {
+      // Baraj aşıldıysa, 25 saniyeyi deviren kullanıcıya en az 1 sayfalık (10 XP) emek payı veriyoruz
+      if (pagesRead == 0 && totalSeconds >= 25) {
+        pagesRead = 1;
+      }
+      calculatedXp = (pagesRead * 10) + (_wordsAddedCount * 15);
+      if (calculatedXp > 0) {
+        XpShopService.instance.addXp(calculatedXp).catchError((_) => 0);
+      }
+    } else {
+      // Baraj aşılamadıysa XP kazanımı yok, okunan sayfa sıfır sayılır.
+      pagesRead = 0;
     }
 
+    // Kullanıcı okumasa bile son kaldığı sayfayı (yer imini) kaybetmemek için veritabanını güncelliyoruz
     final safeTotalPages = widget.book.totalPages <= 0 ? 1 : widget.book.totalPages;
     await DatabaseHelper.instance.updateBookReadingProgress(
       bookId: widget.book.id,
@@ -278,12 +292,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     if (!mounted) return;
 
-    if (pagesRead > 0 || _wordsAddedCount > 0) {
+    // Sadece kriterler sağlandıysa tebrik ekranını göster
+    if (meetsRewardCriteria) {
       final int minutes = (totalSeconds / 60).ceil();
       CelebrationDialog.show(
         context,
-        emoji: _wordsAddedCount >= 3 ? '🏹' : '📖',
-        title: _wordsAddedCount >= 3 ? 'Usta Kelime Avcısı!' : 'Okuma Oturumu Tamamlandı!',
+        emoji: _wordsAddedCount >= 1 ? '🏹' : '📖',
+        title: _wordsAddedCount >= 1 ? 'Kelime Avcısı!' : 'Okuma Oturumu Tamamlandı!',
         subtitle: '$minutes dakikada $pagesRead sayfa okudun ve $_wordsAddedCount yeni kelimeyi koleksiyonuna kattın.',
         themeColor: const Color(0xFF10B981),
         earnedXp: calculatedXp,
@@ -295,6 +310,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         },
       );
     } else {
+      // Kriter sağlanmadı (örn: 10 saniye durup çıktı), sessizce lobiye dön
       Navigator.pop(context, result);
     }
   }
