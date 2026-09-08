@@ -2,6 +2,7 @@
 // DOSYA ADI: lib/reader_screen.dart
 // AÇIKLAMA: Akıllı Cümle Kırpmalı (Windowing), Gelişmiş Noktalama Bölücülü,
 //            Fosforlu Kalem Destekli, Adil XP Barajlı (25 Sn) SRS Reader Arayüzü
+//            ve Kalıcı Dinamik Mağaza Okuma Temaları Entegreli
 // ============================================================================
 
 import 'dart:async';
@@ -21,20 +22,18 @@ import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'default_books.dart';
 
-// Okuma ekranının tema paletleri (Sepya, Koyu, Açık)
-enum ReaderTheme { light, sepia, dark }
+// Okuma ekranının tema paletleri (Dinamik Mağaza Temaları Dahil)
+enum ReaderTheme { light, sepia, dark, neon, parchment, nordic, espresso, oled, sakura }
 
-// Font ailesi tercihi (Tırnaklı klasik kitap fontu / Tırnaksız modern font)
 enum ReaderFont { serif, sans }
 
-/// Okuma oturumu bittiğinde ana ekrana ve istatistiklere döndürülen sonuç modeli.
 class ReadingSessionResult {
-  final int durationSeconds; // Okuma yapılan toplam süre (saniye)
-  final int wordsExamined;   // Üzerine tıklanıp sözlükte incelenen kelime sayısı
-  final int wordsAdded;      // 'Kelimeyi Avla' denilerek koleksiyona eklenen yeni kelimeler
-  final int lastPage;        // Kullanıcının kitabı bıraktığı son sayfa indeksi
-  final int pagesRead;       // Bu oturumda çevrilen / okunan net sayfa sayısı
-  final int earnedXp;        // Oturum sonunda kazanılan toplam deneyim puanı (XP)
+  final int durationSeconds;
+  final int wordsExamined;
+  final int wordsAdded;
+  final int lastPage;
+  final int pagesRead;
+  final int earnedXp;
 
   ReadingSessionResult({
     required this.durationSeconds,
@@ -47,8 +46,8 @@ class ReadingSessionResult {
 }
 
 class ReaderScreen extends StatefulWidget {
-  final Book book;                                   // Okunacak kitap verisi (içerik, sayfalar vb.)
-  final Function(int pageIndex)? onPageChanged;      // Sayfa her değiştiğinde dışarıya haber veren callback
+  final Book book;
+  final Function(int pageIndex)? onPageChanged;
 
   const ReaderScreen({
     super.key,
@@ -61,40 +60,34 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
-  // Sayfa kaydırma kontrolcüsü (PageView)
   late PageController _pageController;
-
-  // Mevcut aktif sayfa ve oturumun başladığı ilk sayfa (okunan net sayfa farkını bulmak için)
   late int _currentPage;
   late int _initialStartPage;
 
-  // Okuma tipografisi ve tema ayarları
-  double _fontSize = 17.5;                           // Varsayılan metin boyutu (pt)
-  ReaderTheme _currentTheme = ReaderTheme.sepia;      // Varsayılan tema (Göz yormayan sepya)
-  final ReaderFont _currentFont = ReaderFont.serif;  // Tipografi türü
+  double _fontSize = 17.5;
+  ReaderTheme _currentTheme = ReaderTheme.sepia;
+  final ReaderFont _currentFont = ReaderFont.serif;
 
-  // Arayüz durum değişkenleri
-  bool _showControls = true;                          // Üst ve alt menü çubuklarının görünürlüğü
-  String? _selectedWord;                             // O an modalda incelenen kelimenin saf hali
-  bool _isExiting = false;                            // Çıkış işleminin birden fazla kez tetiklenmesini önleyen bayrak
+  bool _showControls = true;
+  String? _selectedWord;
+  bool _isExiting = false;
 
-  // Fosforlu kalem işaretlemeleri ve performans önbellekleri
-  final List<Map<String, dynamic>> _pageHighlightData = []; // Bu sayfadaki boyanmış kelime aralıkları
-  final Map<int, List<InlineSpan>> _spansCache = {};        // Sayfaların TextSpan ağacını tutan önbellek
+  final List<Map<String, dynamic>> _pageHighlightData = [];
+  final Map<int, List<InlineSpan>> _spansCache = {};
 
-  // Oturum ve İlerleme Takip Değişkenleri
-  DateTime _sessionStartTime = DateTime.now();       // Kronometrenin başladığı an
-  int _wordsExaminedCount = 0;                       // Oturumda dokunulan kelime sayısı
-  int _wordsAddedCount = 0;                          // Oturumda avlanan kelime sayısı
+  DateTime _sessionStartTime = DateTime.now();
+  int _wordsExaminedCount = 0;
+  int _wordsAddedCount = 0;
 
-  // Koçluk ve Süre Bildirimleri
-  Timer? _sessionTimer;                              // Arka planda her saniye işleyen oturum sayacı
-  int _sessionSeconds = 0;                           // Geçen toplam saniye
-  bool _notified15Min = false;                       // 15. dakika tebrik mesajının gösterilip gösterilmediği
-  bool _notified30Min = false;                       // 30. dakika tebrik mesajının gösterilip gösterilmediği
-  String? _activeCoachToast;                         // Ekranda yüzen koçluk mesajı kutusu
+  Timer? _sessionTimer;
+  int _sessionSeconds = 0;
+  bool _notified15Min = false;
+  bool _notified30Min = false;
+  String? _activeCoachToast;
 
-  // İngilizce dilbilgisi kısaltmalarını Türkçe etiketlere çeviren sözlük
+  // Kullanıcının mağazadan sahip olduğu temalar
+  final Map<String, bool> _ownedThemes = {};
+
   static const Map<String, String> _posTranslations = {
     'noun': 'İsim',
     'verb': 'Fiil',
@@ -108,16 +101,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
     'phrase': 'Deyim / İfade',
   };
 
-  /// İngilizce kelime türünü (POS) Türkçeleştirir.
   String _getTurkishPos(String? pos) {
     if (pos == null || pos.trim().isEmpty) return '';
     final clean = pos.trim().toLowerCase();
     return _posTranslations[clean] ?? pos.toUpperCase();
   }
 
-  /// Kelimenin başındaki ve sonundaki tırnak, parantez, noktalama gibi yabancı karakterleri temizler.
-  /// TIKLAMA ÖZGÜRLÜĞÜ: Stop-word kısıtlaması buradan kaldırıldı. 'see', 'of', 'that' gibi
-  /// tüm kelimelerin sözlük modalının açılmasına izin verilir.
   String _cleanWordText(String raw) {
     return raw.replaceAll(
       RegExp(r'''^[\s"“”'‘’\(\)\[\]\{\}\.,;:!?\-—_]+|[\s"“”'‘’\(\)\[\]\{\}\.,;:!?\-—_]+$'''), 
@@ -125,8 +114,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     ).trim();
   }
 
-  /// Kelimenin stop-word veya temel gramer kelimesi olup olmadığını doğrular.
-  /// Büyük/küçük harf duyarsızlığı ve kesme işaretli ekleri (örn: "that's" -> "that") normalize eder.
   bool _isLearnableTargetWord(String word) {
     var normalized = word.toLowerCase().trim();
     if (normalized.contains("'")) {
@@ -138,7 +125,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return DefaultBooksManager.isValidWordToSave(normalized);
   }
 
-  /// Sözlük API'sinde arama yaparken kesme işaretli ekleri temizleyip yalın kökü hazırlar.
   String _getLookupWord(String word) {
     var lookup = word.trim();
     if (lookup.contains("'")) {
@@ -150,9 +136,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return lookup.trim();
   }
 
-  /// [WINDOWING MEKANİZMASI]
-  /// Cümle aşırı uzun olduğunda (16 kelimeden fazla), hedef kelimenin 6 kelime öncesi
-  /// ve 6 kelime sonrasını alıp araya '...' koyarak temiz, odaklı bir bağlam cümlesi üretir.
   String _formatContextSentence(String fullSentence, int wordIndexInSentence) {
     final words = fullSentence.split(' ').where((w) => w.isNotEmpty).toList();
     if (words.length <= 16) {
@@ -181,8 +164,55 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _pageController = PageController(initialPage: _currentPage);
     
     TtsService.instance.initService();
+    _loadUserThemesAndActive();
     _startSessionCoachTimer();
     _loadHighlightsForCurrentPage(_currentPage);
+  }
+
+  Future<void> _loadUserThemesAndActive() async {
+    try {
+      final neon = await XpShopService.instance.hasItem('neon_theme');
+      final parchment = await XpShopService.instance.hasItem('parchment_theme');
+      final nordic = await XpShopService.instance.hasItem('nordic_theme');
+      final espresso = await XpShopService.instance.hasItem('espresso_theme');
+      final oled = await XpShopService.instance.hasItem('oled_theme');
+      final sakura = await XpShopService.instance.hasItem('sakura_theme');
+
+      final activeThemeKey = await XpShopService.instance.getActiveCosmetic('reading_theme', defaultVal: 'default');
+
+      if (!mounted) return;
+      setState(() {
+        _ownedThemes['neon_theme'] = neon;
+        _ownedThemes['parchment_theme'] = parchment;
+        _ownedThemes['nordic_theme'] = nordic;
+        _ownedThemes['espresso_theme'] = espresso;
+        _ownedThemes['oled_theme'] = oled;
+        _ownedThemes['sakura_theme'] = sakura;
+
+        switch (activeThemeKey) {
+          case 'neon_theme':
+            _currentTheme = ReaderTheme.neon;
+            break;
+          case 'parchment_theme':
+            _currentTheme = ReaderTheme.parchment;
+            break;
+          case 'nordic_theme':
+            _currentTheme = ReaderTheme.nordic;
+            break;
+          case 'espresso_theme':
+            _currentTheme = ReaderTheme.espresso;
+            break;
+          case 'oled_theme':
+            _currentTheme = ReaderTheme.oled;
+            break;
+          case 'sakura_theme':
+            _currentTheme = ReaderTheme.sakura;
+            break;
+          default:
+            break;
+        }
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadHighlightsForCurrentPage(int pageIndex) async {
@@ -194,13 +224,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
         'color': h['color_tag'] as String? ?? 'yellow',
       }).toList();
 
-      if (mounted) {
-        setState(() {
-          _pageHighlightData.clear();
-          _pageHighlightData.addAll(data);
-          _spansCache.remove(pageIndex);
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _pageHighlightData.clear();
+        _pageHighlightData.addAll(data);
+        _spansCache.remove(pageIndex);
+      });
     } catch (_) {}
   }
 
@@ -252,25 +281,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
     int pagesDelta = _currentPage - _initialStartPage;
     int pagesRead = pagesDelta > 0 ? pagesDelta : 0;
 
-    // --- YENİ KURAL: 25 Saniye Barajı VEYA En Az 1 Kelime Avı ---
     final bool meetsRewardCriteria = (totalSeconds >= 25) || (_wordsAddedCount >= 1);
 
     int calculatedXp = 0;
     if (meetsRewardCriteria) {
-      // Baraj aşıldıysa, 25 saniyeyi deviren kullanıcıya en az 1 sayfalık (10 XP) emek payı veriyoruz
       if (pagesRead == 0 && totalSeconds >= 25) {
         pagesRead = 1;
       }
       calculatedXp = (pagesRead * 10) + (_wordsAddedCount * 15);
       if (calculatedXp > 0) {
-        XpShopService.instance.addXp(calculatedXp).catchError((_) => 0);
+        await XpShopService.instance.addXp(calculatedXp);
+        if (!mounted) return;
       }
     } else {
-      // Baraj aşılamadıysa XP kazanımı yok, okunan sayfa sıfır sayılır.
       pagesRead = 0;
     }
 
-    // Kullanıcı okumasa bile son kaldığı sayfayı (yer imini) kaybetmemek için veritabanını güncelliyoruz
     final safeTotalPages = widget.book.totalPages <= 0 ? 1 : widget.book.totalPages;
     await DatabaseHelper.instance.updateBookReadingProgress(
       bookId: widget.book.id,
@@ -292,7 +318,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     if (!mounted) return;
 
-    // Sadece kriterler sağlandıysa tebrik ekranını göster
     if (meetsRewardCriteria) {
       final int minutes = (totalSeconds / 60).ceil();
       CelebrationDialog.show(
@@ -306,22 +331,28 @@ class _ReaderScreenState extends State<ReaderScreen> {
         strengthenedWords: _wordsAddedCount,
         actionLabel: 'Lobiye Dön',
         onAction: () {
+          if (!mounted) return;
           Navigator.pop(context, result);
         },
       );
     } else {
-      // Kriter sağlanmadı (örn: 10 saniye durup çıktı), sessizce lobiye dön
       Navigator.pop(context, result);
     }
   }
 
-  // --- TEMA VE RENK PALETİ GETTER'LARI ---
+  // --- DİNAMİK TEMA RENK PALETLERİ ---
 
   Color get _backgroundColor {
     switch (_currentTheme) {
       case ReaderTheme.sepia: return const Color(0xFFF4ECD8);
       case ReaderTheme.dark:  return const Color(0xFF070B14);
       case ReaderTheme.light: return const Color(0xFFFAF9F6);
+      case ReaderTheme.neon:  return const Color(0xFF0F172A);
+      case ReaderTheme.parchment: return const Color(0xFFEFE6D5);
+      case ReaderTheme.nordic: return const Color(0xFF064E3B);
+      case ReaderTheme.espresso: return const Color(0xFF291811);
+      case ReaderTheme.oled: return const Color(0xFF000000);
+      case ReaderTheme.sakura: return const Color(0xFFFDF2F8);
     }
   }
 
@@ -330,6 +361,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case ReaderTheme.sepia: return const Color(0xFF2C241D);
       case ReaderTheme.dark:  return const Color(0xFFE2E8F0);
       case ReaderTheme.light: return const Color(0xFF1E293B);
+      case ReaderTheme.neon:  return const Color(0xFF38BDF8);
+      case ReaderTheme.parchment: return const Color(0xFF3D2C1E);
+      case ReaderTheme.nordic: return const Color(0xFFD1FAE5);
+      case ReaderTheme.espresso: return const Color(0xFFFDE68A);
+      case ReaderTheme.oled: return const Color(0xFFFFFFFF);
+      case ReaderTheme.sakura: return const Color(0xFF831843);
     }
   }
 
@@ -338,6 +375,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case ReaderTheme.sepia: return const Color(0xFFE5DAC0);
       case ReaderTheme.dark:  return const Color(0xFF111827);
       case ReaderTheme.light: return const Color(0xFFF1F5F9);
+      case ReaderTheme.neon:  return const Color(0xFF1E1B4B);
+      case ReaderTheme.parchment: return const Color(0xFFD9CCA3);
+      case ReaderTheme.nordic: return const Color(0xFF022C22);
+      case ReaderTheme.espresso: return const Color(0xFF1C100B);
+      case ReaderTheme.oled: return const Color(0xFF121212);
+      case ReaderTheme.sakura: return const Color(0xFFFCE7F3);
     }
   }
 
@@ -346,6 +389,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case ReaderTheme.sepia: return const Color(0xFFD3C3A3);
       case ReaderTheme.dark:  return const Color(0xFF1F2937);
       case ReaderTheme.light: return const Color(0xFFE2E8F0);
+      case ReaderTheme.neon:  return const Color(0xFF6366F1);
+      case ReaderTheme.parchment: return const Color(0xFFBCAB82);
+      case ReaderTheme.nordic: return const Color(0xFF047857);
+      case ReaderTheme.espresso: return const Color(0xFF78350F);
+      case ReaderTheme.oled: return const Color(0xFF27272A);
+      case ReaderTheme.sakura: return const Color(0xFFF472B6);
     }
   }
 
@@ -354,6 +403,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case ReaderTheme.sepia: return const Color(0xFFB45309);
       case ReaderTheme.dark:  return const Color(0xFFF59E0B);
       case ReaderTheme.light: return const Color(0xFF2563EB);
+      case ReaderTheme.neon:  return const Color(0xFFEC4899);
+      case ReaderTheme.parchment: return const Color(0xFF92400E);
+      case ReaderTheme.nordic: return const Color(0xFF34D399);
+      case ReaderTheme.espresso: return const Color(0xFFD97706);
+      case ReaderTheme.oled: return const Color(0xFF38BDF8);
+      case ReaderTheme.sakura: return const Color(0xFFDB2777);
     }
   }
 
@@ -362,22 +417,28 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case ReaderTheme.dark:  return const Color(0xFF1F2937);
       case ReaderTheme.sepia: return const Color(0xFFD3C3A3);
       case ReaderTheme.light: return const Color(0xFFCBD5E1);
+      case ReaderTheme.neon:  return const Color(0xFF312E81);
+      case ReaderTheme.parchment: return const Color(0xFFBCAB82);
+      case ReaderTheme.nordic: return const Color(0xFF065F46);
+      case ReaderTheme.espresso: return const Color(0xFF451A03);
+      case ReaderTheme.oled: return const Color(0xFF27272A);
+      case ReaderTheme.sakura: return const Color(0xFFFBCFE8);
     }
   }
 
   Color _getHighlightColorBg(String colorTag) {
     switch (colorTag) {
       case 'green':
-        return _currentTheme == ReaderTheme.dark
+        return _currentTheme == ReaderTheme.dark || _currentTheme == ReaderTheme.neon || _currentTheme == ReaderTheme.oled
             ? const Color(0xFF059669).withValues(alpha: 0.40)
             : const Color(0xFFA7F3D0).withValues(alpha: 0.70);
       case 'blue':
-        return _currentTheme == ReaderTheme.dark
+        return _currentTheme == ReaderTheme.dark || _currentTheme == ReaderTheme.neon || _currentTheme == ReaderTheme.oled
             ? const Color(0xFF2563EB).withValues(alpha: 0.40)
             : const Color(0xFFBFDBFE).withValues(alpha: 0.70);
       case 'yellow':
       default:
-        return _currentTheme == ReaderTheme.dark
+        return _currentTheme == ReaderTheme.dark || _currentTheme == ReaderTheme.neon || _currentTheme == ReaderTheme.oled
             ? const Color(0xFFFBBF24).withValues(alpha: 0.35)
             : (_currentTheme == ReaderTheme.sepia ? const Color(0xFFFCD34D).withValues(alpha: 0.65) : const Color(0xFFFEF08A));
     }
@@ -415,6 +476,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         startIndex: startIndex,
         endIndex: endIndex,
       );
+      if (!mounted) return;
       setState(() {
         _pageHighlightData.removeAt(existingIndex);
         _spansCache.remove(pageIndex);
@@ -508,7 +570,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  /// Kelimeye tıklandığında alttan açılan sözlük ve kelime inceleme penceresi.
   Future<void> _showWordDetails(
     String word, 
     int pageIndex, 
@@ -524,6 +585,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final lookupWord = _getLookupWord(cleanWord);
 
     HapticFeedback.lightImpact();
+    if (!mounted) return;
     setState(() {
       _selectedWord = cleanWord;
       _wordsExaminedCount++;
@@ -538,7 +600,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     bool isWordHighlighted = _pageHighlightData.any((h) => h['start'] == globalWordIndex && h['end'] == globalWordIndex);
     bool isSentenceHighlighted = _pageHighlightData.any((h) => h['start'] == safeStart && h['end'] == safeEnd);
 
-    // Modal açılmadan önce veritabanındaki kayıt durumunu sorgula
     final initialCardQuery = await DatabaseHelper.instance.database.then((db) => db.query(
       'flashcards',
       where: 'word = ? COLLATE NOCASE',
@@ -567,7 +628,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return FutureBuilder<WordDefinitionResult>(
-              // Kesme işaretli ekleri temizlenmiş kök ile sözlük araması yapılır
               future: DictionaryService.instance.fetchWordMeaning(lookupWord),
               builder: (context, snapshot) {
                 final isLoading = snapshot.connectionState == ConnectionState.waiting;
@@ -577,8 +637,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 final rawMeaning = result?.alternativeMeanings.take(3).join(', ') ?? result?.primaryMeaning ?? '';
                 final hasValidMeaning = rawMeaning.trim().isNotEmpty && rawMeaning.trim() != 'Tanım yok';
 
-                // VERİTABANI KORUMASI: Sadece öğrenilebilir gerçek kelimeler 'DISCOVERED' olarak kaydedilir.
-                // Stop-word veya temel gramer kelimeleri ('see', 'of', 'that') veritabanına sessizce yazılmaz!
                 if (!isLoading && hasValidMeaning && !isAddedToStudyPool && isLearnable) {
                   DatabaseHelper.instance.discoverWord(
                     word: cleanWord,
@@ -617,7 +675,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // 1. ÜST BAŞLIK: Kelime, Fonetik, Rozet ve Telaffuz Butonu
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -640,7 +697,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        // ROZET KORUMASI: Stop-word kelimelerde veya henüz havuza eklenmemiş temel kelimelerde rozet gizlenir
                                         if (isAddedToStudyPool || isLearnable)
                                           _buildStateBadge(isAddedToStudyPool ? currentLearningState : 'DISCOVERED'),
                                       ],
@@ -682,7 +738,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                           const SizedBox(height: 10),
 
-                          // 2. SÖZLÜK ANLAMLARI VE ÇEVRİMDIŞI DURUMU
                           if (isLoading) ...[
                             Row(
                               children: [
@@ -759,7 +814,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                           const SizedBox(height: 10),
 
-                          // 3. BAĞLAM CÜMLESİ (Kırpılmış & Odaklanmış)
                           if (contextSentence.trim().isNotEmpty)
                             Container(
                               width: double.infinity,
@@ -781,7 +835,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                           const SizedBox(height: 10),
 
-                          // 4. FOSFORLU KALEM BUTONLARI (Tek Kelime)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -818,7 +871,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                           const SizedBox(height: 8),
 
-                          // 5. FOSFORLU KALEM BUTONLARI (Tüm Cümle)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -855,11 +907,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // 6. ANA AKSİYON BUTONU
-                          // LEGACY & STOP-WORD KORUMASI:
-                          // - Eğer eski sürümlerde havuza eklenmişse: Kullanıcıya silme imkanı tanınır (Koleksiyondan Kaldır - Kırmızı).
-                          // - Yeni bir stop-word ise: Buton soluk gri (disabled) kalarak kullanıcıyı bilgilendirir.
-                          // - Normal kelime ise: Standart yeşil "Kelimeyi Avla & Öğren" butonu çalışır.
                           SizedBox(
                             width: double.infinity,
                             height: 44,
@@ -913,7 +960,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                             side: BorderSide(color: _panelBorderColor.withValues(alpha: 0.5)),
                                           ),
                                         ),
-                                        onPressed: null, // Buton pasif (disabled)
+                                        onPressed: null,
                                         icon: Icon(
                                           PhosphorIcons.infoBold, 
                                           size: 18, 
@@ -1002,12 +1049,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
         );
       },
     ).whenComplete(() {
-      if (mounted) {
-        setState(() {
-          _selectedWord = null;
-          _spansCache.remove(pageIndex);
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _selectedWord = null;
+        _spansCache.remove(pageIndex);
+      });
     });
   }
 
@@ -1041,9 +1087,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  /// [METİN AYRIŞTIRICI & SPAN ÜRETİCİ]
-  /// Sayfa metnini ayrıştırır; noktalı virgül, iki nokta ve diyalog tırnaklarına göre
-  /// edebi cümle bloklarına böler. Her kelimeye global index verip tıklanabilirlik kazandırır.
   List<InlineSpan> _buildOptimizedSpans(int pageIndex) {
     if (_spansCache.containsKey(pageIndex)) {
       return _spansCache[pageIndex]!;
@@ -1065,7 +1108,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
 
     final clean = _normalizePdfText(pageContent);
-    // Gelişmiş Noktalama Bölücüsü: Noktalı virgül, iki nokta ve tırnak boşluklarını da yakalar
     final regExp = RegExp(r'(?<=[.!?;:])\s+|(?<=[”"])\s+');
     var sentences = clean.split(regExp).where((s) => s.trim().length > 1).toList();
     if (sentences.isEmpty && clean.isNotEmpty) {
@@ -1202,12 +1244,26 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // --- MAĞAZA TEMALARI VE STANDART TEMALAR SEÇİM PANELI (Taşma Çözümlü Esnek Grid) ---
+              Text('Okuma Teması & Mağaza Paletleri', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: _textColor)),
+              const SizedBox(height: 12),
+              GridView.count(
+                crossAxisCount: 3,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 2.6,
                 children: [
-                  _buildColorCard(ReaderTheme.dark, const Color(0xFF070B14), 'Gece', const Color(0xFFE2E8F0)),
-                  _buildColorCard(ReaderTheme.sepia, const Color(0xFFF4ECD8), 'Sepya', const Color(0xFF2C241D)),
-                  _buildColorCard(ReaderTheme.light, const Color(0xFFFAF9F6), 'Klasik', const Color(0xFF1E293B)),
+                  _buildThemeChip(ReaderTheme.dark, 'Gece', const Color(0xFF070B14), const Color(0xFFE2E8F0), true, 'default'),
+                  _buildThemeChip(ReaderTheme.sepia, 'Sepya', const Color(0xFFF4ECD8), const Color(0xFF2C241D), true, 'default'),
+                  _buildThemeChip(ReaderTheme.light, 'Klasik', const Color(0xFFFAF9F6), const Color(0xFF1E293B), true, 'default'),
+                  _buildThemeChip(ReaderTheme.neon, 'Gece & Neon', const Color(0xFF0F172A), const Color(0xFF38BDF8), _ownedThemes['neon_theme'] ?? false, 'neon_theme'),
+                  _buildThemeChip(ReaderTheme.parchment, 'Parşömen', const Color(0xFFEFE6D5), const Color(0xFF3D2C1E), _ownedThemes['parchment_theme'] ?? false, 'parchment_theme'),
+                  _buildThemeChip(ReaderTheme.nordic, 'Nordik', const Color(0xFF064E3B), const Color(0xFFD1FAE5), _ownedThemes['nordic_theme'] ?? false, 'nordic_theme'),
+                  _buildThemeChip(ReaderTheme.espresso, 'Espresso', const Color(0xFF291811), const Color(0xFFFDE68A), _ownedThemes['espresso_theme'] ?? false, 'espresso_theme'),
+                  _buildThemeChip(ReaderTheme.oled, 'OLED Siyah', const Color(0xFF000000), const Color(0xFFFFFFFF), _ownedThemes['oled_theme'] ?? false, 'oled_theme'),
+                  _buildThemeChip(ReaderTheme.sakura, 'Sakura', const Color(0xFFFDF2F8), const Color(0xFF831843), _ownedThemes['sakura_theme'] ?? false, 'sakura_theme'),
                 ],
               ),
             ],
@@ -1217,35 +1273,56 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  Widget _buildColorCard(ReaderTheme theme, Color bgPreviewColor, String label, Color fontColor) {
+  Widget _buildThemeChip(ReaderTheme theme, String label, Color bg, Color fg, bool isUnlocked, String shopCosmeticKey) {
     final isSelected = (_currentTheme == theme);
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-        child: GestureDetector(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            setState(() {
-              _currentTheme = theme;
-              _spansCache.clear();
-            });
-            Navigator.pop(context);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: bgPreviewColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: isSelected ? _accentColor : _panelBorderColor, width: isSelected ? 2.5 : 1),
-            ),
-            child: Column(
-              children: [
-                Text('Aa', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'serif', color: fontColor)),
-                const SizedBox(height: 4),
-                Text(label, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, color: fontColor)),
-              ],
-            ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () async {
+        if (!isUnlocked) {
+          HapticFeedback.vibrate();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Bu tema kilitli! Ganimet Dükkanından açabilirsin.')),
+          );
+          return;
+        }
+        HapticFeedback.selectionClick();
+
+        // Kalıcı olarak aktif kozmetik temasını kaydet
+        await XpShopService.instance.setActiveCosmetic('reading_theme', shopCosmeticKey);
+
+        if (!mounted) return;
+        setState(() {
+          _currentTheme = theme;
+          _spansCache.clear();
+        });
+        Navigator.pop(context);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? _accentColor : (isUnlocked ? _panelBorderColor : Colors.grey.withValues(alpha: 0.3)),
+            width: isSelected ? 2 : 1,
           ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!isUnlocked) ...[
+              const Icon(Icons.lock_rounded, size: 11, color: Colors.grey),
+              const SizedBox(width: 3),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 10.5, fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, color: isUnlocked ? fg : Colors.grey),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1274,6 +1351,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 itemCount: widget.book.totalPages,
                 onPageChanged: (pageIndex) {
                   HapticFeedback.selectionClick();
+                  if (!mounted) return;
                   setState(() {
                     _currentPage = pageIndex;
                     widget.book.currentPage = pageIndex;
