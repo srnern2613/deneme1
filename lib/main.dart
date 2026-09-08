@@ -2,7 +2,8 @@
 // DOSYA ADI: lib/main.dart
 // AÇIKLAMA: Uygulamanın Ana Giriş Kapısı, Global Tema Yapılandırması,
 //            IndexedStack Tabanlı 5 Sekmeli Navigasyon Çerçevesi ve
-//            Bilişsel Karar Motorlu (Next-Best-Action) + Kompakt Günün Kelimesi Lobi Ekranı.
+//            Bilişsel Karar Motorlu (Next-Best-Action), Kompakt Günün Kelimesi 
+//            ve Dinamik Başarım (Achievement) Bildirimli Lobi Ekranı.
 // ============================================================================
 
 import 'dart:async';
@@ -12,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 // Veri modelleri ve veritabanı/servis bağımlılıkları
 import 'book_model.dart';
@@ -30,24 +32,19 @@ import 'xp_shop_service.dart';
 import 'database_helper.dart';
 import 'streak_freeze_service.dart';
 import 'mini_player.dart';
+import 'achievement_service.dart';
 
 /// Uygulamanın işletim sistemi düzeyindeki ilk tetiklenme noktasıdır.
-/// Flutter motoru hazırlandıktan sonra kritik servisler (varsayılan kitaplar ve XP mağazası)
-/// asenkron olarak ayağa kaldırılır.
 void main() async {
-  // Widget ağacı ile Flutter motorunun köprü bağlantısını garantiye al
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
-    // 1. Projeye gömülü gelen Gutenberg klasik kitaplarını SharedPreferences'a tohumla (seed)
     await DefaultBooksManager.seedDefaultBooksIfNeeded();
-    // 2. Kullanıcının elmas ve toplam XP bakiyelerini SharedPreferences'tan çekip ValueNotifier'lara yükle
     await XpShopService.instance.init();
   } catch (e) {
     debugPrint('Servis başlatma hatası: $e');
   }
 
-  // Cihazın üst durum çubuğunu (Status Bar) şeffaf ve açık renkli simgelerle ayarla
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -58,7 +55,6 @@ void main() async {
   runApp(const MyApp());
 }
 
-/// Tüm uygulama temasını ve genel malzeme tasarımını (Material 3) yöneten kök bileşendir.
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -67,7 +63,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  // Varsayılan tema karanlık moddur (#070B14 tabanlı derin siyah/lacivert palet)
   final ThemeMode _themeMode = ThemeMode.dark;
 
   void _toggleTheme() {
@@ -84,11 +79,11 @@ class _MyAppState extends State<MyApp> {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF070B14),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6366F1), // İndigo ana tohum rengi
+          seedColor: const Color(0xFF6366F1), 
           brightness: Brightness.dark,
-          primary: const Color(0xFFF59E0B),   // Canlı kehribar/altın vurgu rengi
-          secondary: const Color(0xFF10B981), // Zümrüt yeşili başarı rengi
-          surface: const Color(0xFF131B2E),   // Kart ve panel yüzey rengi
+          primary: const Color(0xFFF59E0B),   
+          secondary: const Color(0xFF10B981), 
+          surface: const Color(0xFF131B2E),   
         ),
       ),
       themeMode: _themeMode,
@@ -97,8 +92,6 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-/// Uygulamanın 5 ana ekranı arasındaki geçişleri yöneten, sayfaların durumunu
-/// hafızada koruyan (IndexedStack) ve alt navigasyon çubuğunu barındıran iskelettir.
 class RootScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
   const RootScreen({super.key, required this.onToggleTheme});
@@ -108,16 +101,15 @@ class RootScreen extends StatefulWidget {
 }
 
 class _RootScreenState extends State<RootScreen> {
-  int _currentIndex = 0; // Aktif seçili sekme indeksi (0: Lobi, 1: Kitaplık, 2: Pratik, 3: Mağaza, 4: Profil)
+  int _currentIndex = 0; 
   
-  // Dashboard ekranının istatistiklerini dışarıdan tazeleyebilmek için global anahtar
   final GlobalKey<_DashboardScreenState> _dashboardKey = GlobalKey<_DashboardScreenState>();
+  final GlobalKey<ProfileScreenState> _profileKey = GlobalKey<ProfileScreenState>();
   late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
-    // IndexedStack içinde yaşayacak 5 temel sekme başlatılır
     _screens = [
       DashboardScreen(
         key: _dashboardKey,
@@ -129,20 +121,20 @@ class _RootScreenState extends State<RootScreen> {
       const LibraryScreen(),
       const FlashcardsScreen(),
       const ShopScreen(),
-      const ProfileScreen(),
+      ProfileScreen(key: _profileKey), 
     ];
   }
 
-  /// Sekmeler arası geçişi yönetir ve haptik titreşim verir
   void _onTabTapped(int index) {
     if (_currentIndex == index) return;
     HapticFeedback.lightImpact();
     setState(() {
       _currentIndex = index;
     });
-    // Lobi sekmesine her geri dönüldüğünde en güncel okuma ve kelime verilerini sorgula
     if (index == 0) {
       _dashboardKey.currentState?.refreshDashboardStats();
+    } else if (index == 4) {
+      _profileKey.currentState?.refreshProfileData();
     }
   }
 
@@ -152,26 +144,21 @@ class _RootScreenState extends State<RootScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
-      extendBody: true, // Gövdeyi alt navigasyon barının arkasına uzatarak şeffaflık sağlar
+      extendBody: true, 
       body: Stack(
         children: [
-          // 1. ANA SEKMELER: IndexedStack sayfaların durumunu ve scroll pozisyonunu korur
           Positioned.fill(
             child: IndexedStack(
               index: _currentIndex,
               children: _screens,
             ),
           ),
-
-          // 2. MİNİ KİTAP OYNATICI: Aktif okunan kitap varsa alt barın hemen üzerinde yüzer
           Positioned(
             left: 0,
             right: 0,
             bottom: 84 + bottomSystemPadding,
             child: const GlobalMiniPlayer(),
           ),
-
-          // 3. CAM EFEKTLİ ALT NAVİGASYON BARI: Ekranın altında yüzen oval kontrol çubuğu
           Positioned(
             left: 14,
             right: 14,
@@ -183,7 +170,6 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 
-  /// Arka planı bulanıklaştıran (BackdropFilter) ve ortasında kılıç butonu bulunan alt bar
   Widget _buildUltimateBottomBar() {
     return SizedBox(
       height: 72,
@@ -191,7 +177,6 @@ class _RootScreenState extends State<RootScreen> {
         clipBehavior: Clip.none,
         alignment: Alignment.bottomCenter,
         children: [
-          // Oval cam kapsül zemin
           ClipRRect(
             borderRadius: BorderRadius.circular(26),
             child: BackdropFilter(
@@ -212,7 +197,7 @@ class _RootScreenState extends State<RootScreen> {
                   children: [
                     _buildNavItem(index: 0, icon: PhosphorIcons.compassBold, label: 'Lobi', activeColor: const Color(0xFF38BDF8)),
                     _buildNavItem(index: 1, icon: PhosphorIcons.booksBold, label: 'Kitaplık', activeColor: const Color(0xFF10B981)),
-                    const SizedBox(width: 54), // Ortadaki kristal kılıç butonu için bırakılan boşluk
+                    const SizedBox(width: 54), 
                     _buildNavItem(index: 3, icon: PhosphorIcons.storefrontBold, label: 'Mağaza', activeColor: const Color(0xFFEC4899), hasBadge: true),
                     _buildNavItem(index: 4, icon: PhosphorIcons.userBold, label: 'Profil', activeColor: const Color(0xFFA855F7)),
                   ],
@@ -220,14 +205,12 @@ class _RootScreenState extends State<RootScreen> {
               ),
             ),
           ),
-          // Ortadaki parlayan turuncu kristal kılıç butonu (Pratik & Oyun Arenası)
           Positioned(top: 2, child: _buildCenterActionCrystal()),
         ],
       ),
     );
   }
 
-  /// Alt barın tam ortasındaki dairesel kılıç aksiyon butonu bileşeni
   Widget _buildCenterActionCrystal() {
     final isSelected = _currentIndex == 2;
 
@@ -272,7 +255,6 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 
-  /// Alt bardaki her bir münferit sekme butonunun tasarımı ve animasyonu
   Widget _buildNavItem({required int index, required IconData icon, required String label, required Color activeColor, bool hasBadge = false}) {
     final isSelected = _currentIndex == index;
     return GestureDetector(
@@ -312,16 +294,14 @@ class _RootScreenState extends State<RootScreen> {
   }
 }
 
-/// Kullanıcıya lobide sunulacak en kritik aksiyonun öncelik kategorileri
 enum ActionPriorityType {
-  streakAtRisk, // Seri bozulma tehlikesi altında (En yüksek aciliyet)
-  wordBoss,     // Word Boss intikam/rövanş bekliyor
-  dueSrs,       // Unutma eğrisi gereği tekrar zamanı gelmiş kelimeler var
-  activeBook,   // Yarım bırakılmış bir kitap okuma seansı var
-  dailyGoal,    // Standart günlük kelime öğrenme hedefi
+  streakAtRisk, 
+  wordBoss,     
+  dueSrs,       
+  activeBook,   
+  dailyGoal,    
 }
 
-/// Lobideki büyük kahraman (Hero) kartını dinamik olarak besleyen veri modeli
 class NextBestActionData {
   final ActionPriorityType type;
   final String badgeText;
@@ -350,8 +330,6 @@ class NextBestActionData {
   });
 }
 
-/// Uygulamanın açılışındaki akıllı ana kontrol paneli (Lobi).
-/// Kullanıcının o anki durumuna göre en verimli aksiyonu belirleyip öne çıkarır.
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
   final VoidCallback onNavigateToShop;
@@ -371,7 +349,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  // Canlı Takip Değişkenleri
   int _todayLearnedCards = 0;
   int _dailyTargetCards = 5;
   int _dueReviewCount = 0;
@@ -380,7 +357,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _totalReadMinutes = 0;
   bool _isDailyWordAdded = false;
 
-  // Veritabanı Önbellekleri
   List<Map<String, dynamic>> _activePracticeCards = [];
   Map<String, dynamic>? _topBossCard;
   int _activeBossCount = 0;
@@ -389,7 +365,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _activeBookStats;
   bool _isLoading = true;
 
-  // Statik, her güne özel seçkin kelimeler (Tohum algoritması ile çalışır)
+  // Başarım Kutlama Kuyruğu
+  final List<UnlockedBadgeInfo> _achievementQueue = [];
+  bool _isShowingAchievement = false;
+  UnlockedBadgeInfo? _currentAchievementToShow;
+
   static const List<Map<String, String>> _prestigiousWords = [
     {'word': 'Ubiquitous', 'meaning': 'Her yerde birden bulunan', 'phonetic': '/juːˈbɪk.wɪ.təs/', 'example': 'Smartphones have become ubiquitous in our daily lives.'},
     {'word': 'Ephemeral', 'meaning': 'Kısa ömürlü, geçici', 'phonetic': '/ɪˈfem.ər.əl/', 'example': 'Fame in the world of social media is often ephemeral.'},
@@ -419,13 +399,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     refreshDashboardStats();
   }
 
-  /// SQLite ve SharedPreferences üzerindeki tüm canlı istatistikleri eşzamanlar
   Future<void> refreshDashboardStats() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final todayKey = _getTodayKey();
 
-      // Seri kontrolü ve canlı bakiye sorguları
       final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
       final streak = streakResult['streakDays'] ?? (prefs.getInt('current_streak_days') ?? 1);
       
@@ -438,7 +416,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final readMins = prefs.getInt('stats_total_read_minutes') ?? 0;
       final dailyWordAdded = prefs.getBool('added_daily_word_$todayKey') ?? false;
 
-      // Veritabanından pratik ve boss kartlarını çek
       final practiceCards = await DatabaseHelper.instance.getActivePracticeCards();
       final reviewCount = practiceCards.where((c) => (c['repetitions'] as int? ?? 0) < 5).length;
 
@@ -446,13 +423,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final bossCount = await DatabaseHelper.instance.getActiveBossCount();
       final topBoss = bossCards.isNotEmpty ? bossCards.first : null;
 
-      // En son okunan kitabı tespit et
       Book? mostRecentBook;
       Map<String, dynamic>? mostRecentBookStats;
+      int totalPagesRead = 0;
 
       final bookDataList = prefs.getStringList('saved_books');
       if (bookDataList != null && bookDataList.isNotEmpty) {
         final List<Book> parsedBooks = bookDataList.map((str) => Book.fromJson(str)).toList();
+        
+        for (var b in parsedBooks) {
+          totalPagesRead += b.currentPage;
+        }
+
         parsedBooks.sort((a, b) {
           final dateA = a.lastReadDate ?? DateTime.fromMillisecondsSinceEpoch(0);
           final dateB = b.lastReadDate ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -465,6 +447,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             bookId: mostRecentBook.id,
           );
         }
+      }
+
+      // --- BAŞARIM (ACHIEVEMENT) ARKA PLAN KONTROLÜ ---
+      final newlyUnlocked = await AchievementService.instance.checkAndUnlockAchievements(
+        totalPagesRead: totalPagesRead,
+        totalFlashcards: practiceCards.length + bossCards.length,
+        totalReadMinutes: readMins,
+        wordsExamined: prefs.getInt('stats_total_words_examined') ?? 0,
+        dailyPages: prefs.getInt('daily_pages_$todayKey') ?? 0,
+        hasShield: streakSaved,
+      );
+
+      if (newlyUnlocked.isNotEmpty && mounted) {
+        _achievementQueue.addAll(newlyUnlocked);
+        _processAchievementQueue();
       }
 
       if (!mounted) return;
@@ -489,13 +486,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  /// Günün tarihini YYYY-MM-DD formatında döner
+  void _processAchievementQueue() async {
+    if (!mounted) return; // Güvenlik Yaması: Fonksiyon çağrıldığında ekran aktif mi?
+    if (_isShowingAchievement || _achievementQueue.isEmpty) return;
+    
+    setState(() {
+      _isShowingAchievement = true;
+      _currentAchievementToShow = _achievementQueue.removeAt(0);
+    });
+
+    HapticFeedback.heavyImpact(); 
+
+    // 4 Saniye ekranda tut
+    await Future.delayed(const Duration(seconds: 4));
+
+    if (!mounted) return; // Güvenlik Yaması: Bekleme sonrası ekran hala aktif mi?
+
+    setState(() {
+      _isShowingAchievement = false;
+    });
+    
+    // Çıkış animasyonu için bekle ve kuyruktaki diğer başarıma geç
+    await Future.delayed(const Duration(milliseconds: 600));
+    
+    if (!mounted) return; // Güvenlik Yaması: Rekürsif çağrı öncesi kontrol
+    _processAchievementQueue();
+  }
+
   String _getTodayKey() {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
-  /// Saate göre selamlaşma mesajı üretir
   String _getTimeBasedGreeting() {
     final hour = DateTime.now().hour;
     if (hour >= 5 && hour < 12) {
@@ -507,7 +529,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  /// Günün kelimesini veritabanına ekler
   void _addDailyWordToPool(Map<String, String> wordData) async {
     HapticFeedback.heavyImpact();
     
@@ -522,6 +543,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('added_daily_word_${_getTodayKey()}', true);
     
+    if (!mounted) return; // Güvenlik Yaması: Asenkron işlem sonrası kontrol
+    
     setState(() {
       _isDailyWordAdded = true;
     });
@@ -530,7 +553,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _showCoachToast('🏹 Günün kelimesi başarıyla avlandı! Öğrenme havuzuna eklendi.');
   }
 
-  /// Ekranda geçici olarak beliren koçluk mesajı
   void _showCoachToast(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -545,8 +567,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// [BİLİŞSEL KARAR MOTORU]
-  /// Kullanıcının mevcut durumunu analiz ederek en faydalı aksiyonu belirler
   NextBestActionData _determineNextBestAction() {
     final nowHour = DateTime.now().hour;
     final isEvening = nowHour >= 17;
@@ -554,7 +574,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isGoalCompleted = _todayLearnedCards >= _dailyTargetCards;
     final goalProgress = _dailyTargetCards > 0 ? (_todayLearnedCards / _dailyTargetCards).clamp(0.0, 1.0) : 0.0;
 
-    // KURAL 1: Seri Henüz Kurtarılmadıysa ve Saat Geç Olduysa
     if (!_isStreakProtectedToday && (isEvening || _currentStreak > 1)) {
       return NextBestActionData(
         type: ActionPriorityType.streakAtRisk,
@@ -571,7 +590,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    // KURAL 2: Yenilgiye Uğranmış ve Rövanş Bekleyen Word Boss Varsa
     if (_topBossCard != null && _activeBossCount > 0) {
       final bossWord = _topBossCard!['word'] as String? ?? 'Kelime';
       final bossLevel = _topBossCard!['boss_level'] as int? ?? 1;
@@ -591,7 +609,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    // KURAL 3: Aralıklı Tekrar (SRS) Bekleyen Kart Sayısı Biriktiyse
     if (_dueReviewCount >= 4) {
       return NextBestActionData(
         type: ActionPriorityType.dueSrs,
@@ -608,7 +625,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    // KURAL 4: Aktif Olarak Okunan ve İlerlenen Bir Kitap Varsa
     if (_activeBook != null && _activeBookStats != null) {
       final int readingPercent = _activeBookStats!['reading_percentage'] as int? ?? 0;
       if (readingPercent > 0 && readingPercent < 100) {
@@ -628,7 +644,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
-    // KURAL 5: Varsayılan Günlük Kelime Hedefi
     return NextBestActionData(
       type: ActionPriorityType.dailyGoal,
       badgeText: _isStreakProtectedToday ? '🎉 BUGÜNKÜ SERİN GÜVENDE' : '🎯 GÜNLÜK HEDEF',
@@ -646,7 +661,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// SRS Hafıza Kartları seansını başlatır
   void _startSrsSession() {
     HapticFeedback.heavyImpact();
     if (_activePracticeCards.isEmpty) {
@@ -658,7 +672,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ).then((_) => refreshDashboardStats());
   }
 
-  /// Word Boss intikam savaşını açar
   void _startBossBattle(Map<String, dynamic> bossCard) {
     HapticFeedback.heavyImpact();
     Navigator.of(context).push(
@@ -666,7 +679,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ).then((_) => refreshDashboardStats());
   }
 
-  /// Kitap okuma arayüzüne doğrudan geçiş sağlar
   Future<void> _openReaderDirectly(Book book) async {
     HapticFeedback.selectionClick();
     await Navigator.push<ReadingSessionResult>(
@@ -684,7 +696,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     refreshDashboardStats();
   }
 
-  /// Kitap yolculuğu detay ve analiz sayfasını açar
   void _openBookJourneyDirectly(Book book) {
     HapticFeedback.lightImpact();
     Navigator.push(
@@ -710,101 +721,134 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     final action = _determineNextBestAction();
-    // Alt navigasyon çubuğunun altında içerik kalmaması için güvenli padding
     final bottomSafePadding = MediaQuery.of(context).padding.bottom + 130.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(20.0, 14.0, 20.0, bottomSafePadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. ÜST KULLANICI BİLGİ VE BAKİYE BAŞLIĞI
-              _buildPersonalStateHeader(),
-              const SizedBox(height: 16),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(20.0, 14.0, 20.0, bottomSafePadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildPersonalStateHeader(),
+                  const SizedBox(height: 16),
 
-              // 2. GÜNÜN KELİMESİ WIDGET'I (Dinamik ve Kompakt Kanca)
-              _buildWordOfTheDayBanner(),
-              const SizedBox(height: 16),
+                  _buildWordOfTheDayBanner(),
+                  const SizedBox(height: 16),
 
-              // 3. MERKEZİ KAHRAMAN AKSİYON KARTI (Next-Best-Action)
-              _buildHeroNextBestActionCard(action),
-              const SizedBox(height: 16),
+                  _buildHeroNextBestActionCard(action),
+                  const SizedBox(height: 16),
 
-              // 4. AKTİF OKUNAN KİTAP BÖLÜMÜ (Varsa)
-              if (_activeBook != null) ...[
-                _buildActiveBookSection(_activeBook!, _activeBookStats),
-                const SizedBox(height: 20),
-              ],
+                  if (_activeBook != null) ...[
+                    _buildActiveBookSection(_activeBook!, _activeBookStats),
+                    const SizedBox(height: 20),
+                  ],
 
-              // 5. GELİŞİM VE İLERLEME VİTRİNİ
-              Text(
-                'Gelişim ve İlerleme',
-                style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
-              ),
-              const SizedBox(height: 10),
+                  Text(
+                    'Gelişim ve İlerleme',
+                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+                  ),
+                  const SizedBox(height: 10),
 
-              // Word Boss hızlı erişim şeridi
-              if (_activeBossCount > 0 && action.type != ActionPriorityType.wordBoss && _topBossCard != null) ...[
-                _buildBossQuickBanner(_topBossCard!, _activeBossCount),
-                const SizedBox(height: 10),
-              ],
+                  if (_activeBossCount > 0 && action.type != ActionPriorityType.wordBoss && _topBossCard != null) ...[
+                    _buildBossQuickBanner(_topBossCard!, _activeBossCount),
+                    const SizedBox(height: 10),
+                  ],
 
-              // Haftalık okuma ve seri karne şeridi
-              _buildWeeklySummaryBanner(),
-              const SizedBox(height: 10),
+                  _buildWeeklySummaryBanner(),
+                  const SizedBox(height: 10),
 
-              // Lig arenası hızlı erişim kartı
-              InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())).then((_) => refreshDashboardStats()),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
+                  InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())).then((_) => refreshDashboardStats()),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111827),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 20),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text('12. Arena • 4. Sıra', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5)),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                      decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(5)),
+                                      child: Text('LİGDE YÜKSEL', style: GoogleFonts.outfit(color: const Color(0xFF34D399), fontWeight: FontWeight.w900, fontSize: 8.5)),
+                                    ),
+                                  ],
+                                ),
+                                Text('Meydan okumaları tamamla ve ligde kal', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // --- BAŞARIM KUTLAMA BİLDİRİMİ (YUKARIDAN SÜZÜLEN) ---
+            if (_isShowingAchievement && _currentAchievementToShow != null)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 10,
+                left: 16,
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1B4B),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFF59E0B), width: 2),
+                    boxShadow: [
+                      BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 2),
+                    ],
                   ),
                   child: Row(
                     children: [
-                      const Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 20),
+                      Container(
+                        width: 46, height: 46,
+                        decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.2), shape: BoxShape.circle),
+                        child: Center(child: Text(_currentAchievementToShow!.emoji, style: const TextStyle(fontSize: 24))),
+                      ).animate().scale(curve: Curves.elasticOut, duration: 800.ms),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Row(
-                              children: [
-                                Text('12. Arena • 4. Sıra', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5)),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                  decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(5)),
-                                  child: Text('LİGDE YÜKSEL', style: GoogleFonts.outfit(color: const Color(0xFF34D399), fontWeight: FontWeight.w900, fontSize: 8.5)),
-                                ),
-                              ],
-                            ),
-                            Text('Meydan okumaları tamamla ve ligde kal', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11)),
+                            Text('🏆 YENİ BAŞARIM AÇILDI!', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                            Text(_currentAchievementToShow!.title, style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
                           ],
                         ),
                       ),
-                      const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 16),
                     ],
                   ),
-                ),
+                ).animate().slideY(begin: -1.5, end: 0, curve: Curves.easeOutBack, duration: 600.ms).fadeIn(),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  /// Kullanıcı karşılama metni ile sağ taraftaki Elmas, Seri ve XP sayaçlarını çizen başlık
   Widget _buildPersonalStateHeader() {
     final greeting = _getTimeBasedGreeting();
 
@@ -844,7 +888,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 💎 Elmas Bakiyesi
             ValueListenableBuilder<int>(
               valueListenable: XpShopService.instance.gemsNotifier,
               builder: (context, gems, _) {
@@ -875,7 +918,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(width: 5),
 
-            // 🔥 Aktif Seri Sayacı
             InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () {
@@ -916,7 +958,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(width: 5),
 
-            // ⚡ Tecrübe Puanı (XP) Sayacı
             ValueListenableBuilder<int>(
               valueListenable: XpShopService.instance.xpNotifier,
               builder: (context, xp, _) {
@@ -947,10 +988,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Günün Kelimesi kartını oluşturan yatay, kompakt ve dinamik widget
   Widget _buildWordOfTheDayBanner() {
     final today = DateTime.now();
-    // Günü tohum olarak kullan: Örn. 20260908
     final seed = today.year * 10000 + today.month * 100 + today.day;
     final wordData = _prestigiousWords[seed % _prestigiousWords.length];
 
@@ -972,7 +1011,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Sol Kısım: Rozet, Kelime, Okunuş ve Anlam
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1021,7 +1059,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(width: 12),
           
-          // Sağ Kısım: Kompakt Aksiyon Butonu / Onay Rozeti
           _isDailyWordAdded
               ? Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1063,7 +1100,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Lobideki büyük odak kartı: Duruma göre rengini, başlığını ve butonunu dinamik değiştirir
   Widget _buildHeroNextBestActionCard(NextBestActionData action) {
     return Container(
       width: double.infinity,
@@ -1083,7 +1119,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Rozet ve ilerleme etiketi
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1116,7 +1151,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: GoogleFonts.inter(color: const Color(0xFFCBD5E1), fontSize: 12, height: 1.35),
           ),
           const SizedBox(height: 14),
-          // İlerleme çubuğu
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
@@ -1127,7 +1161,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // Ana aksiyon butonu
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -1151,7 +1184,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// En son okunan kitabın okuma oranı ve keşif istatistiklerini gösteren kart
   Widget _buildActiveBookSection(Book book, Map<String, dynamic>? stats) {
     final int totalPages = book.pages.isEmpty ? 1 : book.pages.length;
     final int currentPage = book.currentPage.clamp(0, totalPages);
@@ -1271,7 +1303,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Aktif Word Boss uyarısını gösteren kırmızı tehlike şeridi
   Widget _buildBossQuickBanner(Map<String, dynamic> topBoss, int count) {
     final word = topBoss['word'] as String? ?? 'Kelime';
     final lvl = topBoss['boss_level'] as int? ?? 1;
@@ -1306,7 +1337,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Haftalık okuma süresi, bekleyen SRS sayısı ve mevcut seriyi özetleyen alt kart
   Widget _buildWeeklySummaryBanner() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1328,7 +1358,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Küçük istatistik gösterge hücresi
   Widget _buildMiniStatItem(IconData icon, String value, String label, Color color) {
     return Column(
       children: [

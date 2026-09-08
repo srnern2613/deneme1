@@ -1,3 +1,8 @@
+// ============================================================================
+// DOSYA ADI: lib/profile_screen.dart
+// AÇIKLAMA: Profil, Okuma Isı Haritası ve İhtişamlı Başarılar (Achievements) Vitrini
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,16 +19,18 @@ import 'xp_shop_service.dart';
 import 'dictionary_screen.dart';
 import 'leaderboard_screen.dart';
 import 'shop_screen.dart';
+import 'achievement_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
   const ProfileScreen({super.key, this.onToggleTheme});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => ProfileScreenState(); // Public yapıldı
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+// Sınıf adı public (ProfileScreenState) olarak değiştirildi ki main.dart'tan tetiklenebilsin
+class ProfileScreenState extends State<ProfileScreen> {
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
   int _totalFlashcards = 0;
@@ -36,6 +43,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _hasFlameBorder = false;
 
   List<int> _heatmapDailyPages = [];
+  Set<String> _unlockedBadges = {};
+
+  // Başarılar Vitrini İçin Görsel ve Metin Eşleştirmeleri
+  final List<Map<String, dynamic>> _allBadges = [
+    {'id': 'first_step', 'title': 'İlk Adım', 'emoji': '🐣', 'hint': 'Sisteme giriş yap ve ilk kitabını incele.', 'color': const Color(0xFF38BDF8)},
+    {'id': 'librarian', 'title': 'Kütüphaneci Adayı', 'emoji': '📕', 'hint': 'Kütüphanene bir kitap ekle.', 'color': const Color(0xFF10B981)},
+    {'id': 'first_curiosity', 'title': 'İlk Merak', 'emoji': '🔍', 'hint': 'Okurken bilmediğin bir kelimenin anlamını sorgula.', 'color': const Color(0xFF818CF8)},
+    {'id': 'first_spark', 'title': 'İlk Kıvılcım', 'emoji': '⭐', 'hint': 'Hafıza havuzuna ilk kelimeni ekle.', 'color': const Color(0xFFF59E0B)},
+    {'id': 'apprentice_reader', 'title': 'Çırak Okur', 'emoji': '⏱️', 'hint': 'Kronometre ile ilk okuma seansını tamamla.', 'color': const Color(0xFF6366F1)},
+    {'id': 'night_owl', 'title': 'Gece Baykuşu', 'emoji': '🦉', 'hint': 'Gece yarısı ile sabaha karşı (00:00-04:00) okuma yap.', 'color': const Color(0xFFA855F7)},
+    {'id': 'early_bird', 'title': 'Sabah Memuru', 'emoji': '☕', 'hint': 'Sabah erkenden (05:00-08:00) okuma seansı yap.', 'color': const Color(0xFFF59E0B)},
+    {'id': 'shield_master', 'title': 'Seri Kalkanı', 'emoji': '🛡️', 'hint': 'Mağazadan veya etkinliklerden bir seri kalkanı kuşan.', 'color': const Color(0xFF38BDF8)},
+    {'id': 'weekend_warrior', 'title': 'Hafta Sonu Savaşçısı', 'emoji': '📅', 'hint': 'Hafta sonu bir günde 20 sayfadan fazla oku.', 'color': const Color(0xFFEF4444)},
+    {'id': 'time_bender', 'title': 'Zaman Bükücü', 'emoji': '⏳', 'hint': 'Uygulamada 45 dakikalık okuma süresini devir.', 'color': const Color(0xFFC084FC)},
+    {'id': 'page_monster', 'title': 'Sayfa Canavarı', 'emoji': '📖', 'hint': 'Toplam 100 sayfa kitap oku.', 'color': const Color(0xFF10B981)},
+    {'id': 'bound_scholar', 'title': 'Ciltli Alim', 'emoji': '📜', 'hint': 'Toplam 500 sayfa devir.', 'color': const Color(0xFFF59E0B)},
+    {'id': 'marathoner', 'title': 'Maratoncu', 'emoji': '🏃', 'hint': 'Tek bir günde 40 sayfadan fazla oku.', 'color': const Color(0xFFEC4899)},
+    {'id': 'text_detective', 'title': 'Metin Dedektifi', 'emoji': '🕵️', 'hint': 'Okurken 100 farklı kelimeyi incele.', 'color': const Color(0xFF818CF8)},
+    {'id': 'synapse_master', 'title': 'Sinaps Ustası', 'emoji': '🧠', 'hint': 'Öğrenme havuzuna 25 kelime ekle.', 'color': const Color(0xFFEC4899)},
+    {'id': 'diamond_memory', 'title': 'Elmas Hafıza', 'emoji': '💎', 'hint': 'Öğrenme havuzuna 50 kelime ekle.', 'color': const Color(0xFF38BDF8)},
+    {'id': 'voice_guide', 'title': 'Sesli Rehber', 'emoji': '🗣️', 'hint': '10 dakika boyunca metin seslendirmesi dinle.', 'color': const Color(0xFF10B981)},
+    {'id': 'curious_mind', 'title': 'Meraklı Zihin', 'emoji': '🤔', 'hint': 'En az 50 kez sözlüğü kullan.', 'color': const Color(0xFF6366F1)},
+    {'id': 'word_collector', 'title': 'Koleksiyoncu', 'emoji': '🌟', 'hint': 'Kelime kütüphanende 30 kelime biriktir.', 'color': const Color(0xFFF59E0B)},
+    {'id': 'speed_of_light', 'title': 'Işık Hızı', 'emoji': '⚡', 'hint': 'Toplamda 20 dakikalık hızlı pratik tamamla.', 'color': const Color(0xFFFDE047)},
+    {'id': 'ghost_reader', 'title': 'Hayalet Okur', 'emoji': '🥷', 'hint': 'Sessizce toplam 30 sayfa devir.', 'color': const Color(0xFF94A3B8)},
+    {'id': 'legendary_scholar', 'title': 'Efsanevi Alim', 'emoji': '👑', 'hint': '300 sayfa okuyup 50 kelime avlayarak tahta otur!', 'color': const Color(0xFFF59E0B)},
+  ];
 
   @override
   void initState() {
@@ -49,6 +83,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadProfileData();
   }
 
+  // DIŞARIDAN TETİKLENECEK CANLI TAZELEME FONKSİYONU
+  Future<void> refreshProfileData() async {
+    await _loadProfileData();
+  }
+
   Future<void> _loadProfileData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -56,12 +95,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       
       if (!mounted) return;
 
-      final uniqueBooks = <String>{};
-      for (var card in cards) {
-        final title = (card['book_title'] as String?)?.trim();
-        if (title != null && title.isNotEmpty) uniqueBooks.add(title);
-      }
-      
       int masteredCount = cards.where((c) => (c['is_mastered'] as int? ?? 0) == 1).length;
 
       final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
@@ -69,6 +102,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await XpShopService.instance.getGemsBalance();
       final crown = await XpShopService.instance.hasItem('golden_crown');
       final flame = await XpShopService.instance.hasItem('flame_border');
+
+      // Başarımların Kilit Durumlarını Oku
+      final unlocked = <String>{};
+      for (var badge in _allBadges) {
+        if (await AchievementService.instance.isBadgeUnlocked(badge['id']!)) {
+          unlocked.add(badge['id']!);
+        }
+      }
 
       if (!mounted) return;
 
@@ -90,6 +131,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _heatmapDailyPages = heatmapData;
         _hasGoldenCrown = crown;
         _hasFlameBorder = flame;
+        _unlockedBadges = unlocked;
       });
     } catch (_) {}
   }
@@ -99,6 +141,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen)).then((_) {
       if (mounted) _loadProfileData();
     });
+  }
+
+  void _showBadgeDetailDialog(Map<String, dynamic> badge, bool isUnlocked) {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF111827),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 24),
+              Container(
+                width: 80, height: 80,
+                decoration: BoxDecoration(
+                  color: isUnlocked ? badge['color'].withValues(alpha: 0.15) : const Color(0xFF1E293B),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: isUnlocked ? badge['color'] : const Color(0xFF334155), width: 2),
+                  boxShadow: isUnlocked ? [BoxShadow(color: badge['color'].withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)] : [],
+                ),
+                child: Center(
+                  child: isUnlocked 
+                      ? Text(badge['emoji'], style: const TextStyle(fontSize: 40)).animate().scale(curve: Curves.elasticOut, duration: 800.ms)
+                      : const Icon(PhosphorIcons.lockFill, color: Color(0xFF475569), size: 36),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(badge['title'], style: GoogleFonts.outfit(color: isUnlocked ? Colors.white : const Color(0xFF94A3B8), fontSize: 22, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isUnlocked ? const Color(0xFF10B981).withValues(alpha: 0.15) : const Color(0xFFEF4444).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  isUnlocked ? 'KİLİDİ AÇILDI ✓' : 'KİLİTLİ', 
+                  style: GoogleFonts.outfit(color: isUnlocked ? const Color(0xFF34D399) : const Color(0xFFFCA5A5), fontWeight: FontWeight.w900, fontSize: 11),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isUnlocked ? "Bu başarımı başarıyla kazandın! Koleksiyonunda parlıyor." : badge['hint'],
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 14, height: 1.4),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity, height: 48,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF38BDF8), foregroundColor: const Color(0xFF070B14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('Kapat', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -125,12 +231,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 16),
                 _buildStatsGrid(),
               ] else ...[
-                const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Başarılar Odası', style: TextStyle(color: Colors.white)))),
+                _buildAchievementsGrid(),
               ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAchievementsGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Koleksiyon Vitrini', style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+            Text('${_unlockedBadges.length} / ${_allBadges.length}', style: GoogleFonts.outfit(color: const Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _allBadges.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.85,
+          ),
+          itemBuilder: (context, index) {
+            final badge = _allBadges[index];
+            final isUnlocked = _unlockedBadges.contains(badge['id']);
+            final Color badgeColor = badge['color'];
+
+            return GestureDetector(
+              onTap: () => _showBadgeDetailDialog(badge, isUnlocked),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isUnlocked ? badgeColor.withValues(alpha: 0.1) : const Color(0xFF111827),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isUnlocked ? badgeColor.withValues(alpha: 0.5) : const Color(0xFF1F2937),
+                    width: isUnlocked ? 1.5 : 1.0,
+                  ),
+                  boxShadow: isUnlocked ? [BoxShadow(color: badgeColor.withValues(alpha: 0.15), blurRadius: 10, spreadRadius: 1)] : [],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 46, height: 46,
+                      decoration: BoxDecoration(
+                        color: isUnlocked ? badgeColor.withValues(alpha: 0.15) : const Color(0xFF1E293B),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: isUnlocked 
+                            ? Text(badge['emoji'], style: const TextStyle(fontSize: 22))
+                            : const Icon(PhosphorIcons.lockFill, color: Color(0xFF475569), size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        badge['title'],
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          color: isUnlocked ? Colors.white : const Color(0xFF64748B),
+                          fontWeight: isUnlocked ? FontWeight.w800 : FontWeight.w600,
+                          fontSize: 10.5,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
