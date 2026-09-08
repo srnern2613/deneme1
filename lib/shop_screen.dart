@@ -1,3 +1,8 @@
+// ============================================================================
+// DOSYA ADI: lib/shop_screen.dart
+// AÇIKLAMA: Mağaza, Güçlendiriciler ve Gacha Animasyonlu (Dopamin) Sandık Sistemi
+// ============================================================================
+
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
@@ -6,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'xp_shop_service.dart';
 
 class ShopScreen extends StatefulWidget {
@@ -169,7 +175,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     final gemsTarget = gemsBox.localToGlobal(Offset.zero) + Offset(gemsBox.size.width / 2, gemsBox.size.height / 2);
     final xpTarget = xpBox.localToGlobal(Offset.zero) + Offset(xpBox.size.width / 2, xpBox.size.height / 2);
 
-    const particleCount = 8;
+    const particleCount = 10;
 
     late OverlayEntry overlayEntry;
     int completedParticles = 0;
@@ -180,12 +186,12 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
           children: [
             ...List.generate(particleCount, (index) {
               return _DualFlyingParticle(
-                start: startPosition + Offset(Random().nextDouble() * 30 - 15, Random().nextDouble() * 20 - 10),
+                start: startPosition + Offset(Random().nextDouble() * 40 - 20, Random().nextDouble() * 30 - 15),
                 end: gemsTarget,
-                curveLift: 60.0 + (index * 5),
+                curveLift: 70.0 + (index * 6),
                 icon: PhosphorIcons.diamondBold,
                 color: const Color(0xFF38BDF8),
-                delay: Duration(milliseconds: index * 65),
+                delay: Duration(milliseconds: index * 55),
                 onImpact: () {
                   HapticFeedback.selectionClick();
                   completedParticles++;
@@ -198,12 +204,12 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             }),
             ...List.generate(particleCount, (index) {
               return _DualFlyingParticle(
-                start: startPosition + Offset(Random().nextDouble() * 30 - 15, Random().nextDouble() * 20 - 10),
+                start: startPosition + Offset(Random().nextDouble() * 40 - 20, Random().nextDouble() * 30 - 15),
                 end: xpTarget,
-                curveLift: -60.0 - (index * 5),
+                curveLift: -70.0 - (index * 6),
                 icon: PhosphorIcons.lightningBold,
                 color: const Color(0xFFF59E0B),
-                delay: Duration(milliseconds: (index * 65) + 160),
+                delay: Duration(milliseconds: (index * 55) + 120),
                 onImpact: () {
                   HapticFeedback.selectionClick();
                   completedParticles++;
@@ -249,7 +255,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(PhosphorIcons.lockKeyBold, color: Color(0xFFEF4444), size: 44),
+                    const Icon(PhosphorIcons.lockKeyBold, color: Color(0xFFEF4444), size: 44)
+                        .animate(onPlay: (c) => c.repeat(reverse: true))
+                        .scale(duration: 800.ms, begin: const Offset(1, 1), end: const Offset(1.1, 1.1)),
                     const SizedBox(height: 20),
                     Text('KİLİTLİ HAZİNE!', style: GoogleFonts.outfit(color: const Color(0xFFFCA5A5), fontSize: 21, fontWeight: FontWeight.w900, decoration: TextDecoration.none)),
                     const SizedBox(height: 10),
@@ -604,7 +612,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(22), border: Border.all(color: const Color(0xFF6366F1))),
       child: Row(
         children: [
-          const Icon(PhosphorIcons.targetBold, color: Color(0xFF818CF8), size: 22),
+          const Icon(PhosphorIcons.targetBold, color: Color(0xFF818CF8), size: 22)
+              .animate(onPlay: (c) => c.repeat(reverse: true))
+              .moveY(begin: 0, end: -3, duration: 1000.ms),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -627,7 +637,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(color: const Color(0xFF1E1B4B), borderRadius: BorderRadius.circular(22), border: Border.all(color: const Color(0xFFEC4899))),
       child: Row(
         children: [
-          const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 26),
+          const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 26)
+              .animate(onPlay: (c) => c.repeat(reverse: true))
+              .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1), duration: 800.ms),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -785,6 +797,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 }
 
+// -----------------------------------------------------------------------------
+// GACHA 3 AŞAMALI SANDIK AÇILIŞ TÖRENİ (Beklenti, Patlama, Ödül)
+// -----------------------------------------------------------------------------
 class _ChestOpeningDialog extends StatefulWidget {
   final int earnedGems;
   final int earnedXp;
@@ -797,40 +812,92 @@ class _ChestOpeningDialog extends StatefulWidget {
 }
 
 class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
-  int _crackStage = 0;
+  int _crackStage = 0; // 0: Bekleme, 1: Titreme (Anticipation), 2: Patlama (Açık)
+
+  void _startOpening() {
+    if (_crackStage >= 1) return;
+    HapticFeedback.heavyImpact();
+    setState(() => _crackStage = 1);
+
+    // 1.2 Saniyelik beklenti ve gerilim evresi
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (!mounted) return;
+      HapticFeedback.vibrate();
+      setState(() => _crackStage = 2);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     return GestureDetector(
-      onTap: _crackStage < 1 ? () => setState(() => _crackStage = 1) : null,
+      onTap: _crackStage == 0 ? _startOpening : null,
       child: Scaffold(
-        backgroundColor: Colors.black.withValues(alpha: 0.9),
+        backgroundColor: Colors.transparent, // Arka plan bulanıklığını ana ekran üstleniyor
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 90),
-              const SizedBox(height: 20),
+              // Sandık Durumları
+              if (_crackStage == 0)
+                const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 100)
+                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                    .scale(begin: const Offset(1, 1), end: const Offset(1.05, 1.05), duration: 800.ms)
+              else if (_crackStage == 1)
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: const Color(0xFFEC4899), blurRadius: 40, spreadRadius: 10)],
+                  ),
+                  child: const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 100),
+                )
+                    .animate(onPlay: (c) => c.repeat())
+                    .shake(hz: 8, curve: Curves.easeInOut)
+                    .scale(begin: const Offset(1, 1), end: const Offset(1.15, 1.15), duration: 1200.ms)
+              else if (_crackStage == 2)
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: const Color(0xFFF59E0B), blurRadius: 60, spreadRadius: 20)],
+                  ),
+                  child: const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 120),
+                )
+                    .animate()
+                    .scale(curve: Curves.elasticOut, duration: 800.ms)
+                    .fadeIn(),
+                    
+              const SizedBox(height: 30),
+
+              // Metin ve Ödüller
               if (_crackStage == 0)
                 Text('Açmak İçin Dokun!', style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900))
+                    .animate().fadeIn()
+              else if (_crackStage == 1)
+                Text('Açılıyor...', style: GoogleFonts.outfit(color: const Color(0xFFF472B6), fontSize: 20, fontWeight: FontWeight.w900))
+                    .animate().fadeIn().shake(hz: 4)
               else ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('+${widget.earnedGems}', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 26, fontWeight: FontWeight.w900)),
+                    Text('+${widget.earnedGems}', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 32, fontWeight: FontWeight.w900)),
                     const SizedBox(width: 4),
-                    const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 24),
-                    const SizedBox(width: 12),
-                    Text('+${widget.earnedXp} XP', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 26, fontWeight: FontWeight.w900)),
+                    const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 28),
+                    const SizedBox(width: 16),
+                    Text('+${widget.earnedXp} XP', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 32, fontWeight: FontWeight.w900)),
                   ],
-                ),
-                const SizedBox(height: 24),
+                ).animate().scale(curve: Curves.elasticOut, duration: 800.ms).fadeIn(),
+                const SizedBox(height: 30),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981), 
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    elevation: 8,
+                    shadowColor: const Color(0xFF10B981).withValues(alpha: 0.5)
+                  ),
                   onPressed: () => widget.onCollect(Offset(screenSize.width / 2, screenSize.height / 2)),
-                  child: const Text('Topla & Kapat', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
+                  child: Text('Topla & Kapat', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16)),
+                ).animate().slideY(begin: 1, end: 0, curve: Curves.easeOutBack, duration: 600.ms).fadeIn(),
               ],
             ],
           ),
@@ -840,6 +907,9 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
   }
 }
 
+// -----------------------------------------------------------------------------
+// DÖNEN (SPINNING) VE PARLAYAN UÇAN PARTİKÜL EFEKTİ
+// -----------------------------------------------------------------------------
 class _DualFlyingParticle extends StatefulWidget {
   final Offset start;
   final Offset end;
@@ -862,7 +932,7 @@ class _DualFlyingParticleState extends State<_DualFlyingParticle> with SingleTic
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 750)); // Uçuş süresi uzatıldı (Daha tatmin edici kavis)
     _curveAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
     Future.delayed(widget.delay, () {
       if (!mounted) return;
@@ -885,9 +955,26 @@ class _DualFlyingParticleState extends State<_DualFlyingParticle> with SingleTic
       builder: (context, child) {
         final t = _curveAnimation.value;
         if (t >= 1.0) return const SizedBox.shrink();
+        
+        // Parabolik uçuş eğrisi hesaplaması
         final currentX = lerpDouble(widget.start.dx, widget.end.dx, t)!;
         final currentY = lerpDouble(widget.start.dy, widget.end.dy, t)! - (sin(t * pi) * widget.curveLift);
-        return Positioned(left: currentX, top: currentY, child: Icon(widget.icon, color: widget.color, size: 16));
+        
+        return Positioned(
+          left: currentX, 
+          top: currentY, 
+          // Native Container ile gölge verilip flutter_animate ile döndürülüyor
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: widget.color, blurRadius: 10, spreadRadius: 2)],
+            ),
+            child: Icon(widget.icon, color: widget.color, size: 24),
+          )
+          .animate(onPlay: (c) => c.repeat())
+          .rotate(duration: 400.ms)
+          .scale(begin: const Offset(1.3, 1.3), end: const Offset(0.7, 0.7), duration: 750.ms),
+        );
       },
     );
   }
