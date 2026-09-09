@@ -1372,6 +1372,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 2),
         Text(label, style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 9.5)),
       ],
-    );
+    ); 
   }
 }

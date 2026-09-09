@@ -1,3 +1,8 @@
+// ============================================================================
+// DOSYA ADI: lib/library_screen.dart
+// AÇIKLAMA: Kitaplık, Hibrit Navigasyon Banner'ı ve Akıllı Boş Durumlar (Smart Empty States)
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
@@ -5,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import 'book_model.dart';
 import 'default_books.dart';
@@ -152,7 +158,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (!mounted) return;
       _openReader(newBook);
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -295,7 +301,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               const SizedBox(width: 10),
               _buildStatMetric(icon: PhosphorIcons.magnifyingGlassBold, label: 'İncelenen', value: '$_totalWordsExamined Kelime', accentColor: const Color(0xFF10B981)),
               const SizedBox(width: 10),
-              _buildStatMetric(icon: PhosphorIcons.cardsBold, label: 'Kartlara Eklenen', value: '$_totalWordsSaved Kelime', accentColor: const Color(0xFF818CF8)),
+              _buildStatMetric(icon: PhosphorIcons.cardsBold, label: 'Havuzda', value: '$_totalWordsSaved Kelime', accentColor: const Color(0xFF818CF8)),
             ],
           ),
         ],
@@ -317,6 +323,90 @@ class _LibraryScreenState extends State<LibraryScreen> {
             Text(label, style: GoogleFonts.inter(fontSize: 9.5, color: const Color(0xFF94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
           ],
         ),
+      ),
+    );
+  }
+
+  // --- HİBRİT YATAY BANNER (SÖZLÜK VE KİTAP EKLE) ---
+  Widget _buildHybridBanner() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildBannerButton(
+            icon: PhosphorIcons.bookBookmarkBold,
+            title: 'Sözlük',
+            subtitle: 'Kelimelerim',
+            color: const Color(0xFF10B981),
+            onTap: _openDictionary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildBannerButton(
+            icon: PhosphorIcons.filePlusBold,
+            title: _isLoading ? 'İşleniyor' : 'Kitap Ekle',
+            subtitle: 'PDF / TXT',
+            color: const Color(0xFFF59E0B),
+            onTap: _isLoading ? null : _pickAndProcessFile,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBannerButton({required IconData icon, required String title, required String subtitle, required Color color, required VoidCallback? onTap}) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
+            Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.white), textAlign: TextAlign.center, maxLines: 1),
+            const SizedBox(height: 2),
+            Text(subtitle, style: GoogleFonts.inter(fontSize: 10, color: color.withValues(alpha: 0.8)), textAlign: TextAlign.center, maxLines: 1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- AKILLI BOŞ DURUM (SMART EMPTY STATE) ---
+  Widget _buildEmptyLibraryState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(PhosphorIcons.booksBold, size: 48, color: Color(0xFFF59E0B)),
+          ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(begin: const Offset(1, 1), end: const Offset(1.05, 1.05), duration: 1200.ms),
+          const SizedBox(height: 20),
+          Text(
+            'Kütüphanen Şu An Sessiz',
+            style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Yukarıdaki "Kitap Ekle" butonuna dokunarak kendi PDF veya TXT kitabını yükle ve kelimeleri avlamaya başla!',
+            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8), height: 1.5),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -385,46 +475,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ],
               ),
               const SizedBox(height: 18),
+              
               _buildReadingDashboard(),
+              
               const SizedBox(height: 14),
-              InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: _openDictionary,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-                  decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35), width: 1.5)),
-                  child: Row(
-                    children: [
-                      const Icon(PhosphorIcons.bookBookmarkBold, color: Color(0xFF10B981), size: 17),
-                      const SizedBox(width: 14),
-                      Expanded(child: Text('Çevrimdışı Sözlük & Kelime Defteri', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: Colors.white))),
-                      const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF34D399), size: 18),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: _isLoading ? null : () {
-                  HapticFeedback.lightImpact();
-                  _pickAndProcessFile();
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-                  decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 1.5)),
-                  child: Row(
-                    children: [
-                      const Icon(PhosphorIcons.plusBold, color: Color(0xFFF59E0B), size: 17),
-                      const SizedBox(width: 14),
-                      Expanded(child: Text(_isLoading ? 'Kitap İşleniyor...' : 'Yeni PDF veya TXT Kitap Ekle', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: Colors.white))),
-                      const Icon(PhosphorIcons.caretRightBold, color: Color(0xFFF59E0B), size: 18),
-                    ],
-                  ),
-                ),
-              ),
+              // Dikey Yığılmayı Önleyen Hibrit Banner
+              _buildHybridBanner(),
               const SizedBox(height: 18),
               
               Container(
@@ -454,7 +510,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
               const SizedBox(height: 10),
 
               Expanded(
-                child: ListView.separated(
+                child: _books.isEmpty 
+                  ? _buildEmptyLibraryState()
+                  : ListView.separated(
                   physics: const BouncingScrollPhysics(),
                   itemCount: _books.length,
                   separatorBuilder: (context, index) => const SizedBox(height: 14),
@@ -469,6 +527,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
                     final int discoveredWords = stats?['total_words'] as int? ?? 0;
                     final int masteredWords = stats?['mastered_count'] as int? ?? 0;
+
+                    // Sıfır Veri Kontrolü (Smart Conditional Render)
+                    final bool isUntouched = (currentPage == 0 && discoveredWords == 0 && masteredWords == 0);
 
                     return Container(
                       decoration: BoxDecoration(
@@ -534,63 +595,92 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                 ),
                                 const SizedBox(height: 12),
 
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '📖 %$readingPercentage okundu',
-                                      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                                if (isUntouched) ...[
+                                  // Hiç başlanmamış (0 veri) kitabı için pozitif rozet
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
                                     ),
-                                    Text(
-                                      'Sayfa ${currentPage + 1} / $totalPages',
-                                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 16),
+                                        const SizedBox(width: 8),
+                                        Text('Keşfedilmeyi Bekliyor ✨', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 13)),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: LinearProgressIndicator(
-                                    value: readingRatio,
-                                    minHeight: 6,
-                                    backgroundColor: const Color(0xFF070B14),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
                                   ),
-                                ),
+                                ] else ...[
+                                  // Başlanmış kitaplar için gerçek istatistikler ve progress bar
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '📖 %$readingPercentage okundu',
+                                        style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                                      ),
+                                      Text(
+                                        'Sayfa ${currentPage + 1} / $totalPages',
+                                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: LinearProgressIndicator(
+                                      value: readingRatio,
+                                      minHeight: 6,
+                                      backgroundColor: const Color(0xFF070B14),
+                                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+                                    ),
+                                  ),
+                                ],
+                                
                                 const SizedBox(height: 14),
 
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF818CF8).withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.3)),
+                                    if (isUntouched) 
+                                      Text(
+                                        'İlk kelimeni avla!',
+                                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8), fontStyle: FontStyle.italic),
+                                      )
+                                    else
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF818CF8).withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.3)),
+                                            ),
+                                            child: Text(
+                                              '🧠 $discoveredWords keşif',
+                                              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF818CF8)),
+                                            ),
                                           ),
-                                          child: Text(
-                                            '🧠 $discoveredWords keşif',
-                                            style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF818CF8)),
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                                            ),
+                                            child: Text(
+                                              '⭐ $masteredWords usta',
+                                              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
-                                          ),
-                                          child: Text(
-                                            '⭐ $masteredWords usta',
-                                            style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
 
                                     SizedBox(
                                       height: 38,
@@ -607,7 +697,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                         },
                                         icon: const Icon(PhosphorIcons.playBold, size: 14),
                                         label: Text(
-                                          book.currentPage > 0 ? 'DEVAM ET' : 'OKU',
+                                          isUntouched ? 'BAŞLA' : 'DEVAM ET',
                                           style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.3),
                                         ),
                                       ),

@@ -1,7 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_screen.dart
-// AÇIKLAMA: Pratik ve Oyun Modları Ekranı (Arena Ayarları, Filtreleme, 
-//            Minimum Kart Emniyeti ve Asenkron Yaşam Döngüsü Zırhlı)
+// AÇIKLAMA: Pratik ve Oyun Modları Ekranı (2x2 Grid Mimarisi, Neon Glow Arena, 
+//            Gradyan Ayarlar, Minimum Kart Emniyeti ve Asenkron Zırh)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import 'database_helper.dart';
 import 'flashcards_exercise_screen.dart';
@@ -109,6 +110,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     }
   }
 
+  // --- ARENA AYARLARI (GRADYAN AKTİF DURUMLAR) ---
   void _openArenaSettings() {
     HapticFeedback.lightImpact();
     showModalBottomSheet(
@@ -182,8 +184,11 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         backgroundColor: const Color(0xFFF59E0B),
                         foregroundColor: const Color(0xFF070B14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 4,
+                        shadowColor: const Color(0xFFF59E0B).withValues(alpha: 0.4),
                       ),
                       onPressed: () async {
+                        HapticFeedback.selectionClick();
                         Navigator.pop(context);
                         final prefs = await SharedPreferences.getInstance();
                         if (!mounted) return;
@@ -212,19 +217,27 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
           HapticFeedback.selectionClick();
           setModalState(() => _sessionLimit = limitValue);
         },
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.symmetric(horizontal: 3),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFF59E0B).withValues(alpha: 0.2) : const Color(0xFF1E293B),
+            gradient: isSelected 
+                ? const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)], begin: Alignment.topLeft, end: Alignment.bottomRight)
+                : null,
+            color: isSelected ? null : const Color(0xFF1E293B),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isSelected ? const Color(0xFFF59E0B) : Colors.transparent, width: 1.5),
+            border: Border.all(
+              color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.transparent, 
+              width: 1.5
+            ),
+            boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 1)] : [],
           ),
           alignment: Alignment.center,
           child: Text(
             label,
             style: GoogleFonts.outfit(
-              color: isSelected ? const Color(0xFFFDE68A) : Colors.white,
+              color: isSelected ? const Color(0xFF070B14) : Colors.white,
               fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
               fontSize: 12,
             ),
@@ -242,18 +255,26 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
           HapticFeedback.selectionClick();
           setModalState(() => _learningStateFilter = stateValue);
         },
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF38BDF8).withValues(alpha: 0.2) : const Color(0xFF1E293B),
+            gradient: isSelected 
+                ? const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF0284C7)], begin: Alignment.topLeft, end: Alignment.bottomRight)
+                : null,
+            color: isSelected ? null : const Color(0xFF1E293B),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isSelected ? const Color(0xFF38BDF8) : Colors.transparent, width: 1.5),
+            border: Border.all(
+              color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.transparent, 
+              width: 1.5
+            ),
+            boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF38BDF8).withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 1)] : [],
           ),
           alignment: Alignment.center,
           child: Text(
             label,
             style: GoogleFonts.outfit(
-              color: isSelected ? const Color(0xFF7DD3FC) : Colors.white,
+              color: isSelected ? const Color(0xFF070B14) : Colors.white,
               fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
               fontSize: 12,
             ),
@@ -380,13 +401,15 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                     _buildModernHeader(),
                     const SizedBox(height: 18),
                     _buildDynamicBossBanner(),
+                    
+                    // --- NEON GLOW EFEKTLİ ARENA KARTI ---
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(24), // Artırılmış dolgu (Padding)
                       decoration: BoxDecoration(
                         color: const Color(0xFF111827),
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5), width: 1.5),
                       ),
                       child: Row(
                         children: [
@@ -396,7 +419,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                               color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(PhosphorIcons.swordBold, color: Color(0xFFF59E0B), size: 26),
+                            child: const Icon(PhosphorIcons.swordBold, color: Color(0xFFF59E0B), size: 28),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -405,7 +428,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                               children: [
                                 Text(
                                   'Kelime Arenası',
-                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900),
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
@@ -429,52 +452,142 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                           ),
                         ],
                       ),
-                    ),
+                    ).animate(onPlay: (c) => c.repeat(reverse: true))
+                     .boxShadow(
+                       begin: BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.0), blurRadius: 0),
+                       end: BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.25), blurRadius: 20, spreadRadius: 4),
+                       duration: 1500.ms,
+                     ),
+                     
                     const SizedBox(height: 24),
                     Text(
                       'Öğrenme & Oyun Modları',
                       style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3),
                     ),
                     const SizedBox(height: 14),
-                    _buildPracticeCard(
-                      icon: PhosphorIcons.lightningBold,
-                      title: '4 Şıklı Hızlı Test',
-                      desc: 'Kelimenin doğru Türkçe karşılığını 4 seçenek arasından yakala.',
-                      reward: '+6 XP',
-                      accentColor: const Color(0xFFF59E0B),
-                      onTap: _startQuizExercise,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildPracticeCard(
-                      icon: PhosphorIcons.cardsBold,
-                      title: 'SRS Hafıza Kartları',
-                      desc: 'Aralıklı tekrar algoritmasıyla kartları çevir ve hafızanı tazele.',
-                      reward: '+5 XP',
-                      accentColor: const Color(0xFF10B981),
-                      onTap: _startSrsExercise,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildPracticeCard(
-                      icon: PhosphorIcons.puzzlePieceBold,
-                      title: 'Kelime Eşleştirme',
-                      desc: 'İngilizce ve Türkçe kelime bloklarını eşleştirerek tahtayı temizle.',
-                      reward: '+10 XP',
-                      accentColor: const Color(0xFF6366F1),
-                      onTap: _startMatchExercise,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildPracticeCard(
-                      icon: PhosphorIcons.headphonesBold,
-                      title: 'Dinle & Yaz (Spelling)',
-                      desc: 'Telaffuzu dinle, karışık harfler arasından doğru kelimeyi kur.',
-                      reward: '+8 XP',
-                      accentColor: const Color(0xFF38BDF8),
-                      onTap: _startSpellingExercise,
+                    
+                    // --- 2x2 GRID (IZGARA) MİMARİSİ ---
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 0.85, // Kartın karesel/dikey estetiği
+                      children: [
+                        _buildGridPracticeCard(
+                          icon: PhosphorIcons.lightningBold,
+                          title: 'Hızlı Test',
+                          desc: '4 seçenek arasından doğru anlamı yakala.',
+                          reward: '+6 XP',
+                          accentColor: const Color(0xFFF59E0B),
+                          onTap: _startQuizExercise,
+                        ),
+                        _buildGridPracticeCard(
+                          icon: PhosphorIcons.cardsBold,
+                          title: 'SRS Hafıza',
+                          desc: 'Aralıklı tekrar algoritması ile kart çevir.',
+                          reward: '+5 XP',
+                          accentColor: const Color(0xFF10B981),
+                          onTap: _startSrsExercise,
+                        ),
+                        _buildGridPracticeCard(
+                          icon: PhosphorIcons.puzzlePieceBold,
+                          title: 'Eşleştirme',
+                          desc: 'Blokları eşleştirerek tahtayı temizle.',
+                          reward: '+10 XP',
+                          accentColor: const Color(0xFF6366F1),
+                          onTap: _startMatchExercise,
+                        ),
+                        _buildGridPracticeCard(
+                          icon: PhosphorIcons.headphonesBold,
+                          title: 'Dinle & Yaz',
+                          desc: 'Telaffuzu dinle, kelimeyi doğru yaz.',
+                          reward: '+8 XP',
+                          accentColor: const Color(0xFF38BDF8),
+                          onTap: _startSpellingExercise,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 30),
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  // --- GRID (IZGARA) UYUMLU YENİ KART TASARIMI ---
+  Widget _buildGridPracticeCard({
+    required IconData icon,
+    required String title,
+    required String desc,
+    required String reward,
+    required Color accentColor,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(icon, color: accentColor, size: 22),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        reward,
+                        style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: accentColor),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14.5),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Expanded(
+                  child: Text(
+                    desc,
+                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8), height: 1.3),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -662,83 +775,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildPracticeCard({
-    required IconData icon,
-    required String title,
-    required String desc,
-    required String reward,
-    required Color accentColor,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF111827),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(icon, color: accentColor, size: 24),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              title,
-                              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14.5),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                            decoration: BoxDecoration(
-                              color: accentColor.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              reward,
-                              style: GoogleFonts.outfit(fontSize: 10.5, fontWeight: FontWeight.w900, color: accentColor),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        desc,
-                        style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 18),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
