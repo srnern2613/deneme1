@@ -1,7 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/match_exercise_screen.dart
 // AÇIKLAMA: Kelime Eşleştirme & Çok Boyutlu Modalite/Boss Entegreli Oyun
-//           (Arena Ayarları, SharedPreferences Filtreleme ve Yaşam Döngüsü Zırhlı)
+//           (Hile Korumalı xpMultiplier Zırhı ve Şeffaf 2X Çapalama Tasarımı)
 // ============================================================================
 
 import 'dart:async';
@@ -36,8 +36,13 @@ class MatchItem {
 
 class MatchExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
+  final int xpMultiplier; // Dinamik 2X XP FOMO Koruması
 
-  const MatchExerciseScreen({super.key, required this.cards});
+  const MatchExerciseScreen({
+    super.key, 
+    required this.cards,
+    this.xpMultiplier = 1,
+  });
 
   @override
   State<MatchExerciseScreen> createState() => _MatchExerciseScreenState();
@@ -201,7 +206,6 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       _combo++;
       _score += 2;
 
-      // 🎯 ÇOK BOYUTLU MODALİTE BAŞARISI KAYDI[cite: 4]
       if (item.cardId > 0) {
         await DatabaseHelper.instance.recordMultiModalResult(
           cardId: item.cardId,
@@ -212,8 +216,8 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
 
       if (!mounted) return;
 
-      final multiplier = _combo >= 6 ? 2 : 1;
-      final earnedXp = 4 * multiplier;
+      final comboMultiplier = _combo >= 6 ? 2 : 1;
+      final earnedXp = (4 * comboMultiplier) * widget.xpMultiplier; 
       _totalEarnedXp += earnedXp;
       await XpShopService.instance.addXp(earnedXp);
 
@@ -243,7 +247,6 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
         }
       }
     } else {
-      // 🔴 Yanlış eşleşme: Hata bildirimi ve Boss adaylığı tetiklemesi[cite: 4]
       HapticFeedback.heavyImpact();
       _combo = 0;
       _triggerCheer(CoachMessages.getWrongAnswerEncouragement());
@@ -328,9 +331,35 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
         backgroundColor: const Color(0xFF070B14),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          'Kelime Eşleştirme',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 18),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Kelime Eşleştirme', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
+            if (widget.xpMultiplier > 1)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '~+4 XP', 
+                    style: GoogleFonts.outfit(
+                      color: Colors.grey.shade500, 
+                      fontSize: 10, 
+                      decoration: TextDecoration.lineThrough,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '⚡ ${4 * widget.xpMultiplier} XP (2X Şanslı Mod!)', 
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFFF59E0B), 
+                      fontSize: 10.5, 
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+          ],
         ),
         centerTitle: true,
         leading: IconButton(

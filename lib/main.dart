@@ -119,7 +119,10 @@ class _RootScreenState extends State<RootScreen> {
         onNavigateToFlashcards: () => _onTabTapped(2),
       ),
       const LibraryScreen(),
-      const FlashcardsScreen(),
+      FlashcardsScreen(
+        onNavigateToLibrary: () => _onTabTapped(1),
+        onNavigateToShop: () => _onTabTapped(3),
+      ),
       const ShopScreen(),
       ProfileScreen(key: _profileKey), 
     ];
@@ -487,7 +490,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _processAchievementQueue() async {
-    if (!mounted) return; // Güvenlik Yaması: Fonksiyon çağrıldığında ekran aktif mi?
+    if (!mounted) return; 
     if (_isShowingAchievement || _achievementQueue.isEmpty) return;
     
     setState(() {
@@ -500,7 +503,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // 4 Saniye ekranda tut
     await Future.delayed(const Duration(seconds: 4));
 
-    if (!mounted) return; // Güvenlik Yaması: Bekleme sonrası ekran hala aktif mi?
+    if (!mounted) return; 
 
     setState(() {
       _isShowingAchievement = false;
@@ -509,7 +512,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Çıkış animasyonu için bekle ve kuyruktaki diğer başarıma geç
     await Future.delayed(const Duration(milliseconds: 600));
     
-    if (!mounted) return; // Güvenlik Yaması: Rekürsif çağrı öncesi kontrol
+    if (!mounted) return; 
     _processAchievementQueue();
   }
 
@@ -543,7 +546,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('added_daily_word_${_getTodayKey()}', true);
     
-    if (!mounted) return; // Güvenlik Yaması: Asenkron işlem sonrası kontrol
+    if (!mounted) return; 
     
     setState(() {
       _isDailyWordAdded = true;

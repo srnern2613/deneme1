@@ -1,7 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/spelling_exercise_screen.dart
 // AÇIKLAMA: Dinle & Yaz (Spelling) & Çok Boyutlu Modalite/Boss Entegreli Mod
-//           (Arena Ayarları, SharedPreferences Filtreleme ve Yaşam Döngüsü Zırhlı)
+//           (Hile Korumalı Dinamik xpMultiplier ve Şeffaf Çapalama Tasarımı)
 // ============================================================================
 
 import 'dart:math';
@@ -31,8 +31,13 @@ class LetterBlock {
 
 class SpellingExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
+  final int xpMultiplier; // Dinamik 2X XP FOMO Koruması
 
-  const SpellingExerciseScreen({super.key, required this.cards});
+  const SpellingExerciseScreen({
+    super.key, 
+    required this.cards,
+    this.xpMultiplier = 1,
+  });
 
   @override
   State<SpellingExerciseScreen> createState() => _SpellingExerciseScreenState();
@@ -118,13 +123,11 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       return;
     }
 
-    // 1. Hedef kelimenin harf bloklarını oluştur
     List<LetterBlock> blocks = [];
     for (int i = 0; i < cleanWord.length; i++) {
       blocks.add(LetterBlock(id: i, letter: cleanWord[i]));
     }
 
-    // 2. 2 veya 3 adet rastgele çeldirici harf ekle
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     final rand = Random();
     final extraCount = cleanWord.length <= 4 ? 3 : 2;
@@ -237,7 +240,6 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       _isCorrect = correct;
     });
 
-    // 🎯 ÇOK BOYUTLU MODALİTE & BOSS ENTEGRASYONU (Asenkron Bekleme)[cite: 2]
     if (cardId > 0) {
       await DatabaseHelper.instance.recordMultiModalResult(
         cardId: cardId,
@@ -246,17 +248,20 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       );
     }
 
-    if (!mounted) return; // ASENKRON BOŞLUK KORUMASI[cite: 2]
+    if (!mounted) return; 
 
     if (correct) {
       HapticFeedback.mediumImpact();
       _score++;
       _streak++;
-      final earnedXp = _hintsUsedInWord > 0 ? 5 : 8;
+      
+      final baseXp = _hintsUsedInWord > 0 ? 5 : 8;
+      final earnedXp = baseXp * widget.xpMultiplier;
+      
       _totalEarnedXp += earnedXp;
       await XpShopService.instance.addXp(earnedXp);
 
-      if (!mounted) return; // ASENKRON BOŞLUK KORUMASI[cite: 2]
+      if (!mounted) return; 
 
       final cheer = CoachMessages.getFlashcardCheer(_streak);
       if (cheer != null) {
@@ -356,9 +361,35 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
         backgroundColor: const Color(0xFF070B14),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          'Dinle & Yaz (Spelling)',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 18),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Dinle & Yaz', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
+            if (widget.xpMultiplier > 1)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '~+8 XP', 
+                    style: GoogleFonts.outfit(
+                      color: Colors.grey.shade500, 
+                      fontSize: 10, 
+                      decoration: TextDecoration.lineThrough,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '⚡ ${8 * widget.xpMultiplier} XP (2X Şanslı Mod!)', 
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFFF59E0B), 
+                      fontSize: 10.5, 
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+          ],
         ),
         centerTitle: true,
         leading: IconButton(
@@ -409,7 +440,6 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // Dinleme & Anlam Kartı
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
                     decoration: BoxDecoration(
@@ -453,7 +483,6 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Harf Slotları
                   Wrap(
                     alignment: WrapAlignment.center,
                     spacing: 8,
@@ -499,7 +528,6 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                   ),
                   const Spacer(),
 
-                  // Seçilebilir Harf Blokları
                   Wrap(
                     alignment: WrapAlignment.center,
                     spacing: 10,

@@ -1,6 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_exercise_screen.dart
 // AÇIKLAMA: Çok Boyutlu SRS, Modalite ('srs') ve Word Boss Entegreli Kart Ekranı
+//           (Hile Korumalı Dinamik xpMultiplier ve Şeffaf Çapalama Tasarımı)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -15,11 +16,13 @@ import 'dictionary_service.dart';
 class FlashcardsExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
   final bool isReviewOnly;
+  final int xpMultiplier; // Dinamik 2X XP FOMO Koruması
 
   const FlashcardsExerciseScreen({
     super.key, 
     required this.cards,
     this.isReviewOnly = false,
+    this.xpMultiplier = 1,
   });
 
   @override
@@ -136,17 +139,17 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       _hardCount++;
       _consecutiveKnownStreak = 0;
       _struggledCards.add(currentCard);
-      xpGain = 4;
+      xpGain = 4 * widget.xpMultiplier;
     } else {
       isCorrect = true;
       _knownCount++;
       _consecutiveKnownStreak++;
-      xpGain = 6;
+      xpGain = 6 * widget.xpMultiplier;
 
       if (currentStreak + 1 >= 6) {
         if (!widget.isReviewOnly) {
           _masteredCountInSession++;
-          xpGain += 15;
+          xpGain += (15 * widget.xpMultiplier);
           HapticFeedback.heavyImpact();
           _triggerCheer('✨ MASTERED! "${currentCard['word']}" kalıcı hafızada!');
         }
@@ -166,7 +169,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         XpShopService.instance.addXp(xpGain).catchError((_) => 0);
       }
 
-      // 🎯 ÇOK BOYUTLU MODALİTE ('srs') & BOSS ENTEGRASYONU
       if (cardId > 0) {
         DatabaseHelper.instance.recordMultiModalResult(
           cardId: cardId,
@@ -237,6 +239,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   builder: (context) => FlashcardsExerciseScreen(
                     cards: List.from(_struggledCards),
                     isReviewOnly: true,
+                    xpMultiplier: widget.xpMultiplier,
                   ),
                 ),
               );
@@ -313,9 +316,25 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         title: Column(
           children: [
-            Text(
-              widget.isReviewOnly ? 'Kelimeleri Gözden Geçir' : 'SRS Hafıza Egzersizi',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    widget.isReviewOnly ? 'Gözden Geçir' : 'SRS Hafıza Egzersizi',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (widget.xpMultiplier > 1 && !widget.isReviewOnly) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(6)),
+                    child: Text('${widget.xpMultiplier}X XP', style: const TextStyle(color: Color(0xFF070B14), fontWeight: FontWeight.bold, fontSize: 10)),
+                  )
+                ]
+              ],
             ),
             Text(
               '$_initialTotal kelime • ${_getEstimatedSessionTime()}',

@@ -1,7 +1,7 @@
 // ============================================================================
-// DOSYA ADI: lib/quiz_exercise_screen.dart
+// DOSYA ALIS: lib/quiz_exercise_screen.dart
 // AÇIKLAMA: 4 Şıklı Hızlı Test & Çok Boyutlu Modalite/Boss Entegreli Sınav
-//           (Arena Ayarları, SharedPreferences Filtreleme ve Yaşam Döngüsü Zırhlı)
+//           (Hile Korumalı Dinamik xpMultiplier ve Şeffaf Çapalama Tasarımı)
 // ============================================================================
 
 import 'dart:async';
@@ -19,8 +19,13 @@ import 'database_helper.dart';
 
 class QuizExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
+  final int xpMultiplier; // Dinamik 2X XP FOMO Koruması
 
-  const QuizExerciseScreen({super.key, required this.cards});
+  const QuizExerciseScreen({
+    super.key, 
+    required this.cards,
+    this.xpMultiplier = 1,
+  });
 
   @override
   State<QuizExerciseScreen> createState() => _QuizExerciseScreenState();
@@ -244,7 +249,9 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       _score++;
       _streak++;
 
-      final earnedXp = _timeRemaining > 4.5 ? 8 : 6;
+      final baseXp = _timeRemaining > 4.5 ? 8 : 6;
+      final earnedXp = baseXp * widget.xpMultiplier;
+      
       _totalEarnedXp += earnedXp;
       await XpShopService.instance.addXp(earnedXp);
 
@@ -336,9 +343,35 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
         backgroundColor: const Color(0xFF070B14),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          '4 Şıklı Hızlı Test',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 18),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('4 Şıklı Hızlı Test', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
+            if (widget.xpMultiplier > 1)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '~+6 XP', 
+                    style: GoogleFonts.outfit(
+                      color: Colors.grey.shade500, 
+                      fontSize: 10, 
+                      decoration: TextDecoration.lineThrough,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '⚡ ${6 * widget.xpMultiplier} XP (2X Şanslı Mod!)', 
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFFF59E0B), 
+                      fontSize: 10.5, 
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+          ],
         ),
         centerTitle: true,
         leading: IconButton(
