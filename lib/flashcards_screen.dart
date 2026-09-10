@@ -125,19 +125,22 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
 
       if (!mounted) return;
       
+      // Mutlak toplam pratik kartı sayısı (Kilitler bu değere bakacak)
       _totalValidPoolCount = allValidCards.length;
 
+      // Egzersiz seansı için filtreleme (Koleksiyon filtresi sadece listeyi daraltır)
+      var sessionCards = List<Map<String, dynamic>>.from(allValidCards);
       if (_learningStateFilter == 'LEARNING') {
-        allValidCards = allValidCards.where((c) => c['learning_state'] == 'LEARNING').toList();
+        sessionCards = sessionCards.where((c) => c['learning_state'] == 'LEARNING').toList();
       }
 
-      if (_sessionLimit > 0 && allValidCards.length > _sessionLimit) {
-        allValidCards = allValidCards.sublist(0, _sessionLimit);
+      if (_sessionLimit > 0 && sessionCards.length > _sessionLimit) {
+        sessionCards = sessionCards.sublist(0, _sessionLimit);
       }
 
       if (!mounted) return;
       setState(() {
-        _cards = allValidCards;
+        _cards = sessionCards.isNotEmpty ? sessionCards : allValidCards; // Eğer filtrelenen liste boşsa tüm havuzu koru
         _bossCards = bossCards;
         _isLoading = false;
       });
