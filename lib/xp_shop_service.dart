@@ -1,3 +1,8 @@
+// ============================================================================
+// DOSYA ADI: lib/xp_shop_service.dart
+// AÇIKLAMA: Mağaza Ekonomi Servisi, Değer Senkronizasyonu, Kozmetik ve Güç Yönetimi
+// ============================================================================
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

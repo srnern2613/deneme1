@@ -1,7 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/shop_screen.dart
-// AÇIKLAMA: Mağaza, Sabit (Sticky) Sekmeli Ganimet Dolabı, Kompakt Akordeon Güçler 
-//            ve Gacha Destansı Sandık Sistemi
+// AÇIKLAMA: Mağaza, Sabit Sekmeli Ganimet Dolabı, Kompakt Akordeon Güçler,
+//            AbsorbPointer Zırhlı Sandık Sistemi ve Metin Kırılma Korumalı Kozmetik Kartları
 // ============================================================================
 
 import 'dart:async';
@@ -38,6 +38,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
 
   int _selectedTabIndex = 0; // 0: Fırsatlar, 1: Güvence, 2: Çerçeveler, 3: Temalar, 4: Prestij
   bool _isInventoryExpanded = false; // Kompakt Aktif Güçler Akordeon Kontrolü
+  bool _isChestOpeningInProgress = false; // Race-condition / Çift Tıklama Koruması
 
   final Map<String, bool> _ownedItems = {};
 
@@ -135,6 +136,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   Future<void> _toggleEquipCosmetic(String category, String itemId) async {
     HapticFeedback.selectionClick();
     final current = await XpShopService.instance.getActiveCosmetic(category);
+    if (!mounted) return;
     if (current == itemId) {
       await XpShopService.instance.setActiveCosmetic(category, 'none');
     } else {
@@ -147,6 +149,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   Future<void> _dropItem(String itemId, String category) async {
     HapticFeedback.mediumImpact();
     await XpShopService.instance.revokeItem(itemId);
+    if (!mounted) return;
     if (category == 'frame' && _activeFrame == itemId) {
       await XpShopService.instance.setActiveCosmetic('frame', 'none');
     } else if (category == 'reading_theme' && _activeTheme == itemId) {
@@ -202,6 +205,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 onImpact: () {
                   HapticFeedback.selectionClick();
                   completedParticles++;
+                  if (!mounted) return;
                   if (completedParticles >= particleCount * 2) {
                     overlayEntry.remove();
                     if (mounted) _loadShopData();
@@ -220,6 +224,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 onImpact: () {
                   HapticFeedback.selectionClick();
                   completedParticles++;
+                  if (!mounted) return;
                   if (completedParticles >= particleCount * 2) {
                     overlayEntry.remove();
                     if (mounted) _loadShopData();
@@ -235,6 +240,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     overlay.insert(overlayEntry);
   }
 
+  // --- PSİKOLOJİK DEĞER ÇAPALAMA VE YÜKSEK NİYETLİ POPUP ---
   void _showInsufficientGemsDialog(int requiredGems) {
     HapticFeedback.vibrate();
     final missingGems = requiredGems - XpShopService.instance.gemsNotifier.value;
@@ -257,26 +263,35 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(colors: [Color(0xFF1F1123), Color(0xFF0D1322)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                   borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5), width: 2),
+                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6), width: 2),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(PhosphorIcons.lockKeyBold, color: Color(0xFFEF4444), size: 44)
+                    const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 48)
                         .animate(onPlay: (c) => c.repeat(reverse: true))
                         .scale(duration: 800.ms, begin: const Offset(1, 1), end: const Offset(1.1, 1.1)),
                     const SizedBox(height: 20),
-                    Text('KİLİTLİ HAZİNE!', style: GoogleFonts.outfit(color: const Color(0xFFFCA5A5), fontSize: 21, fontWeight: FontWeight.w900, decoration: TextDecoration.none)),
+                    Text('GANİMETİ KAÇIRMA!', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 21, fontWeight: FontWeight.w900, decoration: TextDecoration.none)),
                     const SizedBox(height: 10),
-                    Text('Bu ganimeti açmak için $missingGems Elmasa daha ihtiyacın var.', textAlign: TextAlign.center, style: GoogleFonts.inter(color: const Color(0xFFCBD5E1), fontSize: 13.5, decoration: TextDecoration.none)),
+                    Text('Bu hazineye ulaşmak için yalnızca $missingGems Elmasa ihtiyacın var. Fırsatı yakala!', textAlign: TextAlign.center, style: GoogleFonts.inter(color: const Color(0xFFCBD5E1), fontSize: 13.5, decoration: TextDecoration.none)),
                     const SizedBox(height: 26),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF38BDF8), foregroundColor: const Color(0xFF070B14)),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _addDebugGems();
-                      },
-                      child: const Text('+500 Test Elması Al', style: TextStyle(fontWeight: FontWeight.bold)),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF59E0B), 
+                          foregroundColor: const Color(0xFF070B14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () {
+                          if (!mounted) return;
+                          Navigator.pop(ctx);
+                          _addDebugGems();
+                        },
+                        child: Text('Hemen Sahip Ol (500 Elmas)', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15)),
+                      ),
                     ),
                   ],
                 ),
@@ -304,6 +319,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             earnedGems: earnedGems,
             earnedXp: earnedXp,
             onCollect: (screenCenter) async {
+              if (!mounted) return;
               Navigator.pop(context);
               final prefs = await SharedPreferences.getInstance();
               final currentChests = prefs.getInt('chests_opened_today') ?? 0;
@@ -334,19 +350,24 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     HapticFeedback.mediumImpact();
 
     if (XpShopService.instance.gemsNotifier.value < price) {
+      if (!mounted) return;
       _showInsufficientGemsDialog(price);
       return;
     }
 
-    final success = await XpShopService.instance.spendGems(price);
-    if (success) {
-      await XpShopService.instance.buyItem(itemId);
-      if (categoryToEquip != null) {
-        await XpShopService.instance.setActiveCosmetic(categoryToEquip, itemId);
-      }
+    try {
+      final success = await XpShopService.instance.spendGems(price);
       if (!mounted) return;
-      await _loadShopData();
-    }
+      if (success) {
+        await XpShopService.instance.buyItem(itemId);
+        if (!mounted) return;
+        if (categoryToEquip != null) {
+          await XpShopService.instance.setActiveCosmetic(categoryToEquip, itemId);
+        }
+        if (!mounted) return;
+        await _loadShopData();
+      }
+    } catch (_) {}
   }
 
   // --- KOMPAKT AKORDEON AKTİF GÜÇLER ALANI ---
@@ -391,6 +412,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(10),
             onTap: () {
               HapticFeedback.selectionClick();
+              if (!mounted) return;
               setState(() => _isInventoryExpanded = !_isInventoryExpanded);
             },
             child: Row(
@@ -444,14 +466,12 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
           physics: const BouncingScrollPhysics(),
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
-              // Üst Sabit Header (HUD ve Başlık)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                   child: _buildHeader(),
                 ),
               ),
-              // Sabit (Sticky) Yatay Kategori Sekmeleri
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _StickyTabBarDelegate(
@@ -511,6 +531,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                         if (!mounted) return;
                         _loadShopData();
                       } else {
+                        if (!mounted) return;
                         _showInsufficientGemsDialog(30);
                       }
                     },
@@ -531,6 +552,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                         if (!mounted) return;
                         _loadShopData();
                       } else {
+                        if (!mounted) return;
                         _showInsufficientGemsDialog(50);
                       }
                     },
@@ -582,6 +604,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       borderRadius: BorderRadius.circular(16),
       onTap: () {
         HapticFeedback.selectionClick();
+        if (!mounted) return;
         setState(() => _selectedTabIndex = index);
       },
       child: AnimatedContainer(
@@ -747,7 +770,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     );
   }
 
-  // --- ACİLİYET ROZETLİ ("Günün Fırsatı ✨") DESTANSI SANDIK KARTI ---
+  // --- ACİLİYET ROZETLİ ("Günün Fırsatı ✨") DESTANSI SANDIK KARTI & ABSORBPOINTER ---
   Widget _buildShowcaseChestCard() {
     return Stack(
       clipBehavior: Clip.none,
@@ -775,30 +798,41 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                   ],
                 ),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEC4899), foregroundColor: Colors.white),
-                onPressed: () async {
-                  if (XpShopService.instance.gemsNotifier.value >= 45) {
-                    await XpShopService.instance.spendGems(45);
-                    if (!mounted) return;
-                    _startChestOpeningCeremony();
-                  } else {
-                    _showInsufficientGemsDialog(45);
-                  }
-                },
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('45', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    SizedBox(width: 3),
-                    Icon(PhosphorIcons.diamondBold, size: 13, color: Colors.white),
-                  ],
+              AbsorbPointer(
+                absorbing: _isChestOpeningInProgress,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEC4899), foregroundColor: Colors.white),
+                  onPressed: () async {
+                    if (_isChestOpeningInProgress) return;
+                    if (XpShopService.instance.gemsNotifier.value >= 45) {
+                      setState(() => _isChestOpeningInProgress = true);
+                      try {
+                        await XpShopService.instance.spendGems(45);
+                        if (!mounted) return;
+                        _startChestOpeningCeremony();
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isChestOpeningInProgress = false);
+                        }
+                      }
+                    } else {
+                      if (!mounted) return;
+                      _showInsufficientGemsDialog(45);
+                    }
+                  },
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('45', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      SizedBox(width: 3),
+                      Icon(PhosphorIcons.diamondBold, size: 13, color: Colors.white),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        // Sağ üst köşe "Günün Fırsatı ✨" Aciliyet Rozeti
         Positioned(
           top: -8,
           right: 16,
@@ -831,6 +865,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     );
   }
 
+  // --- METİN KIRILMA KORUMALI (FLEXIBLE + ELLIPSIS) KOZMETİK KARTI ---
   Widget _buildCosmeticWardrobeCard({required String itemId, required String category, required IconData icon, required Color iconColor, required String title, required String desc, required int price}) {
     final bool isOwned = _ownedItems[itemId] ?? false;
     bool isEquipped = category == 'frame' ? (_activeFrame == itemId) : (category == 'crown' ? _hasGoldenCrown : (_activeTheme == itemId));
@@ -843,6 +878,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
         border: Border.all(color: isEquipped ? const Color(0xFF6366F1) : Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.all(10),
@@ -853,9 +889,35 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: Colors.white)),
-                Text(desc, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8))),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title, 
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: Colors.white),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (category == 'frame' || category == 'crown') ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
+                        child: Text('Ligde Görünür ✨', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 8.5, fontWeight: FontWeight.w800)),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  desc, 
+                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -987,6 +1049,7 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
   void _startOpening() {
     if (_crackStage >= 1) return;
     HapticFeedback.heavyImpact();
+    if (!mounted) return;
     setState(() => _crackStage = 1);
 
     Future.delayed(const Duration(milliseconds: 1200), () {

@@ -2,8 +2,7 @@
 // DOSYA ADI: lib/main.dart
 // AÇIKLAMA: Uygulamanın Ana Giriş Kapısı, Global Tema Yapılandırması,
 //            IndexedStack Tabanlı 5 Sekmeli Navigasyon Çerçevesi ve
-//            Bilişsel Karar Motorlu (Next-Best-Action), Kompakt Günün Kelimesi 
-//            ve Dinamik Başarım (Achievement) Bildirimli Lobi Ekranı.
+//            Reaktif Değer Dinleyicileriyle Güncellenmiş Lobi & HUD Ekranı.
 // ============================================================================
 
 import 'dart:async';
@@ -131,6 +130,7 @@ class _RootScreenState extends State<RootScreen> {
   void _onTabTapped(int index) {
     if (_currentIndex == index) return;
     HapticFeedback.lightImpact();
+    if (!mounted) return;
     setState(() {
       _currentIndex = index;
     });
@@ -368,7 +368,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _activeBookStats;
   bool _isLoading = true;
 
-  // Başarım Kutlama Kuyruğu
   final List<UnlockedBadgeInfo> _achievementQueue = [];
   bool _isShowingAchievement = false;
   UnlockedBadgeInfo? _currentAchievementToShow;
@@ -405,6 +404,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> refreshDashboardStats() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
       final todayKey = _getTodayKey();
 
       final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
@@ -452,7 +452,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       }
 
-      // --- BAŞARIM (ACHIEVEMENT) ARKA PLAN KONTROLÜ ---
       final newlyUnlocked = await AchievementService.instance.checkAndUnlockAchievements(
         totalPagesRead: totalPagesRead,
         totalFlashcards: practiceCards.length + bossCards.length,
@@ -462,7 +461,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         hasShield: streakSaved,
       );
 
-      if (newlyUnlocked.isNotEmpty && mounted) {
+      if (!mounted) return;
+      if (newlyUnlocked.isNotEmpty) {
         _achievementQueue.addAll(newlyUnlocked);
         _processAchievementQueue();
       }
@@ -500,7 +500,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     HapticFeedback.heavyImpact(); 
 
-    // 4 Saniye ekranda tut
     await Future.delayed(const Duration(seconds: 4));
 
     if (!mounted) return; 
@@ -509,7 +508,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _isShowingAchievement = false;
     });
     
-    // Çıkış animasyonu için bekle ve kuyruktaki diğer başarıma geç
     await Future.delayed(const Duration(milliseconds: 600));
     
     if (!mounted) return; 
@@ -808,7 +806,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             
-            // --- BAŞARIM KUTLAMA BİLDİRİMİ (YUKARIDAN SÜZÜLEN) ---
             if (_isShowingAchievement && _currentAchievementToShow != null)
               Positioned(
                 top: MediaQuery.of(context).padding.top + 10,
@@ -891,6 +888,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // REAKTİF ELMAS SAYACI (ValueListenableBuilder ile anlık güncellenir)
             ValueListenableBuilder<int>(
               valueListenable: XpShopService.instance.gemsNotifier,
               builder: (context, gems, _) {
@@ -961,6 +959,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(width: 5),
 
+            // REAKTİF XP SAYACI (ValueListenableBuilder ile anlık güncellenir)
             ValueListenableBuilder<int>(
               valueListenable: XpShopService.instance.xpNotifier,
               builder: (context, xp, _) {
