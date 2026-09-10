@@ -766,92 +766,100 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text('Arena', style: GoogleFonts.outfit(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-                if (_isTestModeActive)
-                  Container(
-                    margin: const EdgeInsets.only(left: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(6)),
-                    child: Text('TEST AÇIK', style: GoogleFonts.outfit(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
-                  ),
-              ],
-            ),
-            Text('Kelime Arenası & Oyunlar', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500)),
-          ],
-        ),
-        Row(
-          children: [
-            ValueListenableBuilder<int>(
-              valueListenable: XpShopService.instance.gemsNotifier,
-              builder: (context, gems, _) {
-                return InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: widget.onNavigateToShop,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF111827),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF38BDF8)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('Arena', style: GoogleFonts.outfit(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                  if (_isTestModeActive)
+                    Container(
+                      margin: const EdgeInsets.only(left: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(6)),
+                      child: Text('TEST AÇIK', style: GoogleFonts.outfit(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
-                        const SizedBox(width: 5),
-                        Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                        const SizedBox(width: 4),
-                        const Icon(PhosphorIcons.plusBold, color: Color(0xFF38BDF8), size: 12),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 8),
-            ValueListenableBuilder<int>(
-              valueListenable: XpShopService.instance.xpNotifier,
-              builder: (context, xp, _) {
-                return InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: _showXpSummaryModal,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF111827),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFF59E0B)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
-                        const SizedBox(width: 4),
-                        Text('$xp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 8),
-            // --- ARENA AYARLARI BUTONU (SLIDERS) ---
-            GestureDetector(
-              onTap: _openArenaSettings,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF334155)),
-                ),
-                child: const Icon(PhosphorIcons.slidersBold, color: Color(0xFF38BDF8), size: 18),
+                ],
               ),
-            ),
-          ],
+              Text('Kelime Arenası & Oyunlar', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
+        Flexible(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ValueListenableBuilder<int>(
+                valueListenable: XpShopService.instance.gemsNotifier,
+                builder: (context, gems, _) {
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: widget.onNavigateToShop,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111827),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF38BDF8)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 14),
+                          const SizedBox(width: 3),
+                          Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                          const SizedBox(width: 2),
+                          const Icon(PhosphorIcons.plusBold, color: Color(0xFF38BDF8), size: 11),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 6),
+              ValueListenableBuilder<int>(
+                valueListenable: XpShopService.instance.xpNotifier,
+                builder: (context, xp, _) {
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: _showXpSummaryModal,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111827),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFF59E0B)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 14),
+                          const SizedBox(width: 3),
+                          Text('$xp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 6),
+              // --- ARENA AYARLARI BUTONU (SLIDERS) ---
+              GestureDetector(
+                onTap: _openArenaSettings,
+                child: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111827),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF334155)),
+                  ),
+                  child: const Icon(PhosphorIcons.slidersBold, color: Color(0xFF38BDF8), size: 16),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

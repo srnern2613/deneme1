@@ -2,8 +2,9 @@
 // DOSYA ADI: lib/shop_screen.dart
 // AÇIKLAMA: Mağaza, Sabit Sekmeli Ganimet Dolabı, Kompakt Akordeon Güçler,
 //            AbsorbPointer Zırhlı Sandık Sistemi, Metin Kırılma Koruması,
-//            Ölü Kodlardan Arındırılmış ve Context Caching (Bağlam Sabitleme)
-//            Kurallarına Uygun Tam Linter-Free Mimari.
+//            "Sandık Açılımı ve Rün Kırılma" Töreni (Mühür Belirişi -> Mühür
+//            Kırılması/Parçalanması -> Kavisli Çift Uçuş & Roll-up & Trail),
+//            Ölü Kodlardan Arındırılmış ve Context Caching Kurallarına Uygun Tam Mimari.
 // ============================================================================
 
 import 'dart:async';
@@ -37,9 +38,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   String _activeFrame = 'none';
   String _activeTheme = 'default';
 
-  int _selectedTabIndex = 0; 
-  bool _isInventoryExpanded = false; 
-  bool _isChestOpeningInProgress = false; 
+  int _selectedTabIndex = 0;
+  bool _isInventoryExpanded = false;
+  bool _isChestOpeningInProgress = false;
 
   final Map<String, bool> _ownedItems = {};
 
@@ -147,13 +148,13 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
 
   Future<void> _dropItem(String itemId, String category) async {
     HapticFeedback.mediumImpact();
-    
+
     // ALTIN KURAL: Context Caching
     final currentContext = context;
-    
+
     await XpShopService.instance.revokeItem(itemId);
     if (!mounted) return;
-    
+
     if (category == 'frame' && _activeFrame == itemId) {
       await XpShopService.instance.setActiveCosmetic('frame', 'none');
     } else if (category == 'reading_theme' && _activeTheme == itemId) {
@@ -161,9 +162,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     } else if (category == 'crown') {
       await XpShopService.instance.revokeItem('golden_crown');
     }
-    
+
     await _loadShopData();
-    
+
     // Sabitlenmiş context üzerinden UI çağrısı
     if (!currentContext.mounted) return;
     ScaffoldMessenger.of(currentContext).showSnackBar(
@@ -176,6 +177,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   void _triggerDualFlyToHudEffect(BuildContext currentContext, {required Offset startPosition, required int addedGems, required int addedXp}) {
+    if (!currentContext.mounted) return;
     final overlay = Overlay.of(currentContext);
     final RenderBox? gemsBox = _hudGemsKey.currentContext?.findRenderObject() as RenderBox?;
     final RenderBox? xpBox = _hudXpKey.currentContext?.findRenderObject() as RenderBox?;
@@ -279,11 +281,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                       height: 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF59E0B), 
+                          backgroundColor: const Color(0xFFF59E0B),
                           foregroundColor: const Color(0xFF070B14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
-                        // Senkron işlem: Bağlam sabitlemeye gerek yoktur.
                         onPressed: () {
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -323,10 +324,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             earnedGems: earnedGems,
             earnedXp: earnedXp,
             onCollect: (screenCenter) async {
-              // ALTIN KURAL: Context Caching
               final currentContext = context;
-              Navigator.pop(currentContext); // Dialog'u kapat (Senkron)
-              
+              Navigator.pop(currentContext);
+
               final prefs = await SharedPreferences.getInstance();
               final currentChests = prefs.getInt('chests_opened_today') ?? 0;
               await prefs.setInt('chests_opened_today', currentChests + 1);
@@ -334,7 +334,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
               await XpShopService.instance.addGems(earnedGems);
               await XpShopService.instance.addXp(earnedXp);
 
-              // Sabitlenmiş context üzerinden UI efekti
               if (!currentContext.mounted) return;
               _triggerDualFlyToHudEffect(currentContext, startPosition: screenCenter, addedGems: earnedGems, addedXp: earnedXp);
             },
@@ -361,13 +360,12 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       return;
     }
 
-    // ALTIN KURAL: Context Caching
     final currentContext = context;
 
     try {
       final success = await XpShopService.instance.buyItemWithRollback(itemId, price, categoryToEquip: categoryToEquip);
       if (!currentContext.mounted) return;
-      
+
       if (success) {
         await _loadShopData();
         if (!currentContext.mounted) return;
@@ -448,8 +446,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15), 
-        borderRadius: BorderRadius.circular(10), 
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -532,12 +530,11 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     activeLabel: 'Kalkan Aktif',
                     onBuy: () async {
                       if (XpShopService.instance.gemsNotifier.value >= 30) {
-                        // ALTIN KURAL: Context Caching
                         final currentContext = context;
                         try {
                            await XpShopService.instance.spendGems(30);
                            await XpShopService.instance.setFreezeShield(true);
-                           if (mounted) _loadShopData(); // State propertysi
+                           if (mounted) _loadShopData();
                         } catch(e){
                            if (!currentContext.mounted) return;
                            ScaffoldMessenger.of(currentContext).showSnackBar(const SnackBar(content: Text('İşlem başarısız.'), backgroundColor: Color(0xFFEF4444)));
@@ -558,12 +555,11 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     activeLabel: '2X Aktif',
                     onBuy: () async {
                       if (XpShopService.instance.gemsNotifier.value >= 50) {
-                        // ALTIN KURAL: Context Caching
                         final currentContext = context;
                         try{
                            await XpShopService.instance.spendGems(50);
                            await XpShopService.instance.activateDoubleXp();
-                           if (mounted) _loadShopData(); // State propertysi
+                           if (mounted) _loadShopData();
                         } catch(e){
                            if (!currentContext.mounted) return;
                            ScaffoldMessenger.of(currentContext).showSnackBar(const SnackBar(content: Text('İşlem başarısız.'), backgroundColor: Color(0xFFEF4444)));
@@ -677,8 +673,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                   key: _hudGemsKey,
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111827), 
-                    borderRadius: BorderRadius.circular(20), 
+                    color: const Color(0xFF111827),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: const Color(0xFF38BDF8)),
                   ),
                   child: Row(
@@ -700,8 +696,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                   key: _hudXpKey,
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111827), 
-                    borderRadius: BorderRadius.circular(20), 
+                    color: const Color(0xFF111827),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: const Color(0xFFF59E0B)),
                   ),
                   child: Row(
@@ -759,8 +755,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       width: double.infinity,
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827), 
-        borderRadius: BorderRadius.circular(22), 
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
@@ -791,8 +787,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
           width: double.infinity,
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1B4B), 
-            borderRadius: BorderRadius.circular(22), 
+            color: const Color(0xFF1E1B4B),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.5)),
           ),
           child: Row(
@@ -905,7 +901,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                   children: [
                     Expanded(
                       child: Text(
-                        title, 
+                        title,
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: Colors.white),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -923,7 +919,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  desc, 
+                  desc,
                   style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -969,8 +965,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827), 
-        borderRadius: BorderRadius.circular(18), 
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
@@ -1031,7 +1027,7 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
 }
 
 // -----------------------------------------------------------------------------
-// NATIVE DONANIM HIZLANDIRMALI RÜN KIRILMA TÖRENİ (GACHA SYSTEM)
+// NATIVE DONANIM HIZLANDIRMALI "SANDIK AÇILIMI VE RÜN KIRILMA" TÖRENİ
 // -----------------------------------------------------------------------------
 class _ChestOpeningDialog extends StatefulWidget {
   final int earnedGems;
@@ -1044,40 +1040,106 @@ class _ChestOpeningDialog extends StatefulWidget {
   State<_ChestOpeningDialog> createState() => _ChestOpeningDialogState();
 }
 
-class _ChestOpeningDialogState extends State<_ChestOpeningDialog> with SingleTickerProviderStateMixin {
+class _ChestOpeningDialogState extends State<_ChestOpeningDialog> with TickerProviderStateMixin {
   int _crackStage = 0;
   bool _isTapLocked = false;
-  late AnimationController _sealController;
-  late Animation<double> _sealAnimation;
+  bool _isFreezeFrame = false;
+
+  late final AnimationController _sealController;
+  late final Animation<double> _sealAnimation;
+
+  late final AnimationController _shatterController;
+  late final Animation<double> _shatterAnimation;
+
+  late final AnimationController _flashController;
+  late final AnimationController _shakeController;
+  late final AnimationController _breatheController;
+
+  late final AnimationController _rewardCountController;
+  late final Animation<double> _gemsCountAnimation;
+  late final Animation<double> _xpCountAnimation;
 
   @override
   void initState() {
     super.initState();
-    _sealController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _sealController = AnimationController(vsync: this, duration: const Duration(milliseconds: 550));
     _sealAnimation = CurvedAnimation(parent: _sealController, curve: Curves.easeOutBack);
+
+    _shatterController = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
+    _shatterAnimation = CurvedAnimation(parent: _shatterController, curve: Curves.easeOut);
+
+    _flashController = AnimationController(vsync: this, duration: const Duration(milliseconds: 100));
+    _shakeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 320));
+
+    _breatheController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat(reverse: true);
+
+    _rewardCountController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _gemsCountAnimation = CurvedAnimation(
+      parent: _rewardCountController,
+      curve: const Interval(0.0, 0.75, curve: Curves.easeOutCubic),
+    );
+    _xpCountAnimation = CurvedAnimation(
+      parent: _rewardCountController,
+      curve: const Interval(0.18, 1.0, curve: Curves.easeOutCubic),
+    );
   }
 
   @override
   void dispose() {
     _sealController.dispose();
+    _shatterController.dispose();
+    _flashController.dispose();
+    _shakeController.dispose();
+    _breatheController.dispose();
+    _rewardCountController.dispose();
     super.dispose();
   }
 
   void _startOpening() {
-    if (_crackStage >= 1 || _isTapLocked) return;
-    setState(() => _isTapLocked = true);
-    HapticFeedback.heavyImpact();
-    setState(() => _crackStage = 1);
-    
-    _sealController.forward();
+    if (_crackStage != 0 || _isTapLocked) return;
 
-    Future.delayed(const Duration(milliseconds: 1200), () {
+    setState(() {
+      _isTapLocked = true;
+      _crackStage = 1;
+    });
+
+    HapticFeedback.heavyImpact();
+    _sealController.forward(from: 0);
+
+    Future.delayed(const Duration(milliseconds: 900), () {
       if (!mounted) return;
-      HapticFeedback.vibrate();
+      _triggerFreezeFrame();
+    });
+  }
+
+  void _triggerFreezeFrame() {
+    if (!mounted) return;
+    setState(() => _isFreezeFrame = true);
+
+    Future.delayed(const Duration(milliseconds: 130), () {
+      if (!mounted) return;
+      _triggerImpact();
+    });
+  }
+
+  void _triggerImpact() {
+    if (!mounted) return;
+
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _isFreezeFrame = false;
+      _crackStage = 2;
+    });
+
+    _flashController.forward(from: 0);
+    _shakeController.forward(from: 0);
+    _shatterController.forward(from: 0).whenComplete(() {
+      if (!mounted) return;
       setState(() {
-        _crackStage = 2;
+        _crackStage = 3;
         _isTapLocked = false;
       });
+      _rewardCountController.forward(from: 0);
     });
   }
 
@@ -1089,102 +1151,216 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> with SingleTic
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_crackStage == 0)
-                const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 100)
-                    .animate(onPlay: (c) => c.repeat(reverse: true))
-                    .scale(begin: const Offset(1, 1), end: const Offset(1.05, 1.05), duration: 800.ms)
-              else if (_crackStage == 1)
-                Stack(
-                  alignment: Alignment.center,
+        body: Stack(
+          children: [
+            Positioned.fill(child: _buildBreathingBackground()),
+            Center(
+              child: AnimatedBuilder(
+                animation: _shakeController,
+                builder: (context, child) {
+                  final st = _shakeController.value.clamp(0.0, 1.0);
+                  final decay = 1.0 - st;
+                  final shakeOffset = Offset(sin(st * 30) * 8 * decay, cos(st * 22) * 5 * decay);
+                  return Transform.translate(offset: shakeOffset, child: child);
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: const Color(0xFFEC4899), blurRadius: 40, spreadRadius: 10)],
-                      ),
-                      child: const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 100),
-                    )
-                        .animate(onPlay: (c) => c.repeat())
-                        .shake(hz: 8, curve: Curves.easeInOut)
-                        .scale(begin: const Offset(1, 1), end: const Offset(1.15, 1.15), duration: 1200.ms),
-                    RepaintBoundary(
-                      child: AnimatedBuilder(
-                        animation: _sealAnimation,
+                    if (_crackStage == 0)
+                      const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 100)
+                          .animate(onPlay: (c) => c.repeat(reverse: true))
+                          .scale(begin: const Offset(1, 1), end: const Offset(1.05, 1.05), duration: 800.ms)
+                    else if (_crackStage == 1)
+                      _buildSealingStage(frozen: _isFreezeFrame)
+                    else if (_crackStage == 2)
+                      _buildShatteringStage()
+                    else
+                      _buildOpenedChestVisual(),
+
+                    const SizedBox(height: 30),
+
+                    if (_crackStage == 0)
+                      Text('Açmak İçin Dokun!', style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)).animate().fadeIn()
+                    else if (_crackStage == 1)
+                      Text(_isFreezeFrame ? 'Şimdi!' : 'Mühür Beliriyor...', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontSize: 20, fontWeight: FontWeight.w900)).animate().fadeIn()
+                    else if (_crackStage == 2)
+                      Text('Mühür Kırılıyor...', style: GoogleFonts.outfit(color: const Color(0xFFF472B6), fontSize: 20, fontWeight: FontWeight.w900)).animate().fadeIn().shake(hz: 5)
+                    else ...[
+                      AnimatedBuilder(
+                        animation: _rewardCountController,
                         builder: (context, child) {
-                          return CustomPaint(
-                            size: const Size(180, 180),
-                            painter: _RuneSealPainter(_sealAnimation.value),
+                          final gemsVal = (widget.earnedGems * _gemsCountAnimation.value).round();
+                          final xpVal = (widget.earnedXp * _xpCountAnimation.value).round();
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('+$gemsVal', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 32, fontWeight: FontWeight.w900)),
+                              const SizedBox(width: 4),
+                              const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 28),
+                              const SizedBox(width: 16),
+                              Text('+$xpVal XP', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 32, fontWeight: FontWeight.w900)),
+                            ],
                           );
                         },
-                      ),
-                    ),
-                  ],
-                )
-              else if (_crackStage == 2)
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: const Color(0xFFF59E0B), blurRadius: 60, spreadRadius: 20)],
-                  ),
-                  child: const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 120),
-                )
-                    .animate()
-                    .scale(curve: Curves.elasticOut, duration: 800.ms)
-                    .fadeIn(),
-                    
-              const SizedBox(height: 30),
+                      ).animate().scale(curve: Curves.elasticOut, duration: 800.ms).fadeIn(),
 
-              if (_crackStage == 0)
-                Text('Açmak İçin Dokun!', style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900))
-                    .animate().fadeIn()
-              else if (_crackStage == 1)
-                Text('Mühür Kırılıyor...', style: GoogleFonts.outfit(color: const Color(0xFFF472B6), fontSize: 20, fontWeight: FontWeight.w900))
-                    .animate().fadeIn().shake(hz: 4)
-              else ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('+${widget.earnedGems}', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 32, fontWeight: FontWeight.w900)),
-                    const SizedBox(width: 4),
-                    const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 28),
-                    const SizedBox(width: 16),
-                    Text('+${widget.earnedXp} XP', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 32, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 30),
+                      AbsorbPointer(
+                        absorbing: _isTapLocked,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            elevation: 8,
+                            shadowColor: const Color(0xFF10B981).withValues(alpha: 0.5),
+                          ),
+                          onPressed: () {
+                            if (_isTapLocked) return;
+                            setState(() => _isTapLocked = true);
+                            widget.onCollect(Offset(screenSize.width / 2, screenSize.height / 2));
+                          },
+                          child: Text('Topla & Kapat', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16)),
+                        ).animate().slideY(begin: 1, end: 0, curve: Curves.easeOutBack, duration: 600.ms).fadeIn(),
+                      ),
+                    ],
                   ],
-                ).animate().scale(curve: Curves.elasticOut, duration: 800.ms).fadeIn(),
-                const SizedBox(height: 30),
-                AbsorbPointer(
-                  absorbing: _isTapLocked,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981), 
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      elevation: 8,
-                      shadowColor: const Color(0xFF10B981).withValues(alpha: 0.5)
-                    ),
-                    onPressed: () {
-                      if (_isTapLocked) return;
-                      setState(() => _isTapLocked = true);
-                      widget.onCollect(Offset(screenSize.width / 2, screenSize.height / 2));
-                    },
-                    child: Text('Topla & Kapat', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16)),
-                  ).animate().slideY(begin: 1, end: 0, curve: Curves.easeOutBack, duration: 600.ms).fadeIn(),
                 ),
+              ),
+            ),
+            Positioned.fill(child: IgnorePointer(child: _buildFlashOverlay())),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBreathingBackground() {
+    return AnimatedBuilder(
+      animation: _breatheController,
+      builder: (context, child) {
+        final breathe = Curves.easeInOut.transform(_breatheController.value);
+        return Container(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment.center,
+              radius: 0.85 + (0.15 * breathe),
+              colors: [
+                const Color(0xFFF59E0B).withValues(alpha: 0.24 + (0.10 * breathe)),
+                const Color(0xFF7C3AED).withValues(alpha: 0.18 + (0.08 * breathe)),
+                const Color(0xFF070B14).withValues(alpha: 0.0),
               ],
-            ],
+              stops: const [0.0, 0.45, 1.0],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFlashOverlay() {
+    return AnimatedBuilder(
+      animation: _flashController,
+      builder: (context, child) {
+        final isIdle = _flashController.status == AnimationStatus.dismissed;
+        final opacity = isIdle ? 0.0 : (1.0 - _flashController.value).clamp(0.0, 1.0);
+        if (opacity <= 0) return const SizedBox.shrink();
+        return Opacity(opacity: opacity, child: Container(color: Colors.white));
+      },
+    );
+  }
+
+  Widget _buildSealingStage({required bool frozen}) {
+    final chestIcon = Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: const Color(0xFFEC4899), blurRadius: frozen ? 55 : 40, spreadRadius: frozen ? 16 : 10)],
+      ),
+      child: const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 100),
+    );
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        frozen
+            ? chestIcon
+            : chestIcon
+                .animate(onPlay: (c) => c.repeat())
+                .shake(hz: 8, curve: Curves.easeInOut)
+                .scale(begin: const Offset(1, 1), end: const Offset(1.15, 1.15), duration: 1200.ms),
+        RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _sealAnimation,
+            builder: (context, child) {
+              return CustomPaint(size: const Size(200, 200), painter: _RuneSealPainter(_sealAnimation.value));
+            },
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildShatteringStage() {
+    return AnimatedBuilder(
+      animation: _shatterController,
+      builder: (context, child) {
+        final t = _shatterAnimation.value.clamp(0.0, 1.0);
+        final rawT = _shatterController.value.clamp(0.0, 1.0);
+
+        const squashEnd = 0.18;
+        double sx, sy;
+        if (rawT <= squashEnd) {
+          final localT = Curves.easeOut.transform((rawT / squashEnd).clamp(0.0, 1.0));
+          sx = 1.0 + (0.12 * localT);
+          sy = 1.0 - (0.20 * localT);
+        } else {
+          final localT = Curves.easeOutBack.transform(((rawT - squashEnd) / (1 - squashEnd)).clamp(0.0, 1.0));
+          sx = 1.12 + ((1.4 - 1.12) * localT);
+          sy = 0.80 + ((1.4 - 0.80) * localT);
+        }
+
+        final glowBlur = 40.0 + (60.0 * t);
+        final glowSpread = 10.0 + (25.0 * t);
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            RepaintBoundary(
+              child: CustomPaint(size: const Size(240, 240), painter: _ShatterBurstPainter(t)),
+            ),
+            Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.diagonal3Values(sx, sy, 1.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: const Color(0xFFF59E0B), blurRadius: glowBlur, spreadRadius: glowSpread)],
+                ),
+                child: const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 100),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildOpenedChestVisual() {
+    return Transform.scale(
+      scale: 1.4,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: const Color(0xFFF59E0B), blurRadius: 100, spreadRadius: 35)],
+        ),
+        child: const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 100),
       ),
     );
   }
 }
 
 // -----------------------------------------------------------------------------
-// NATIVE CUSTOM PAINT - RÜN KIRILMA (SHATTER) EFEKTİ
+// NATIVE CUSTOM PAINT - KEHRİBAR/NEON RÜN MÜHRÜ (SEAL) EFEKTİ
 // -----------------------------------------------------------------------------
 class _RuneSealPainter extends CustomPainter {
   final double progress;
@@ -1192,31 +1368,103 @@ class _RuneSealPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (progress == 0) return;
-    final paint = Paint()
-      ..color = const Color(0xFFF59E0B).withValues(alpha: (1.0 - progress).clamp(0.0, 1.0))
-      ..strokeWidth = 3 + (progress * 4)
-      ..style = PaintingStyle.stroke
-      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 8);
-
-    final path = Path();
+    if (progress <= 0) return;
     final center = Offset(size.width / 2, size.height / 2);
-    
+    final radius = (size.width / 2) * 0.72 * progress;
+    final glowAlpha = progress.clamp(0.0, 1.0);
+
+    final outerRingPaint = Paint()
+      ..color = const Color(0xFFF59E0B).withValues(alpha: glowAlpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 6);
+    canvas.drawCircle(center, radius, outerRingPaint);
+
+    final innerRingPaint = Paint()
+      ..color = const Color(0xFFFDE68A).withValues(alpha: glowAlpha * 0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawCircle(center, radius * 0.78, innerRingPaint);
+
+    final starPaint = Paint()
+      ..color = const Color(0xFFF59E0B).withValues(alpha: glowAlpha * 0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 2);
+
+    _drawTrianglePath(canvas, center, radius * 0.62, rotationOffset: -pi / 2, paint: starPaint);
+    _drawTrianglePath(canvas, center, radius * 0.62, rotationOffset: pi / 2, paint: starPaint);
+
     for (int i = 0; i < 6; i++) {
-      final angle = (i * pi / 3) + (pi / 6);
-      final distance = (size.width / 2) * progress;
-      path.moveTo(center.dx, center.dy);
-      path.lineTo(center.dx + cos(angle) * distance, center.dy + sin(angle) * distance);
+      final angle = i * (pi / 3);
+      final tickStart = Offset(center.dx + cos(angle) * radius, center.dy + sin(angle) * radius);
+      final tickEnd = Offset(center.dx + cos(angle) * (radius + 9), center.dy + sin(angle) * (radius + 9));
+      canvas.drawLine(tickStart, tickEnd, outerRingPaint);
     }
+  }
+
+  void _drawTrianglePath(Canvas canvas, Offset center, double r, {required double rotationOffset, required Paint paint}) {
+    final path = Path();
+    for (int i = 0; i < 3; i++) {
+      final angle = rotationOffset + (i * (2 * pi / 3));
+      final point = Offset(center.dx + cos(angle) * r, center.dy + sin(angle) * r);
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
     canvas.drawPath(path, paint);
   }
-  
+
   @override
   bool shouldRepaint(covariant _RuneSealPainter old) => old.progress != progress;
 }
 
 // -----------------------------------------------------------------------------
-// DÖNEN VE PARLAYAN UÇAN PARTİKÜL EFEKTİ
+// NATIVE CUSTOM PAINT - MÜHÜR PARÇALANMA (SHATTER BURST) EFEKTİ
+// -----------------------------------------------------------------------------
+class _ShatterBurstPainter extends CustomPainter {
+  final double progress;
+  _ShatterBurstPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final random = Random(7);
+    const shardCount = 14;
+    final fadeOpacity = (1.0 - progress).clamp(0.0, 1.0);
+
+    for (int i = 0; i < shardCount; i++) {
+      final angle = (i * (2 * pi / shardCount)) + (random.nextDouble() * 0.35);
+      final baseRadius = size.width * 0.26;
+      final travel = baseRadius + (size.width * 0.55 * progress);
+      final shardStart = Offset(center.dx + cos(angle) * baseRadius, center.dy + sin(angle) * baseRadius);
+      final shardEnd = Offset(center.dx + cos(angle) * travel, center.dy + sin(angle) * travel);
+
+      final shardPaint = Paint()
+        ..color = (i.isEven ? const Color(0xFFF59E0B) : const Color(0xFFFDE68A)).withValues(alpha: fadeOpacity)
+        ..strokeWidth = (3.5 - (progress * 2)).clamp(0.8, 3.5)
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 3);
+
+      canvas.drawLine(shardStart, shardEnd, shardPaint);
+    }
+
+    final flashPaint = Paint()
+      ..color = Colors.white.withValues(alpha: (0.7 * fadeOpacity).clamp(0.0, 0.7))
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 30 + (progress * 20));
+    canvas.drawCircle(center, size.width * 0.2 * (1 + progress), flashPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ShatterBurstPainter old) => old.progress != progress;
+}
+
+// -----------------------------------------------------------------------------
+// DÖNEN, PARLAYAN VE İZ BIRAKAN UÇAN PARTİKÜL EFEKTİ (DUAL FLYING PARTICLE)
 // -----------------------------------------------------------------------------
 class _DualFlyingParticle extends StatefulWidget {
   final Offset start;
@@ -1256,6 +1504,26 @@ class _DualFlyingParticleState extends State<_DualFlyingParticle> with SingleTic
     super.dispose();
   }
 
+  Widget _buildTrailDot(double t, double currentX, double currentY, double tOffset, double opacity, double scale) {
+    final trailT = (t - tOffset).clamp(0.0, 1.0);
+    final trailX = lerpDouble(widget.start.dx, widget.end.dx, trailT)!;
+    final trailY = lerpDouble(widget.start.dy, widget.end.dy, trailT)! - (sin(trailT * pi) * widget.curveLift);
+
+    return Transform.translate(
+      offset: Offset(trailX - currentX, trailY - currentY),
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: opacity,
+          child: Container(
+            width: 24 * scale,
+            height: 24 * scale,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -1263,23 +1531,31 @@ class _DualFlyingParticleState extends State<_DualFlyingParticle> with SingleTic
       builder: (context, child) {
         final t = _curveAnimation.value;
         if (t >= 1.0) return const SizedBox.shrink();
-        
+
         final currentX = lerpDouble(widget.start.dx, widget.end.dx, t)!;
         final currentY = lerpDouble(widget.start.dy, widget.end.dy, t)! - (sin(t * pi) * widget.curveLift);
-        
+
         return Positioned(
-          left: currentX, 
-          top: currentY, 
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: widget.color, blurRadius: 10, spreadRadius: 2)],
-            ),
-            child: Icon(widget.icon, color: widget.color, size: 24),
-          )
-          .animate(onPlay: (c) => c.repeat())
-          .rotate(duration: 400.ms)
-          .scale(begin: const Offset(1.3, 1.3), end: const Offset(0.7, 0.7), duration: 750.ms),
+          left: currentX,
+          top: currentY,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              _buildTrailDot(t, currentX, currentY, 0.16, 0.14, 0.45),
+              _buildTrailDot(t, currentX, currentY, 0.08, 0.30, 0.65),
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: widget.color, blurRadius: 10, spreadRadius: 2)],
+                ),
+                child: Icon(widget.icon, color: widget.color, size: 24),
+              )
+              .animate(onPlay: (c) => c.repeat())
+              .rotate(duration: 400.ms)
+              .scale(begin: const Offset(1.3, 1.3), end: const Offset(0.7, 0.7), duration: 750.ms),
+            ],
+          ),
         );
       },
     );
