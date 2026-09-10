@@ -1,7 +1,8 @@
 // ============================================================================
 // DOSYA ADI: lib/flashcards_screen.dart
 // AÇIKLAMA: Pratik Ekranı, RPG Hafıza Zindanı, FOMO Sayacı, Soft Paywall (Kilit),
-//            Dinamik 2X XP Rotasyonu, Asenkron XP Modalı, 2x2 Grid ve Test Modu
+//            Dinamik 2X XP Rotasyonu, Asenkron XP Modalı, 2x2 Grid ve 
+//            Reaktif AppHeader Entegrasyonu.
 // ============================================================================
 
 import 'dart:async';
@@ -11,7 +12,6 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import 'database_helper.dart';
 import 'flashcards_exercise_screen.dart';
@@ -20,6 +20,7 @@ import 'match_exercise_screen.dart';
 import 'spelling_exercise_screen.dart';
 import 'word_boss_battle_screen.dart';
 import 'xp_shop_service.dart';
+import 'app_header.dart'; // Global AppHeader İçe Aktarımı[cite: 3]
 
 class FlashcardsScreen extends StatefulWidget {
   final VoidCallback? onNavigateToLibrary;
@@ -43,7 +44,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   int _totalValidPoolCount = 0; 
   int _sessionLimit = 0;
   String _learningStateFilter = 'ALL';
-  bool _isTestModeActive = false; // Geliştirici Test Modu
+  bool _isTestModeActive = false; // Geliştirici Test Modu[cite: 6]
 
   late Timer _fomoTimer;
   String _fomoTimeLeft = "00:00";
@@ -73,12 +74,12 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     }
   }
 
-  // GÜNLÜK 2X XP ROTASYON ALGORİTMASI (SEED BAZLI)
+  // GÜNLÜK 2X XP ROTASYON ALGORİTMASI (SEED BAZLI)[cite: 6]
   void _calculateDailyDoubleXp() {
     final now = DateTime.now();
     final seed = now.year * 10000 + now.month * 100 + now.day;
     setState(() {
-      _dailyDoubleXpIndex = seed % 4; // 0: Quiz, 1: SRS, 2: Match, 3: Spelling
+      _dailyDoubleXpIndex = seed % 4; // 0: Quiz, 1: SRS, 2: Match, 3: Spelling[cite: 6]
     });
   }
 
@@ -125,10 +126,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
 
       if (!mounted) return;
       
-      // Mutlak toplam pratik kartı sayısı (Kilitler bu değere bakacak)
+      // Mutlak toplam pratik kartı sayısı (Kilitler bu değere bakacak)[cite: 6]
       _totalValidPoolCount = allValidCards.length;
 
-      // Egzersiz seansı için filtreleme (Koleksiyon filtresi sadece listeyi daraltır)
+      // Egzersiz seansı için filtreleme (Koleksiyon filtresi sadece listeyi daraltır)[cite: 6]
       var sessionCards = List<Map<String, dynamic>>.from(allValidCards);
       if (_learningStateFilter == 'LEARNING') {
         sessionCards = sessionCards.where((c) => c['learning_state'] == 'LEARNING').toList();
@@ -140,7 +141,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
 
       if (!mounted) return;
       setState(() {
-        _cards = sessionCards.isNotEmpty ? sessionCards : allValidCards; // Eğer filtrelenen liste boşsa tüm havuzu koru
+        _cards = sessionCards.isNotEmpty ? sessionCards : allValidCards; // Eğer filtrelenen liste boşsa tüm havuzu koru[cite: 6]
         _bossCards = bossCards;
         _isLoading = false;
       });
@@ -150,7 +151,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     }
   }
 
-  // --- ARENA AYARLARI VE TEST MODU ---
+  // --- ARENA AYARLARI VE TEST MODU ---[cite: 6]
   void _openArenaSettings() {
     HapticFeedback.lightImpact();
     
@@ -214,7 +215,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                   ),
                   const SizedBox(height: 24),
                   
-                  // --- GELİŞTİRİCİ TEST MODU (KİLİTLERİ AÇAR) ---
+                  // --- GELİŞTİRİCİ TEST MODU (KİLİTLERİ AÇAR) ---[cite: 6]
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
@@ -362,59 +363,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     );
   }
 
-  Future<void> _showXpSummaryModal() async {
-    HapticFeedback.selectionClick();
-    await Future.delayed(const Duration(milliseconds: 150));
-    
-    if (!mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF111827),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 36),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(2))),
-              const SizedBox(height: 24),
-              const Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 48)
-                .animate(onPlay: (c) => c.repeat(reverse: true))
-                .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1), duration: 800.ms),
-              const SizedBox(height: 16),
-              Text('Günlük Deneyim (XP) Raporu', style: GoogleFonts.outfit(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 8),
-              Text('Arenadaki başarıların ve okuma süren XP\'ye dönüştü. Ligde yükselmek için mücadeleye devam et!', textAlign: TextAlign.center, style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12)),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF334155))),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Mevcut Lig:', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
-                    Text('Altın Arena (4. Sıra)', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.w900)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity, height: 48,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6366F1), foregroundColor: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('Kapat', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   void _navigateToLibraryRoot() {
     HapticFeedback.lightImpact();
     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -485,6 +433,25 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
+      // GLOBAL APP HEADER ENTEGRASYONU[cite: 3, 6]
+      appBar: AppHeader(
+        title: 'Arena',
+        subtitle: 'Kelime Arenası & Oyunlar',
+        badgeEmoji: _isTestModeActive ? '🚨' : null,
+        onShopTap: widget.onNavigateToShop,
+        leading: GestureDetector(
+          onTap: _openArenaSettings,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF111827),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: const Icon(PhosphorIcons.slidersBold, color: Color(0xFF38BDF8), size: 18),
+          ),
+        ),
+      ),
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
@@ -494,7 +461,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildModernHeader(),
                     const SizedBox(height: 18),
                     _buildDynamicBossBanner(),
                     _buildMemoryDungeonHero(),
@@ -502,7 +468,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                     Text('Öğrenme & Oyun Modları', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3)),
                     const SizedBox(height: 14),
                     
-                    // --- 2x2 KARESEL GRID (IZGARA) MİMARİSİ ---
+                    // --- 2x2 KARESEL GRID (IZGARA) MİMARİSİ ---[cite: 6]
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -635,7 +601,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     );
   }
 
-  // --- 2x2 GRID UYUMLU KART TASARIMI VE SOFT PAYWALL KİLİDİ ---
+  // --- 2x2 GRID UYUMLU KART TASARIMI VE SOFT PAYWALL KİLİDİ ---[cite: 6]
   Widget _buildGridPracticeCard({
     required IconData icon,
     required String title,
@@ -730,7 +696,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
           ),
         ),
 
-        // SOFT PAYWALL KİLİT KATMANI
+        // SOFT PAYWALL KİLİT KATMANI[cite: 6]
         if (isLocked)
           Positioned.fill(
             child: IgnorePointer(
@@ -758,109 +724,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
               ),
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildModernHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text('Arena', style: GoogleFonts.outfit(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-                  if (_isTestModeActive)
-                    Container(
-                      margin: const EdgeInsets.only(left: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(6)),
-                      child: Text('TEST AÇIK', style: GoogleFonts.outfit(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
-                    ),
-                ],
-              ),
-              Text('Kelime Arenası & Oyunlar', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ),
-        Flexible(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              ValueListenableBuilder<int>(
-                valueListenable: XpShopService.instance.gemsNotifier,
-                builder: (context, gems, _) {
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: widget.onNavigateToShop,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF111827),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF38BDF8)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 14),
-                          const SizedBox(width: 3),
-                          Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                          const SizedBox(width: 2),
-                          const Icon(PhosphorIcons.plusBold, color: Color(0xFF38BDF8), size: 11),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 6),
-              ValueListenableBuilder<int>(
-                valueListenable: XpShopService.instance.xpNotifier,
-                builder: (context, xp, _) {
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: _showXpSummaryModal,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF111827),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFF59E0B)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 14),
-                          const SizedBox(width: 3),
-                          Text('$xp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 6),
-              // --- ARENA AYARLARI BUTONU (SLIDERS) ---
-              GestureDetector(
-                onTap: _openArenaSettings,
-                child: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF334155)),
-                  ),
-                  child: const Icon(PhosphorIcons.slidersBold, color: Color(0xFF38BDF8), size: 16),
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }

@@ -2,9 +2,7 @@
 // DOSYA ADI: lib/shop_screen.dart
 // AÇIKLAMA: Mağaza, Sabit Sekmeli Ganimet Dolabı, Kompakt Akordeon Güçler,
 //            AbsorbPointer Zırhlı Sandık Sistemi, Metin Kırılma Koruması,
-//            "Sandık Açılımı ve Rün Kırılma" Töreni (Mühür Belirişi -> Mühür
-//            Kırılması/Parçalanması -> Kavisli Çift Uçuş & Roll-up & Trail),
-//            Ölü Kodlardan Arındırılmış ve Context Caching Kurallarına Uygun Tam Mimari.
+//            "Sandık Açılımı ve Rün Kırılma" Töreni ve Reaktif AppHeader Entegrasyonu.
 // ============================================================================
 
 import 'dart:async';
@@ -17,6 +15,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'xp_shop_service.dart';
+import 'app_header.dart'; // Global AppHeader İçe Aktarımı[cite: 3]
 
 class ShopScreen extends StatefulWidget {
   final VoidCallback? onNavigateToExplore;
@@ -149,7 +148,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   Future<void> _dropItem(String itemId, String category) async {
     HapticFeedback.mediumImpact();
 
-    // ALTIN KURAL: Context Caching
     final currentContext = context;
 
     await XpShopService.instance.revokeItem(itemId);
@@ -165,7 +163,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
 
     await _loadShopData();
 
-    // Sabitlenmiş context üzerinden UI çağrısı
     if (!currentContext.mounted) return;
     ScaffoldMessenger.of(currentContext).showSnackBar(
       const SnackBar(
@@ -463,19 +460,32 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
+      // GLOBAL APP HEADER ENTEGRASYONU[cite: 3]
+      appBar: AppHeader(
+        title: 'Ganimet Dükkanı',
+        subtitle: 'Prestij Odası & Koleksiyon Dolabı',
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFEC4899).withValues(alpha: isDark ? 0.16 : 0.12),
+            border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.35), width: 1),
+          ),
+          child: const Center(
+            child: Icon(PhosphorIcons.storefrontBold, color: Color(0xFFEC4899), size: 18),
+          ),
+        ),
+      ),
       body: SafeArea(
         child: NestedScrollView(
           physics: const BouncingScrollPhysics(),
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                  child: _buildHeader(),
-                ),
-              ),
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _StickyTabBarDelegate(
@@ -512,6 +522,15 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Gizli Key widget'lar ganimet toplama töreni partikül uçuş hedefi için konumlandırıldı[cite: 7]
+                Offstage(
+                  child: Row(
+                    children: [
+                      Container(key: _hudGemsKey),
+                      Container(key: _hudXpKey),
+                    ],
+                  ),
+                ),
                 _buildTodayActiveInventoryBar(),
                 if (_selectedTabIndex == 0) ...[
                   _buildShieldWarningBanner(),
@@ -646,74 +665,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Ganimet Dükkanı', style: GoogleFonts.outfit(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-              Text('Prestij Odası & Koleksiyon Dolabı', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12)),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ValueListenableBuilder<int>(
-              valueListenable: XpShopService.instance.gemsNotifier,
-              builder: (context, gems, _) {
-                return Container(
-                  key: _hudGemsKey,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFF38BDF8)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
-                      const SizedBox(width: 4),
-                      Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 6),
-            ValueListenableBuilder<int>(
-              valueListenable: XpShopService.instance.xpNotifier,
-              builder: (context, xp, _) {
-                return Container(
-                  key: _hudXpKey,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFF59E0B)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
-                      const SizedBox(width: 3),
-                      Text('$xp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ],
     );
   }
 

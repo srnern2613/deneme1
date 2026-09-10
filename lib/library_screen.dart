@@ -1,6 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/library_screen.dart
-// AÇIKLAMA: Kitaplık, Hibrit Navigasyon Banner'ı ve Akıllı Boş Durumlar (Smart Empty States)
+// AÇIKLAMA: Kitaplık, Hibrit Navigasyon Banner'ı, Akıllı Boş Durumlar ve
+//            Reaktif AppHeader Entegrasyonu.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -21,6 +22,7 @@ import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
 import 'shop_screen.dart';
 import 'dictionary_screen.dart';
+import 'app_header.dart'; // Global AppHeader İçe Aktarımı[cite: 4]
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -415,67 +417,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
+      // GLOBAL APP HEADER ENTEGRASYONU[cite: 4]
+      appBar: AppHeader(
+        title: 'Kitaplık',
+        subtitle: 'Kişisel Kütüphane & Okuma',
+        onShopTap: _openShopScreen,
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF10B981).withValues(alpha: 0.16),
+            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35), width: 1),
+          ),
+          child: const Center(
+            child: Icon(PhosphorIcons.booksBold, color: Color(0xFF10B981), size: 18),
+          ),
+        ),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Kitaplık', style: GoogleFonts.outfit(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
-                      Text('Kişisel Kütüphane & Okuma', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12)),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      ValueListenableBuilder<int>(
-                        valueListenable: XpShopService.instance.gemsNotifier,
-                        builder: (context, gems, _) {
-                          return InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: _openShopScreen,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF38BDF8))),
-                              child: Row(
-                                children: [
-                                  const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
-                                  const SizedBox(width: 5),
-                                  Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ValueListenableBuilder<int>(
-                        valueListenable: XpShopService.instance.xpNotifier,
-                        builder: (context, xp, _) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFF59E0B))),
-                            child: Row(
-                              children: [
-                                const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
-                                const SizedBox(width: 4),
-                                Text('$xp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              
+              const SizedBox(height: 6),
               _buildReadingDashboard(),
               
               const SizedBox(height: 14),

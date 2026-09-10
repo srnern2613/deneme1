@@ -1,6 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Profil, Okuma Isı Haritası, İhtişamlı Başarılar ve Dinamik Mağaza Kozmetikleri
+// AÇIKLAMA: Profil, Okuma Isı Haritası, İhtişamlı Başarılar, Dinamik Mağaza 
+//            Kozmetikleri ve Reaktif AppHeader Entegrasyonu.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -20,6 +21,7 @@ import 'dictionary_screen.dart';
 import 'leaderboard_screen.dart';
 import 'shop_screen.dart';
 import 'achievement_service.dart';
+import 'app_header.dart'; // Global AppHeader İçe Aktarımı[cite: 3]
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -141,6 +143,11 @@ class ProfileScreenState extends State<ProfileScreen> {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen)).then((_) {
       if (mounted) _loadProfileData();
     });
+  }
+
+  void _openShopScreen() {
+    HapticFeedback.lightImpact();
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShopScreen())).then((_) => _loadProfileData());
   }
 
   void _showBadgeDetailDialog(Map<String, dynamic> badge, bool isUnlocked) {
@@ -275,8 +282,28 @@ class ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
+      // GLOBAL APP HEADER ENTEGRASYONU[cite: 3, 8]
+      appBar: AppHeader(
+        title: 'Profil',
+        subtitle: 'İlerleme & Başarı Odası',
+        onShopTap: _openShopScreen,
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFA855F7).withValues(alpha: isDark ? 0.16 : 0.12),
+            border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.35), width: 1),
+          ),
+          child: const Center(
+            child: Icon(PhosphorIcons.userBold, color: Color(0xFFA855F7), size: 18),
+          ),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -284,7 +311,8 @@ class ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildModernProfileHeader(),
+              const SizedBox(height: 6),
+              _buildModernProfileCard(),
               const SizedBox(height: 18),
               _buildMasteryProgressBanner(),
               const SizedBox(height: 16),
@@ -386,125 +414,70 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildModernProfileHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Profil', style: GoogleFonts.outfit(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
-                Text('İlerleme & Başarı Odası', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12)),
-              ],
-            ),
-            Row(
-              children: [
-                ValueListenableBuilder<int>(
-                  valueListenable: XpShopService.instance.gemsNotifier,
-                  builder: (context, gems, _) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF38BDF8))),
-                      child: Row(
-                        children: [
-                          const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
-                          const SizedBox(width: 5),
-                          Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 8),
-                ValueListenableBuilder<int>(
-                  valueListenable: XpShopService.instance.xpNotifier,
-                  builder: (context, xp, _) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFF59E0B))),
-                      child: Row(
-                        children: [
-                          const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 15),
-                          const SizedBox(width: 4),
-                          Text('$xp XP', style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5), width: 1.5),
-          ),
-          child: Row(
+  Widget _buildModernProfileCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
             children: [
-              Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
-                children: [
-                  _buildCosmeticAvatar(),
-                  if (_hasGoldenCrown)
-                    Positioned(
-                      top: -14,
-                      child: Icon(PhosphorIcons.crownBold, color: const Color(0xFFF59E0B), size: 22)
-                          .animate(onPlay: (c) => c.repeat(reverse: true))
-                          .moveY(duration: 1000.ms, begin: 0, end: -3),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text('Eren', style: GoogleFonts.outfit(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
-                        if (_hasGoldenCrown) ...[
-                          const SizedBox(width: 4),
-                          const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 14),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text('Aktif Seri: $_streakDays Gün 🔥', style: GoogleFonts.inter(color: const Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.bold)),
-                  ],
+              _buildCosmeticAvatar(),
+              if (_hasGoldenCrown)
+                Positioned(
+                  top: -14,
+                  child: Icon(PhosphorIcons.crownBold, color: const Color(0xFFF59E0B), size: 22)
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .moveY(duration: 1000.ms, begin: 0, end: -3),
                 ),
-              ),
-              GestureDetector(
-                onTap: () => _navigateTo(const ShopScreen()),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: (_hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B)).withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B), width: 1.5),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_hasFreezeShield ? PhosphorIcons.shieldCheckBold : PhosphorIcons.shieldPlusBold, color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B), size: 14),
-                      const SizedBox(width: 4),
-                      Text(_hasFreezeShield ? 'Korumada' : 'Kalkan Al!', style: GoogleFonts.outfit(color: _hasFreezeShield ? const Color(0xFF93C5FD) : const Color(0xFFFDE68A), fontWeight: FontWeight.w900, fontSize: 10.5)),
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('Eren', style: GoogleFonts.outfit(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+                    if (_hasGoldenCrown) ...[
+                      const SizedBox(width: 4),
+                      const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 14),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text('Aktif Seri: $_streakDays Gün 🔥', style: GoogleFonts.inter(color: const Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => _navigateTo(const ShopScreen()),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: (_hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B)).withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B), width: 1.5),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_hasFreezeShield ? PhosphorIcons.shieldCheckBold : PhosphorIcons.shieldPlusBold, color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B), size: 14),
+                  const SizedBox(width: 4),
+                  Text(_hasFreezeShield ? 'Korumada' : 'Kalkan Al!', style: GoogleFonts.outfit(color: _hasFreezeShield ? const Color(0xFF93C5FD) : const Color(0xFFFDE68A), fontWeight: FontWeight.w900, fontSize: 10.5)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

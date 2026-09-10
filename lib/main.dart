@@ -2,7 +2,7 @@
 // DOSYA ADI: lib/main.dart
 // AÇIKLAMA: Uygulamanın Ana Giriş Kapısı, Global Tema Yapılandırması,
 //            IndexedStack Tabanlı 5 Sekmeli Navigasyon Çerçevesi ve
-//            Reaktif Değer Dinleyicileriyle Güncellenmiş Lobi & HUD Ekranı.
+//            Reaktif AppHeader Entegrasyonlu Lobi & HUD Ekranı.
 // ============================================================================
 
 import 'dart:async';
@@ -32,6 +32,7 @@ import 'database_helper.dart';
 import 'streak_freeze_service.dart';
 import 'mini_player.dart';
 import 'achievement_service.dart';
+import 'app_header.dart'; // Global AppHeader İçe Aktarımı
 
 /// Uygulamanın işletim sistemi düzeyindeki ilk tetiklenme noktasıdır.
 void main() async {
@@ -723,9 +724,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final action = _determineNextBestAction();
     final bottomSafePadding = MediaQuery.of(context).padding.bottom + 130.0;
+    final greeting = _getTimeBasedGreeting();
 
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
+      // REAKTİF VE TAŞMA KORUMALI GLOBAL APP HEADER BAĞLANTISI
+      appBar: AppHeader(
+        title: '$greeting, Eren',
+        // "Bugün seni bekleyen görevler hazır." satırı kaldırıldı — başlık
+        // artık ikinci bir satırla ve sayaçlarla yer rekabetine girmiyor.
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.14),
+          ),
+          // NOT: PhosphorIcons.handWavingBold adını bu projede başka bir
+          // yerde doğrulayamadım (fireBold/swordBold gibi diğerleri zaten
+          // kullanılıyordu). Derleyici bu ismi tanımazsa phosphoricons.com'da
+          // "wave" arayıp doğru camelCase adını buraya yazman yeterli.
+          child: const Icon(PhosphorIcons.handWavingBold, color: Color(0xFFF59E0B), size: 20),
+        ),
+        streak: _currentStreak,
+        onShopTap: widget.onNavigateToShop,
+        onStreakTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
+          ).then((_) => refreshDashboardStats());
+        },
+      ),
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -736,9 +764,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildPersonalStateHeader(),
-                  const SizedBox(height: 16),
-
                   _buildWordOfTheDayBanner(),
                   const SizedBox(height: 16),
 
@@ -846,147 +871,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPersonalStateHeader() {
-    final greeting = _getTimeBasedGreeting();
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '👋 $greeting, Eren',
-                style: GoogleFonts.outfit(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.3,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Bugün seni bekleyen görevler hazır.',
-                style: GoogleFonts.inter(
-                  color: const Color(0xFF94A3B8),
-                  fontSize: 11,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // REAKTİF ELMAS SAYACI (ValueListenableBuilder ile anlık güncellenir)
-            ValueListenableBuilder<int>(
-              valueListenable: XpShopService.instance.gemsNotifier,
-              builder: (context, gems, _) {
-                return InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: widget.onNavigateToShop,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF111827),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35), width: 1.2),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 13),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$gems',
-                          style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 5),
-
-            InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
-                ).then((_) => refreshDashboardStats());
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: _isStreakProtectedToday ? const Color(0xFF10B981) : Colors.orange,
-                    width: 1.2,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      PhosphorIcons.fireBold,
-                      color: _isStreakProtectedToday ? const Color(0xFF10B981) : Colors.orange,
-                      size: 13,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      '$_currentStreak G',
-                      style: GoogleFonts.outfit(
-                        color: _isStreakProtectedToday ? const Color(0xFF10B981) : Colors.orange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 5),
-
-            // REAKTİF XP SAYACI (ValueListenableBuilder ile anlık güncellenir)
-            ValueListenableBuilder<int>(
-              valueListenable: XpShopService.instance.xpNotifier,
-              builder: (context, xp, _) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 1.2),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 13),
-                      const SizedBox(width: 3),
-                      Text(
-                        '$xp',
-                        style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 11.5),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ],
     );
   }
 
