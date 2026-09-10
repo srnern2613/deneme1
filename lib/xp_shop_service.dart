@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/xp_shop_service.dart
-// AÇIKLAMA: Mağaza Ekonomi Servisi, Değer Senkronizasyonu, Kozmetik ve Güç Yönetimi
+// AÇIKLAMA: Mağaza Ekonomi Servisi, Atomik Rollback Mekanizması, Değer Senkronizasyonu
 // ============================================================================
 
 import 'package:flutter/foundation.dart';
@@ -63,6 +63,7 @@ class XpShopService {
     return updatedGems;
   }
 
+  /// Doğrudan elmas harcamak yerine basit eksiltmeler için kullanılır.
   Future<bool> spendGems(int amount) async {
     final prefs = await SharedPreferences.getInstance();
     int currentGems = prefs.getInt('user_gems_balance') ?? 50;
@@ -73,6 +74,38 @@ class XpShopService {
       return true;
     }
     return false;
+  }
+
+  /// ATOMİK SATIN ALIM VE ROLLBACK MEKANİZMASI
+  /// Satın alma işlemi sırasında SharedPreferences yazma hatası oluşursa,
+  /// düşülen elmas miktarı kullanıcıya otomatik iade edilir.
+  Future<bool> buyItemWithRollback(String itemId, int price, {String? categoryToEquip}) async {
+    final prefs = await SharedPreferences.getInstance();
+    int currentGems = prefs.getInt('user_gems_balance') ?? 50;
+
+    if (currentGems < price) return false;
+
+    // 1. Adım: Elması Düş (Optimistic Update)
+    int updatedGems = currentGems - price;
+    await prefs.setInt('user_gems_balance', updatedGems);
+    gemsNotifier.value = updatedGems;
+
+    try {
+      // 2. Adım: Eşyayı Kaydet
+      await prefs.setBool('item_owned_$itemId', true);
+      await prefs.setBool('item_$itemId', true);
+
+      if (categoryToEquip != null) {
+        await prefs.setString('active_cosmetic_$categoryToEquip', itemId);
+      }
+      return true; // İşlem Kusursuz Tamamlandı
+    } catch (e) {
+      // 3. Adım: Hata Durumunda ROLLBACK (İade)
+      await prefs.setInt('user_gems_balance', currentGems);
+      gemsNotifier.value = currentGems;
+      debugPrint('ShopService Kritik Hata: Satın alım başarısız, rollback uygulandı. Hata: $e');
+      throw Exception('Satın alma işlemi başarısız oldu, elmaslarınız iade edildi.');
+    }
   }
 
   Future<bool> hasFreezeShield() async {
@@ -106,12 +139,6 @@ class XpShopService {
   Future<bool> hasItem(String itemId) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('item_owned_$itemId') ?? prefs.getBool('item_$itemId') ?? false;
-  }
-
-  Future<void> buyItem(String itemId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('item_owned_$itemId', true);
-    await prefs.setBool('item_$itemId', true);
   }
 
   Future<void> revokeItem(String itemId) async {

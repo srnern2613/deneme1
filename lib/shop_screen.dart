@@ -1,7 +1,9 @@
 // ============================================================================
 // DOSYA ADI: lib/shop_screen.dart
 // AÇIKLAMA: Mağaza, Sabit Sekmeli Ganimet Dolabı, Kompakt Akordeon Güçler,
-//            AbsorbPointer Zırhlı Sandık Sistemi ve Metin Kırılma Korumalı Kozmetik Kartları
+//            AbsorbPointer Zırhlı Sandık Sistemi, Metin Kırılma Koruması,
+//            Ölü Kodlardan Arındırılmış ve Context Caching (Bağlam Sabitleme)
+//            Kurallarına Uygun Tam Linter-Free Mimari.
 // ============================================================================
 
 import 'dart:async';
@@ -29,16 +31,15 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   bool _hasGoldenCrown = false;
   bool _hasFlameBorder = false;
   bool _isWagerActive = false;
-  bool _hasUsedRepairToday = false;
   int _chestsOpenedToday = 0;
   int _wagerProgressDays = 3;
 
   String _activeFrame = 'none';
   String _activeTheme = 'default';
 
-  int _selectedTabIndex = 0; // 0: Fırsatlar, 1: Güvence, 2: Çerçeveler, 3: Temalar, 4: Prestij
-  bool _isInventoryExpanded = false; // Kompakt Aktif Güçler Akordeon Kontrolü
-  bool _isChestOpeningInProgress = false; // Race-condition / Çift Tıklama Koruması
+  int _selectedTabIndex = 0; 
+  bool _isInventoryExpanded = false; 
+  bool _isChestOpeningInProgress = false; 
 
   final Map<String, bool> _ownedItems = {};
 
@@ -103,7 +104,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       final crown = await XpShopService.instance.hasItem('golden_crown');
       final flame = await XpShopService.instance.hasItem('flame_border');
       final wager = prefs.getBool('is_wager_active') ?? false;
-      final repairUsed = prefs.getBool('streak_repair_used_today') ?? false;
       final chestsCount = prefs.getInt('chests_opened_today') ?? 0;
       final wagerDays = prefs.getInt('wager_progress_days') ?? 3;
 
@@ -124,7 +124,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
         _activeFrame = frame;
         _activeTheme = theme;
         _isWagerActive = wager;
-        _hasUsedRepairToday = repairUsed;
         _chestsOpenedToday = chestsCount;
         _wagerProgressDays = wagerDays;
         _ownedItems.clear();
@@ -148,8 +147,13 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
 
   Future<void> _dropItem(String itemId, String category) async {
     HapticFeedback.mediumImpact();
+    
+    // ALTIN KURAL: Context Caching
+    final currentContext = context;
+    
     await XpShopService.instance.revokeItem(itemId);
     if (!mounted) return;
+    
     if (category == 'frame' && _activeFrame == itemId) {
       await XpShopService.instance.setActiveCosmetic('frame', 'none');
     } else if (category == 'reading_theme' && _activeTheme == itemId) {
@@ -157,9 +161,12 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     } else if (category == 'crown') {
       await XpShopService.instance.revokeItem('golden_crown');
     }
+    
     await _loadShopData();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    
+    // Sabitlenmiş context üzerinden UI çağrısı
+    if (!currentContext.mounted) return;
+    ScaffoldMessenger.of(currentContext).showSnackBar(
       const SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: Color(0xFFEF4444),
@@ -168,15 +175,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     );
   }
 
-  Future<void> _addDebugGems() async {
-    HapticFeedback.heavyImpact();
-    await XpShopService.instance.addGems(500);
-    if (!mounted) return;
-    await _loadShopData();
-  }
-
-  void _triggerDualFlyToHudEffect({required Offset startPosition, required int addedGems, required int addedXp}) {
-    final overlay = Overlay.of(context);
+  void _triggerDualFlyToHudEffect(BuildContext currentContext, {required Offset startPosition, required int addedGems, required int addedXp}) {
+    final overlay = Overlay.of(currentContext);
     final RenderBox? gemsBox = _hudGemsKey.currentContext?.findRenderObject() as RenderBox?;
     final RenderBox? xpBox = _hudXpKey.currentContext?.findRenderObject() as RenderBox?;
 
@@ -186,7 +186,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     final xpTarget = xpBox.localToGlobal(Offset.zero) + Offset(xpBox.size.width / 2, xpBox.size.height / 2);
 
     const particleCount = 10;
-
     late OverlayEntry overlayEntry;
     int completedParticles = 0;
 
@@ -240,7 +239,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     overlay.insert(overlayEntry);
   }
 
-  // --- PSİKOLOJİK DEĞER ÇAPALAMA VE YÜKSEK NİYETLİ POPUP ---
   void _showInsufficientGemsDialog(int requiredGems) {
     HapticFeedback.vibrate();
     final missingGems = requiredGems - XpShopService.instance.gemsNotifier.value;
@@ -274,7 +272,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     const SizedBox(height: 20),
                     Text('GANİMETİ KAÇIRMA!', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontSize: 21, fontWeight: FontWeight.w900, decoration: TextDecoration.none)),
                     const SizedBox(height: 10),
-                    Text('Bu hazineye ulaşmak için yalnızca $missingGems Elmasa ihtiyacın var. Fırsatı yakala!', textAlign: TextAlign.center, style: GoogleFonts.inter(color: const Color(0xFFCBD5E1), fontSize: 13.5, decoration: TextDecoration.none)),
+                    Text('Bu hazineye ulaşmak için yalnızca $missingGems Elmasa ihtiyacın var. Görevlerini tamamla ve fırsatı yakala!', textAlign: TextAlign.center, style: GoogleFonts.inter(color: const Color(0xFFCBD5E1), fontSize: 13.5, decoration: TextDecoration.none)),
                     const SizedBox(height: 26),
                     SizedBox(
                       width: double.infinity,
@@ -285,12 +283,18 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                           foregroundColor: const Color(0xFF070B14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
+                        // Senkron işlem: Bağlam sabitlemeye gerek yoktur.
                         onPressed: () {
-                          if (!mounted) return;
                           Navigator.pop(ctx);
-                          _addDebugGems();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Hemen Lobiye dönüp görevleri tamamla! 🏹', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                              backgroundColor: const Color(0xFF38BDF8),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
                         },
-                        child: Text('Hemen Sahip Ol (500 Elmas)', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15)),
+                        child: Text('Görevlere Git & Kazan', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15)),
                       ),
                     ),
                   ],
@@ -319,8 +323,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             earnedGems: earnedGems,
             earnedXp: earnedXp,
             onCollect: (screenCenter) async {
-              if (!mounted) return;
-              Navigator.pop(context);
+              // ALTIN KURAL: Context Caching
+              final currentContext = context;
+              Navigator.pop(currentContext); // Dialog'u kapat (Senkron)
+              
               final prefs = await SharedPreferences.getInstance();
               final currentChests = prefs.getInt('chests_opened_today') ?? 0;
               await prefs.setInt('chests_opened_today', currentChests + 1);
@@ -328,8 +334,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
               await XpShopService.instance.addGems(earnedGems);
               await XpShopService.instance.addXp(earnedXp);
 
-              if (!mounted) return;
-              _triggerDualFlyToHudEffect(startPosition: screenCenter, addedGems: earnedGems, addedXp: earnedXp);
+              // Sabitlenmiş context üzerinden UI efekti
+              if (!currentContext.mounted) return;
+              _triggerDualFlyToHudEffect(currentContext, startPosition: screenCenter, addedGems: earnedGems, addedXp: earnedXp);
             },
           ),
         );
@@ -350,48 +357,48 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     HapticFeedback.mediumImpact();
 
     if (XpShopService.instance.gemsNotifier.value < price) {
-      if (!mounted) return;
       _showInsufficientGemsDialog(price);
       return;
     }
 
+    // ALTIN KURAL: Context Caching
+    final currentContext = context;
+
     try {
-      final success = await XpShopService.instance.spendGems(price);
-      if (!mounted) return;
+      final success = await XpShopService.instance.buyItemWithRollback(itemId, price, categoryToEquip: categoryToEquip);
+      if (!currentContext.mounted) return;
+      
       if (success) {
-        await XpShopService.instance.buyItem(itemId);
-        if (!mounted) return;
-        if (categoryToEquip != null) {
-          await XpShopService.instance.setActiveCosmetic(categoryToEquip, itemId);
-        }
-        if (!mounted) return;
         await _loadShopData();
+        if (!currentContext.mounted) return;
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          SnackBar(
+            content: Text(perkText, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
-    } catch (_) {}
+    } catch (e) {
+      if (!currentContext.mounted) return;
+      ScaffoldMessenger.of(currentContext).showSnackBar(
+        SnackBar(
+          content: Text('Satın alım başarısız oldu. Elmaslarınız iade edildi.', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          backgroundColor: const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
-  // --- KOMPAKT AKORDEON AKTİF GÜÇLER ALANI ---
   Widget _buildTodayActiveInventoryBar() {
     final List<Widget> activePills = [];
 
-    if (_hasFreezeShield) {
-      activePills.add(_buildActivePill(icon: PhosphorIcons.shieldCheckBold, label: 'Seri Kalkanı Aktif', color: const Color(0xFF38BDF8)));
-    }
-    if (_isDoubleXpActive) {
-      activePills.add(_buildActivePill(icon: PhosphorIcons.lightningBold, label: 'Çift XP Aktif (2x)', color: const Color(0xFFF59E0B)));
-    }
-    if (_hasGoldenCrown) {
-      activePills.add(_buildActivePill(icon: PhosphorIcons.crownBold, label: 'Kraliyet Tacı Takılı', color: const Color(0xFFF59E0B)));
-    }
-    if (_hasFlameBorder) {
-      activePills.add(_buildActivePill(icon: PhosphorIcons.flameBold, label: 'Alev Çerçevesi Aktif', color: const Color(0xFFEC4899)));
-    }
-    if (_hasUsedRepairToday) {
-      activePills.add(_buildActivePill(icon: PhosphorIcons.arrowCounterClockwiseBold, label: 'Seri İhya Kullanıldı', color: const Color(0xFF10B981)));
-    }
-    if (_chestsOpenedToday > 0) {
-      activePills.add(_buildActivePill(icon: PhosphorIcons.treasureChestBold, label: '$_chestsOpenedToday Sandık Açıldı', color: const Color(0xFFEC4899)));
-    }
+    if (_hasFreezeShield) activePills.add(_buildActivePill(icon: PhosphorIcons.shieldCheckBold, label: 'Seri Kalkanı', color: const Color(0xFF38BDF8)));
+    if (_isDoubleXpActive) activePills.add(_buildActivePill(icon: PhosphorIcons.lightningBold, label: 'Çift XP (2x)', color: const Color(0xFFF59E0B)));
+    if (_hasGoldenCrown) activePills.add(_buildActivePill(icon: PhosphorIcons.crownBold, label: 'Taç Takılı', color: const Color(0xFFF59E0B)));
+    if (_hasFlameBorder) activePills.add(_buildActivePill(icon: PhosphorIcons.flameBold, label: 'Alev Çerçevesi', color: const Color(0xFFEC4899)));
+    if (_chestsOpenedToday > 0) activePills.add(_buildActivePill(icon: PhosphorIcons.treasureChestBold, label: '$_chestsOpenedToday Sandık', color: const Color(0xFFEC4899)));
 
     if (activePills.isEmpty) return const SizedBox.shrink();
 
@@ -412,7 +419,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(10),
             onTap: () {
               HapticFeedback.selectionClick();
-              if (!mounted) return;
               setState(() => _isInventoryExpanded = !_isInventoryExpanded);
             },
             child: Row(
@@ -526,12 +532,17 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     activeLabel: 'Kalkan Aktif',
                     onBuy: () async {
                       if (XpShopService.instance.gemsNotifier.value >= 30) {
-                        await XpShopService.instance.spendGems(30);
-                        await XpShopService.instance.setFreezeShield(true);
-                        if (!mounted) return;
-                        _loadShopData();
+                        // ALTIN KURAL: Context Caching
+                        final currentContext = context;
+                        try {
+                           await XpShopService.instance.spendGems(30);
+                           await XpShopService.instance.setFreezeShield(true);
+                           if (mounted) _loadShopData(); // State propertysi
+                        } catch(e){
+                           if (!currentContext.mounted) return;
+                           ScaffoldMessenger.of(currentContext).showSnackBar(const SnackBar(content: Text('İşlem başarısız.'), backgroundColor: Color(0xFFEF4444)));
+                        }
                       } else {
-                        if (!mounted) return;
                         _showInsufficientGemsDialog(30);
                       }
                     },
@@ -547,12 +558,17 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     activeLabel: '2X Aktif',
                     onBuy: () async {
                       if (XpShopService.instance.gemsNotifier.value >= 50) {
-                        await XpShopService.instance.spendGems(50);
-                        await XpShopService.instance.activateDoubleXp();
-                        if (!mounted) return;
-                        _loadShopData();
+                        // ALTIN KURAL: Context Caching
+                        final currentContext = context;
+                        try{
+                           await XpShopService.instance.spendGems(50);
+                           await XpShopService.instance.activateDoubleXp();
+                           if (mounted) _loadShopData(); // State propertysi
+                        } catch(e){
+                           if (!currentContext.mounted) return;
+                           ScaffoldMessenger.of(currentContext).showSnackBar(const SnackBar(content: Text('İşlem başarısız.'), backgroundColor: Color(0xFFEF4444)));
+                        }
                       } else {
-                        if (!mounted) return;
                         _showInsufficientGemsDialog(50);
                       }
                     },
@@ -604,7 +620,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       borderRadius: BorderRadius.circular(16),
       onTap: () {
         HapticFeedback.selectionClick();
-        if (!mounted) return;
         setState(() => _selectedTabIndex = index);
       },
       child: AnimatedContainer(
@@ -672,8 +687,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                       const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
                       const SizedBox(width: 4),
                       Text('$gems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                      const SizedBox(width: 6),
-                      InkWell(onTap: _addDebugGems, child: const Icon(PhosphorIcons.plusBold, color: Color(0xFF38BDF8), size: 14)),
                     ],
                   ),
                 );
@@ -770,7 +783,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     );
   }
 
-  // --- ACİLİYET ROZETLİ ("Günün Fırsatı ✨") DESTANSI SANDIK KARTI & ABSORBPOINTER ---
   Widget _buildShowcaseChestCard() {
     return Stack(
       clipBehavior: Clip.none,
@@ -816,7 +828,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                         }
                       }
                     } else {
-                      if (!mounted) return;
                       _showInsufficientGemsDialog(45);
                     }
                   },
@@ -865,7 +876,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     );
   }
 
-  // --- METİN KIRILMA KORUMALI (FLEXIBLE + ELLIPSIS) KOZMETİK KARTI ---
   Widget _buildCosmeticWardrobeCard({required String itemId, required String category, required IconData icon, required Color iconColor, required String title, required String desc, required int price}) {
     final bool isOwned = _ownedItems[itemId] ?? false;
     bool isEquipped = category == 'frame' ? (_activeFrame == itemId) : (category == 'crown' ? _hasGoldenCrown : (_activeTheme == itemId));
@@ -1005,32 +1015,23 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 }
 
-// -----------------------------------------------------------------------------
-// STICKY (SABİT) HEADER DELEGATE
-// -----------------------------------------------------------------------------
 class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
   _StickyTabBarDelegate({required this.child});
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return child;
-  }
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => child;
 
   @override
   double get maxExtent => 60.0;
-
   @override
   double get minExtent => 60.0;
-
   @override
-  bool shouldRebuild(covariant _StickyTabBarDelegate oldDelegate) {
-    return oldDelegate.child != child;
-  }
+  bool shouldRebuild(covariant _StickyTabBarDelegate oldDelegate) => oldDelegate.child != child;
 }
 
 // -----------------------------------------------------------------------------
-// GACHA 3 AŞAMALI SANDIK AÇILIŞ TÖRENİ
+// NATIVE DONANIM HIZLANDIRMALI RÜN KIRILMA TÖRENİ (GACHA SYSTEM)
 // -----------------------------------------------------------------------------
 class _ChestOpeningDialog extends StatefulWidget {
   final int earnedGems;
@@ -1043,19 +1044,40 @@ class _ChestOpeningDialog extends StatefulWidget {
   State<_ChestOpeningDialog> createState() => _ChestOpeningDialogState();
 }
 
-class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
+class _ChestOpeningDialogState extends State<_ChestOpeningDialog> with SingleTickerProviderStateMixin {
   int _crackStage = 0;
+  bool _isTapLocked = false;
+  late AnimationController _sealController;
+  late Animation<double> _sealAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _sealController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _sealAnimation = CurvedAnimation(parent: _sealController, curve: Curves.easeOutBack);
+  }
+
+  @override
+  void dispose() {
+    _sealController.dispose();
+    super.dispose();
+  }
 
   void _startOpening() {
-    if (_crackStage >= 1) return;
+    if (_crackStage >= 1 || _isTapLocked) return;
+    setState(() => _isTapLocked = true);
     HapticFeedback.heavyImpact();
-    if (!mounted) return;
     setState(() => _crackStage = 1);
+    
+    _sealController.forward();
 
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (!mounted) return;
       HapticFeedback.vibrate();
-      setState(() => _crackStage = 2);
+      setState(() {
+        _crackStage = 2;
+        _isTapLocked = false;
+      });
     });
   }
 
@@ -1064,6 +1086,7 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
     final screenSize = MediaQuery.of(context).size;
     return GestureDetector(
       onTap: _crackStage == 0 ? _startOpening : null,
+      behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Center(
@@ -1075,16 +1098,32 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
                     .animate(onPlay: (c) => c.repeat(reverse: true))
                     .scale(begin: const Offset(1, 1), end: const Offset(1.05, 1.05), duration: 800.ms)
               else if (_crackStage == 1)
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: const Color(0xFFEC4899), blurRadius: 40, spreadRadius: 10)],
-                  ),
-                  child: const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 100),
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: const Color(0xFFEC4899), blurRadius: 40, spreadRadius: 10)],
+                      ),
+                      child: const Icon(PhosphorIcons.treasureChestBold, color: Color(0xFFF472B6), size: 100),
+                    )
+                        .animate(onPlay: (c) => c.repeat())
+                        .shake(hz: 8, curve: Curves.easeInOut)
+                        .scale(begin: const Offset(1, 1), end: const Offset(1.15, 1.15), duration: 1200.ms),
+                    RepaintBoundary(
+                      child: AnimatedBuilder(
+                        animation: _sealAnimation,
+                        builder: (context, child) {
+                          return CustomPaint(
+                            size: const Size(180, 180),
+                            painter: _RuneSealPainter(_sealAnimation.value),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 )
-                    .animate(onPlay: (c) => c.repeat())
-                    .shake(hz: 8, curve: Curves.easeInOut)
-                    .scale(begin: const Offset(1, 1), end: const Offset(1.15, 1.15), duration: 1200.ms)
               else if (_crackStage == 2)
                 Container(
                   decoration: BoxDecoration(
@@ -1103,7 +1142,7 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
                 Text('Açmak İçin Dokun!', style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900))
                     .animate().fadeIn()
               else if (_crackStage == 1)
-                Text('Açılıyor...', style: GoogleFonts.outfit(color: const Color(0xFFF472B6), fontSize: 20, fontWeight: FontWeight.w900))
+                Text('Mühür Kırılıyor...', style: GoogleFonts.outfit(color: const Color(0xFFF472B6), fontSize: 20, fontWeight: FontWeight.w900))
                     .animate().fadeIn().shake(hz: 4)
               else ...[
                 Row(
@@ -1117,17 +1156,24 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
                   ],
                 ).animate().scale(curve: Curves.elasticOut, duration: 800.ms).fadeIn(),
                 const SizedBox(height: 30),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981), 
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    elevation: 8,
-                    shadowColor: const Color(0xFF10B981).withValues(alpha: 0.5)
-                  ),
-                  onPressed: () => widget.onCollect(Offset(screenSize.width / 2, screenSize.height / 2)),
-                  child: Text('Topla & Kapat', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16)),
-                ).animate().slideY(begin: 1, end: 0, curve: Curves.easeOutBack, duration: 600.ms).fadeIn(),
+                AbsorbPointer(
+                  absorbing: _isTapLocked,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981), 
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      elevation: 8,
+                      shadowColor: const Color(0xFF10B981).withValues(alpha: 0.5)
+                    ),
+                    onPressed: () {
+                      if (_isTapLocked) return;
+                      setState(() => _isTapLocked = true);
+                      widget.onCollect(Offset(screenSize.width / 2, screenSize.height / 2));
+                    },
+                    child: Text('Topla & Kapat', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16)),
+                  ).animate().slideY(begin: 1, end: 0, curve: Curves.easeOutBack, duration: 600.ms).fadeIn(),
+                ),
               ],
             ],
           ),
@@ -1135,6 +1181,38 @@ class _ChestOpeningDialogState extends State<_ChestOpeningDialog> {
       ),
     );
   }
+}
+
+// -----------------------------------------------------------------------------
+// NATIVE CUSTOM PAINT - RÜN KIRILMA (SHATTER) EFEKTİ
+// -----------------------------------------------------------------------------
+class _RuneSealPainter extends CustomPainter {
+  final double progress;
+  _RuneSealPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress == 0) return;
+    final paint = Paint()
+      ..color = const Color(0xFFF59E0B).withValues(alpha: (1.0 - progress).clamp(0.0, 1.0))
+      ..strokeWidth = 3 + (progress * 4)
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 8);
+
+    final path = Path();
+    final center = Offset(size.width / 2, size.height / 2);
+    
+    for (int i = 0; i < 6; i++) {
+      final angle = (i * pi / 3) + (pi / 6);
+      final distance = (size.width / 2) * progress;
+      path.moveTo(center.dx, center.dy);
+      path.lineTo(center.dx + cos(angle) * distance, center.dy + sin(angle) * distance);
+    }
+    canvas.drawPath(path, paint);
+  }
+  
+  @override
+  bool shouldRepaint(covariant _RuneSealPainter old) => old.progress != progress;
 }
 
 // -----------------------------------------------------------------------------
