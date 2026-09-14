@@ -1,6 +1,6 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: Draconic Lingua - Hazır Logolu ve Çözünürlük Duyarlı Lobi Ekranı
+// AÇIKLAMA: Draconic Lingua - Boşluğu Alınmış Büyük Logo ve Kontrastlı İlerleme Barları (Tam Kod)
 // ============================================================================
 
 import 'dart:async';
@@ -289,7 +289,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: const Color(0xFF070B14), 
       body: Stack(
         children: [
-          // 1. KATMAN: KALE SİLUETLİ ARKA PLAN GÖRSELİ VE KARANLIK GEÇİŞ
+          // 1. KATMAN: KALE SİLUETLİ ARKA PLAN GÖRSELİ VE KARANLIK GEÇİŞ[cite: 3]
           Positioned.fill(
             child: Stack(
               children: [
@@ -320,7 +320,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           
-          // 2. KATMAN: LOBİ İÇERİĞİ
+          // 2. KATMAN: LOBİ İÇERİĞİ[cite: 3]
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -328,91 +328,101 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- 1. ÜST MARKA (HAZIR LOGO GÖRSELİ) VE MİNİMALİST HUD ---
+                  // --- 1. ÜST MARKA (DİKEY LOGO - SCALE İLE BOŞLUKLAR GİDERİLDİ) VE MİNİMALİST HUD ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Sol Taraf: Hazır Logo Görseli (Farklı ekranlar için esnek ve güvenli oran)
+                      // Sol Taraf: Dikey Logo (Transform.scale ile etrafındaki şeffaf boşluklar kırpılarak büyütüldü)
                       Expanded(
-                        flex: 45,
-                        child: Image.asset(
-                          'assets/images/lobi_logo.png',
-                          height: 38,
+                        flex: 38,
+                        child: Align(
                           alignment: Alignment.centerLeft,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) => Text(
-                            'Draconic Lingua', 
-                            style: GoogleFonts.lora(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)
+                          child: SizedBox(
+                            height: 72,
+                            child: Transform.scale(
+                              scale: 1.35,
+                              alignment: Alignment.centerLeft,
+                              child: Image.asset(
+                                'assets/images/lobi_logo1.png',
+                                fit: BoxFit.contain,
+                                alignment: Alignment.centerLeft,
+                                errorBuilder: (context, error, stackTrace) => Text(
+                                  'Draconic Lingua', 
+                                  style: GoogleFonts.lora(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      // Sağ Taraf: Sayaçlar (Taşma korumalı)
+                      const SizedBox(width: 2),
+                      // Sağ Taraf: Sayaçlar (Taşma korumalı, optimize edilmiş esnek oran)[cite: 3]
                       Expanded(
-                        flex: 55,
+                        flex: 62,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             // XP Sayaç
                             Flexible(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF0F172A).withValues(alpha: 0.75),
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: const Color(0xFF1F2937)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 12),
+                                    const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 11),
                                     const SizedBox(width: 2),
-                                    Flexible(child: Text(_formatNumber(_xp), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5))),
+                                    Flexible(child: Text(_formatNumber(_xp), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5))),
                                   ],
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 2),
                             // Elmas Sayaç
                             Flexible(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF0F172A).withValues(alpha: 0.75),
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: const Color(0xFF1F2937)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(PhosphorIcons.sketchLogoBold, color: Color(0xFF34D399), size: 12),
+                                    const Icon(PhosphorIcons.sketchLogoBold, color: Color(0xFF34D399), size: 11),
                                     const SizedBox(width: 2),
-                                    Flexible(child: Text(_formatNumber(_gems), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5))),
+                                    Flexible(child: Text(_formatNumber(_gems), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5))),
                                   ],
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 2),
                             // Streak Sayaç
                             Flexible(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF0F172A).withValues(alpha: 0.75),
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: const Color(0xFF1F2937)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(PhosphorIcons.fireBold, color: Color(0xFFF59E0B), size: 12),
+                                    const Icon(PhosphorIcons.fireBold, color: Color(0xFFF59E0B), size: 11),
                                     const SizedBox(width: 2),
-                                    Flexible(child: Text(_formatNumber(_currentStreak), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5))),
+                                    Flexible(child: Text(_formatNumber(_currentStreak), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5))),
                                   ],
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 2),
                             // Profil İkonu
                             GestureDetector(
                               onTap: () {
@@ -421,14 +431,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ).then((_) => refreshDashboardStats());
                               },
                               child: Container(
-                                width: 30,
-                                height: 30,
+                                width: 24,
+                                height: 24,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: const Color(0xFF0F172A).withValues(alpha: 0.75),
                                   border: Border.all(color: const Color(0xFF1F2937)),
                                 ),
-                                child: const Icon(PhosphorIcons.userBold, color: Colors.white, size: 14),
+                                child: const Icon(PhosphorIcons.userBold, color: Colors.white, size: 11),
                               ),
                             ),
                           ],
@@ -436,9 +446,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // --- 2. HERO DERS KARTI ---
+                  // --- 2. HERO DERS KARTI (YÜKSEK KONTRASTLI İLERLEME BARI) ---[cite: 3, 4]
                   Container(
                     width: double.infinity,
                     constraints: const BoxConstraints(minHeight: 190),
@@ -490,8 +500,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       child: LinearProgressIndicator(
                                         value: goalProgress,
                                         minHeight: 8,
-                                        backgroundColor: const Color(0xFF1E293B),
-                                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)),
+                                        backgroundColor: const Color(0xFF334155), // Boş kısım için açık kontrast zemin[cite: 4]
+                                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)), // Dolu kısım doygun altın[cite: 4]
                                       ),
                                     ),
                                   ),
@@ -559,7 +569,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 28),
 
-                  // --- 3. DEVAM EDEN KİTAPLAR ---
+                  // --- 3. DEVAM EDEN KİTAPLAR (YÜKSEK KONTRASTLI MİNİ BARLAR) ---[cite: 3, 4]
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -634,8 +644,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           child: LinearProgressIndicator(
                                             value: progress,
                                             minHeight: 4,
-                                            backgroundColor: const Color(0xFF1E293B),
-                                            valueColor: AlwaysStoppedAnimation<Color>(isSelected ? const Color(0xFFF59E0B) : const Color(0xFF38BDF8)),
+                                            backgroundColor: const Color(0xFF334155), // Açık kontrast zemin[cite: 4]
+                                            valueColor: AlwaysStoppedAnimation<Color>(isSelected ? const Color(0xFFF59E0B) : const Color(0xFF38BDF8)), // Doygun renk[cite: 4]
                                           ),
                                         ),
                                       ],
@@ -648,7 +658,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 28),
 
-                  // --- 4. GÜNLÜK SERİ MÜHÜR ÇUBUĞU ---
+                  // --- 4. GÜNLÜK SERİ MÜHÜR ÇUBUĞU ---[cite: 3]
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(18),
@@ -724,7 +734,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // --- 5. GELİŞİM İSTATİSTİKLERİ ---
+                  // --- 5. GELİŞİM İSTATİSTİKLERİ ---[cite: 3]
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
