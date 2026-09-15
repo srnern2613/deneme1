@@ -8,6 +8,7 @@
 //   4. Çift Tıklama & Asenkron Çökme Koruması: _claimingChallengeIds + mounted kontrolü.
 // ============================================================================
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,6 +16,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
+import 'core/design_system/primitives.dart'; // IgnisCharacterPortrait
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -182,25 +184,20 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          'Lig Arenası & Görevler',
-          style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
-        ),
-        centerTitle: true,
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
           : SafeArea(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(18, 10, 18, 30),
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 30),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Lobi/Profil'deki gibi nefes alan özel başlık — standart
+                    // AppBar sıkışıklığı yerine SafeArea içinde serbest Row.
+                    _buildScreenHeaderRow(),
+                    const SizedBox(height: 22),
+
                     // --- 1. LİG BAŞLIK & SIRALAMA BİLGİ KARTI ---
                     _buildLeagueHeaderCard(userRank, xpGapToNext, rivalName),
                     const SizedBox(height: 20),
@@ -229,12 +226,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                            color: const Color(0xFF34D399).withValues(alpha: 0.16),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             'İlk 3 Üst Lige Çıkar',
-                            style: GoogleFonts.outfit(color: const Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 11),
+                            style: GoogleFonts.outfit(color: const Color(0xFF6EE7B7), fontWeight: FontWeight.bold, fontSize: 11),
                           ),
                         ),
                       ],
@@ -248,100 +245,171 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
+  // Lobi/Profil'de kurulan referans başlık: sol avatar/geri alanı yok (bu
+  // ekrana zaten Navigator ile girilir, Profil de aynı şekilde geri butonu
+  // göstermiyor — tutarlılık), Lora serif başlık + sağda AYNI ikon/renk
+  // eşleşmeli (Işık=XP mavi, Sketch-logo=Elmas yeşil) canlı rozetler.
+  Widget _buildScreenHeaderRow() {
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
+            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35), width: 1),
+          ),
+          child: const Center(
+            child: Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 20),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Lig Arenası', style: GoogleFonts.lora(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: 0.1)),
+              Text('Günlük Görevler & Sıralama', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
+        _buildHeaderStatPill(icon: PhosphorIcons.lightningBold, color: const Color(0xFF38BDF8), listenable: XpShopService.instance.xpNotifier),
+        const SizedBox(width: 6),
+        _buildHeaderStatPill(icon: PhosphorIcons.sketchLogoBold, color: const Color(0xFF34D399), listenable: XpShopService.instance.gemsNotifier),
+      ],
+    );
+  }
+
+  Widget _buildHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+      ),
+      child: ValueListenableBuilder<int>(
+        valueListenable: listenable,
+        builder: (context, value, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 4),
+            Text('$value', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Üst Lig Özeti Kartı (Optik Hizalı ve Taşma Korumalı)
   Widget _buildLeagueHeaderCard(int userRank, int xpGap, String rivalName) {
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.only(top: 30),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+          colors: [Color(0xFF17213C), Color(0xFF0B0F1A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5), width: 1.5),
+        border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.4), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
+            color: const Color(0xFFFDE68A).withValues(alpha: 0.12),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 22),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '12. Arena: Kelime Ustası',
-                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Sezon Bitişi: ${_getRemainingSeasonTime()}',
-                      style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
-                ),
-                child: Text(
-                  '#$userRank. Sıra',
-                  style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.w900, fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          if (xpGap > 0) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111827).withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
-              ),
-              child: Row(
+              Row(
                 children: [
-                  const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 18),
-                  const SizedBox(width: 8),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 22),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '12. Arena: Kelime Ustası',
+                          style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Sezon Bitişi: ${_getRemainingSeasonTime()}',
+                          style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111827),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                    ),
                     child: Text(
-                      '${userRank - 1}. sıradaki $rivalName adlı rakibini geçmek için son $xpGap XP!',
-                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                      '#$userRank. Sıra',
+                      style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.w900, fontSize: 13),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+              if (xpGap > 0) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111827).withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${userRank - 1}. sıradaki $rivalName adlı rakibini geçmek için son $xpGap XP!',
+                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          // Ignis: arenada kullanıcıyı destekleyen küçük bir maskot — ileride
+          // sayfaya özel karakterle değişecek tek yer IgnisCharacterPortrait.
+          const Positioned(
+            top: -34,
+            right: 2,
+            child: IgnisCharacterPortrait(size: 66),
+          ),
         ],
       ),
     );
@@ -362,13 +430,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827).withValues(alpha: 0.85),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isCompleted && !isClaimed 
-              ? itemColor.withValues(alpha: 0.6) 
+          color: isCompleted && !isClaimed
+              ? itemColor.withValues(alpha: 0.6)
               : const Color(0xFF1F2937),
-          width: 1.5,
+          width: isCompleted && !isClaimed ? 1.5 : 1,
         ),
       ),
       child: Row(

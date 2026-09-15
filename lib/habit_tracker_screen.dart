@@ -16,6 +16,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'xp_shop_service.dart';
 import 'streak_freeze_service.dart';
 import 'shop_screen.dart';
+import 'core/design_system/primitives.dart'; // IgnisCharacterPortrait
 
 class HabitTrackerScreen extends StatefulWidget {
   const HabitTrackerScreen({super.key});
@@ -393,8 +394,8 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF6366F1),
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF59E0B),
+        foregroundColor: const Color(0xFF070B14),
         onPressed: _showAddHabitDialog,
         icon: const Icon(PhosphorIcons.plusBold),
         label: Text('Yeni Hedef', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
@@ -417,74 +418,91 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
 
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(18),
+                margin: const EdgeInsets.only(top: 30),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5), width: 1.5),
                   boxShadow: [
-                    BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.18), blurRadius: 20, offset: const Offset(0, 6)),
+                    BoxShadow(color: const Color(0xFFFDE68A).withValues(alpha: 0.12), blurRadius: 26, offset: const Offset(0, 10)),
                   ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Bugünkü İlerleme',
-                          style: GoogleFonts.outfit(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                          ),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF17213C), Color(0xFF0B0F1A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.4), width: 1.2),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Icon(PhosphorIcons.fireBold, color: Colors.orange, size: 14),
-                              const SizedBox(width: 4),
                               Text(
-                                '$completedCount / ${_habits.length}',
-                                style: GoogleFonts.outfit(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                                'Bugünkü İlerleme',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(PhosphorIcons.fireBold, color: Color(0xFFF59E0B), size: 14),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '$completedCount / ${_habits.length}',
+                                      style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        backgroundColor: const Color(0xFF1F2937),
-                        color: const Color(0xFF10B981),
-                        minHeight: 7,
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: const Color(0xFF334155),
+                              color: const Color(0xFF34D399),
+                              minHeight: 7,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            completedCount == _habits.length && _habits.isNotEmpty
+                                ? 'Harika! Bugünkü tüm hedeflerini tamamladın! 🚀'
+                                : (_todayPages > 0 || _todayMinutes > 0)
+                                    ? 'Bugün $_todayPages sayfa ($_todayMinutes dk) okundu. Zinciri kırma!'
+                                    : 'Zinciri kırma, bugünkü alışkanlıklarını tamamla.',
+                            style: GoogleFonts.inter(
+                              color: const Color(0xFF94A3B8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      completedCount == _habits.length && _habits.isNotEmpty
-                          ? 'Harika! Bugünkü tüm hedeflerini tamamladın! 🚀'
-                          : (_todayPages > 0 || _todayMinutes > 0)
-                              ? 'Bugün $_todayPages sayfa ($_todayMinutes dk) okundu. Zinciri kırma!'
-                              : 'Zinciri kırma, bugünkü alışkanlıklarını tamamla.',
-                      style: GoogleFonts.inter(
-                        color: const Color(0xFF94A3B8),
-                        fontSize: 12,
-                      ),
+                    const Positioned(
+                      top: -34,
+                      right: 4,
+                      child: IgnisCharacterPortrait(size: 66),
                     ),
                   ],
                 ),
@@ -538,14 +556,14 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                         _habits.removeAt(index);
                       });
                     },
-                    child: Container(
+    child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF111827).withValues(alpha: 0.85),
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isCompleted ? const Color(0xFF10B981).withValues(alpha: 0.35) : const Color(0xFF1F2937),
-                          width: 1.4,
+                          color: isCompleted ? const Color(0xFF34D399).withValues(alpha: 0.4) : const Color(0xFF1F2937),
+                          width: 1,
                         ),
                       ),
                       child: Row(
@@ -554,7 +572,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                             width: 42,
                             height: 42,
                             decoration: BoxDecoration(
-                              color: isCompleted ? const Color(0xFF10B981).withValues(alpha: 0.15) : const Color(0xFF1E293B),
+                              color: isCompleted ? const Color(0xFF34D399).withValues(alpha: 0.15) : const Color(0xFF1E293B),
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Center(
@@ -593,10 +611,10 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 6),
-                                    const Icon(PhosphorIcons.fireBold, size: 12, color: Colors.orange),
+                                    const Icon(PhosphorIcons.fireBold, size: 12, color: Color(0xFFF59E0B)),
                                     Text(
                                       ' ${habit['streak']} Gün',
-                                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange),
+                                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFFDE68A)),
                                     ),
                                     if (type != 'manual') ...[
                                       const SizedBox(width: 6),
@@ -615,7 +633,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                             scale: 1.05,
                             child: Checkbox(
                               value: isCompleted,
-                              activeColor: const Color(0xFF10B981),
+                              activeColor: const Color(0xFF34D399),
                               checkColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                               onChanged: (_) => _toggleHabit(index),
@@ -636,27 +654,25 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   }
 
   Widget _buildStreakProtectionCard() {
+    final Color stateColor = _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFEF4444);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827).withValues(alpha: 0.85),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: _hasFreezeShield ? const Color(0xFF38BDF8).withValues(alpha: 0.5) : Colors.orange.withValues(alpha: 0.4),
-          width: 1.5,
-        ),
+        border: Border.all(color: stateColor.withValues(alpha: 0.45), width: 1.2),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: (_hasFreezeShield ? const Color(0xFF38BDF8) : Colors.orange).withValues(alpha: 0.15),
+              color: stateColor.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(
               _hasFreezeShield ? PhosphorIcons.shieldCheckBold : PhosphorIcons.shieldWarningBold,
-              color: _hasFreezeShield ? const Color(0xFF38BDF8) : Colors.orange,
+              color: stateColor,
               size: 24,
             ),
           ),
@@ -674,11 +690,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                     ),
                     Text(
                       _hasFreezeShield ? '🛡️ Korumada' : '⚠️ Tehlikede',
-                      style: GoogleFonts.outfit(
-                        color: _hasFreezeShield ? const Color(0xFF38BDF8) : Colors.orange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+                      style: GoogleFonts.outfit(color: stateColor, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ],
                 ),
@@ -694,15 +706,16 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
           ),
           if (!_hasFreezeShield) ...[
             const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: _openShop,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF38BDF8),
-                foregroundColor: const Color(0xFF0F172A),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            GestureDetector(
+              onTap: _openShop,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)]),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text('Kalkan Al', style: GoogleFonts.outfit(color: const Color(0xFF070B14), fontWeight: FontWeight.w900, fontSize: 11.5)),
               ),
-              child: Text('Kalkan Al', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11.5)),
             ),
           ],
         ],
@@ -716,9 +729,9 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827).withValues(alpha: 0.85),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFF1F2937)),
+        border: Border.all(color: const Color(0xFF1F2937), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -758,19 +771,19 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      color: isActive ? Colors.orange.withValues(alpha: 0.18) : const Color(0xFF1E293B),
+                      color: isActive ? const Color(0xFFF59E0B).withValues(alpha: 0.18) : const Color(0xFF1E293B),
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: isToday
                             ? const Color(0xFF38BDF8)
-                            : (isActive ? Colors.orange.withValues(alpha: 0.5) : Colors.transparent),
+                            : (isActive ? const Color(0xFFF59E0B).withValues(alpha: 0.5) : Colors.transparent),
                         width: isToday ? 1.8 : 1.0,
                       ),
                     ),
                     child: Center(
                       child: Icon(
                         isActive ? PhosphorIcons.fireFill : PhosphorIcons.circleBold,
-                        color: isActive ? Colors.orange : const Color(0xFF475569),
+                        color: isActive ? const Color(0xFFF59E0B) : const Color(0xFF475569),
                         size: isActive ? 18 : 10,
                       ),
                     ),
@@ -784,58 +797,68 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     );
   }
 
+  // Lobi/Profil/Lig'de kurulan referans başlık ve rozet dili buraya da
+  // taşındı: Lora serif başlık + AYNI ikon/renk eşleşmesi (Işık=XP mavi,
+  // Sketch-logo=Elmas yeşil). Rozetler zaten yüklü olan _userGems/_userTotalXp
+  // state alanlarını gösteriyor — hiçbir veri akışı değişmedi.
   Widget _buildModernHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Alışkanlıklar',
-              style: GoogleFonts.outfit(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5),
-            ),
-            Text(
-              'Günlük Hedefler & Seri Takibi',
-              style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500),
-            ),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Alışkanlıklar',
+                style: GoogleFonts.lora(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: 0.1),
+              ),
+              Text(
+                'Günlük Hedefler & Seri Takibi',
+                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
         ),
         Row(
           children: [
             InkWell(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(13),
               onTap: _openShop,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF111827).withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.5), width: 1.5),
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(color: const Color(0xFF1F2937), width: 1),
                 ),
                 child: Row(
                   children: [
-                    const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
-                    const SizedBox(width: 5),
-                    Text('$_userGems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 15),
+                    const SizedBox(width: 4),
+                    Text('$_userTotalXp', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                   ],
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111827).withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.5), width: 1.5),
-              ),
-              child: Row(
-                children: [
-                  const Icon(PhosphorIcons.lightningBold, color: Colors.orange, size: 15),
-                  const SizedBox(width: 4),
-                  Text('$_userTotalXp', style: GoogleFonts.outfit(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)),
-                ],
+            const SizedBox(width: 6),
+            InkWell(
+              borderRadius: BorderRadius.circular(13),
+              onTap: _openShop,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(color: const Color(0xFF1F2937), width: 1),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(PhosphorIcons.sketchLogoBold, color: Color(0xFF34D399), size: 15),
+                    const SizedBox(width: 4),
+                    Text('$_userGems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                  ],
+                ),
               ),
             ),
           ],

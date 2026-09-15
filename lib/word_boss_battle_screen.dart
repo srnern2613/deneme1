@@ -251,7 +251,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF111827),
+        backgroundColor: const Color(0xFF0F172A).withValues(alpha: 0.88),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
           side: const BorderSide(color: Color(0xFF10B981), width: 2),
@@ -323,7 +323,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF111827),
+        backgroundColor: const Color(0xFF0F172A).withValues(alpha: 0.88),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
           side: BorderSide(color: _bossThemeColor.withValues(alpha: 0.6), width: 2),
@@ -438,7 +438,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF111827),
+                            color: const Color(0xFF0F172A).withValues(alpha: 0.88),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: _bossThemeColor.withValues(alpha: 0.4), width: 1.5),
                           ),
@@ -477,7 +477,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
                                 child: LinearProgressIndicator(
                                   value: _bossHp,
                                   minHeight: 7,
-                                  backgroundColor: const Color(0xFF070B14),
+                                  backgroundColor: const Color(0xFF334155),
                                   valueColor: AlwaysStoppedAnimation<Color>(_bossThemeColor),
                                 ),
                               ),
@@ -546,7 +546,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFF1F2937)),
           ),
@@ -615,7 +615,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
               height: 44,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: hasLetter ? const Color(0xFF1E1B4B) : const Color(0xFF111827),
+                color: hasLetter ? const Color(0xFF1E1B4B) : const Color(0xFF0F172A).withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: hasLetter ? const Color(0xFFA855F7) : const Color(0xFF1F2937),
@@ -638,7 +638,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
             final letter = _shuffledKeyboardLetters[index];
             return ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF111827),
+                backgroundColor: const Color(0xFF0F172A).withValues(alpha: 0.88),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -676,7 +676,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
           ),
@@ -711,7 +711,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF111827),
+                color: const Color(0xFF0F172A).withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5), width: 2),
               ),
@@ -774,7 +774,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
   Widget _buildOptionButton(String option) {
     final isSelected = (_selectedOption == option);
     Color borderColor = const Color(0xFF1F2937);
-    Color bgColor = const Color(0xFF111827);
+    Color bgColor = const Color(0xFF0F172A).withValues(alpha: 0.88);
 
     if (isSelected && _isOptionCorrect != null) {
       if (_isOptionCorrect == true) {

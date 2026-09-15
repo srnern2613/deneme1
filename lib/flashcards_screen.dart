@@ -20,7 +20,7 @@ import 'match_exercise_screen.dart';
 import 'spelling_exercise_screen.dart';
 import 'word_boss_battle_screen.dart';
 import 'xp_shop_service.dart';
-import 'app_header.dart'; // Global AppHeader İçe Aktarımı[cite: 3]
+import 'package:flutter/foundation.dart' show ValueListenable;
 
 class FlashcardsScreen extends StatefulWidget {
   final VoidCallback? onNavigateToLibrary;
@@ -433,25 +433,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
-      // GLOBAL APP HEADER ENTEGRASYONU[cite: 3, 6]
-      appBar: AppHeader(
-        title: 'Arena',
-        subtitle: 'Kelime Arenası & Oyunlar',
-        badgeEmoji: _isTestModeActive ? '🚨' : null,
-        onShopTap: widget.onNavigateToShop,
-        leading: GestureDetector(
-          onTap: _openArenaSettings,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF111827),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF334155)),
-            ),
-            child: const Icon(PhosphorIcons.slidersBold, color: Color(0xFF38BDF8), size: 18),
-          ),
-        ),
-      ),
+      // Lobi'deki gibi nefes alan, custom başlık alanı — standart AppBar
+      // sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
+      // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları
+      // dinler; hiçbir yeni state veya iş mantığı eklenmedi.
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
@@ -461,7 +446,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 14),
+                    _buildArenaHeaderRow(),
+                    const SizedBox(height: 22),
                     _buildDynamicBossBanner(),
                     _buildMemoryDungeonHero(),
                     const SizedBox(height: 24),
@@ -527,6 +514,88 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildArenaHeaderRow() {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: _openArenaSettings,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF38BDF8).withValues(alpha: 0.16),
+              border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35), width: 1),
+            ),
+            child: const Center(
+              child: Icon(PhosphorIcons.slidersBold, color: Color(0xFF38BDF8), size: 19),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Arena',
+                    style: GoogleFonts.lora(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: 0.1),
+                  ),
+                  if (_isTestModeActive) ...[
+                    const SizedBox(width: 6),
+                    const Text('🚨', style: TextStyle(fontSize: 16)),
+                  ],
+                ],
+              ),
+              Text(
+                'Kelime Arenası & Oyunlar',
+                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+        _buildArenaHeaderStatPill(
+          icon: PhosphorIcons.lightningBold,
+          color: const Color(0xFF38BDF8),
+          listenable: XpShopService.instance.xpNotifier,
+        ),
+        const SizedBox(width: 6),
+        _buildArenaHeaderStatPill(
+          icon: PhosphorIcons.sketchLogoBold,
+          color: const Color(0xFF34D399),
+          listenable: XpShopService.instance.gemsNotifier,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildArenaHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
+    return GestureDetector(
+      onTap: widget.onNavigateToShop,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: const Color(0xFF1F2937), width: 1),
+        ),
+        child: ValueListenableBuilder<int>(
+          valueListenable: listenable,
+          builder: (context, value, _) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: color),
+              const SizedBox(width: 4),
+              Text('$value', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -617,11 +686,11 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
       children: [
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: fomoLabel != null ? const Color(0xFFF59E0B).withValues(alpha: 0.6) : const Color(0xFF1F2937), 
-              width: fomoLabel != null ? 2.0 : 1.5
+              color: fomoLabel != null ? const Color(0xFFF59E0B).withValues(alpha: 0.6) : const Color(0xFF1F2937),
+              width: fomoLabel != null ? 2.0 : 1.0
             ),
             boxShadow: fomoLabel != null ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1)] : [],
           ),
@@ -764,7 +833,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
       margin: const EdgeInsets.only(bottom: 18),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: badgeColor.withValues(alpha: 0.45), width: 1.5),
         boxShadow: [

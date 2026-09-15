@@ -335,7 +335,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       // Sol Taraf: Dikey Logo (Transform.scale ile etrafındaki şeffaf boşluklar kırpılarak büyütüldü)
                       Expanded(
-                        flex: 38,
+                        flex: 34,
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: SizedBox(
@@ -358,71 +358,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(width: 2),
                       // Sağ Taraf: Sayaçlar (Taşma korumalı, optimize edilmiş esnek oran)[cite: 3]
+                      // 4-5 haneli değerlere de yer açacak şekilde büyütüldü —
+                      // bu artık uygulama genelinde kullanılacak referans
+                      // sayaç/rozet tasarımı.
                       Expanded(
-                        flex: 62,
+                        flex: 66,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             // XP Sayaç
                             Flexible(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF0F172A).withValues(alpha: 0.75),
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(13),
                                   border: Border.all(color: const Color(0xFF1F2937)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 11),
-                                    const SizedBox(width: 2),
-                                    Flexible(child: Text(_formatNumber(_xp), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5))),
+                                    const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 15),
+                                    const SizedBox(width: 4),
+                                    Flexible(child: Text(_formatNumber(_xp), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
                                   ],
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 2),
+                            const SizedBox(width: 5),
                             // Elmas Sayaç
                             Flexible(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF0F172A).withValues(alpha: 0.75),
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(13),
                                   border: Border.all(color: const Color(0xFF1F2937)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(PhosphorIcons.sketchLogoBold, color: Color(0xFF34D399), size: 11),
-                                    const SizedBox(width: 2),
-                                    Flexible(child: Text(_formatNumber(_gems), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5))),
+                                    const Icon(PhosphorIcons.sketchLogoBold, color: Color(0xFF34D399), size: 15),
+                                    const SizedBox(width: 4),
+                                    Flexible(child: Text(_formatNumber(_gems), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
                                   ],
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 2),
+                            const SizedBox(width: 5),
                             // Streak Sayaç
                             Flexible(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF0F172A).withValues(alpha: 0.75),
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(13),
                                   border: Border.all(color: const Color(0xFF1F2937)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(PhosphorIcons.fireBold, color: Color(0xFFF59E0B), size: 11),
-                                    const SizedBox(width: 2),
-                                    Flexible(child: Text(_formatNumber(_currentStreak), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5))),
+                                    const Icon(PhosphorIcons.fireBold, color: Color(0xFFF59E0B), size: 15),
+                                    const SizedBox(width: 4),
+                                    Flexible(child: Text(_formatNumber(_currentStreak), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
                                   ],
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 2),
+                            const SizedBox(width: 5),
                             // Profil İkonu
                             GestureDetector(
                               onTap: () {
@@ -431,14 +434,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ).then((_) => refreshDashboardStats());
                               },
                               child: Container(
-                                width: 24,
-                                height: 24,
+                                width: 30,
+                                height: 30,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: const Color(0xFF0F172A).withValues(alpha: 0.75),
                                   border: Border.all(color: const Color(0xFF1F2937)),
                                 ),
-                                child: const Icon(PhosphorIcons.userBold, color: Colors.white, size: 11),
+                                child: const Icon(PhosphorIcons.userBold, color: Colors.white, size: 14),
                               ),
                             ),
                           ],

@@ -41,6 +41,13 @@ class ProfileScreenState extends State<ProfileScreen> {
   bool _hasFreezeShield = false;
   int _selectedTab = 0;
 
+  // Lig kartı artık leaderboard_screen.dart'taki GERÇEK sıralama algoritmasının
+  // (kullanıcının gerçek XP'sinden türetilen simülasyon) burada yeniden
+  // çalıştırılmış hâlini gösteriyor — önceden sabit/sahte metindi.
+  int _leagueRank = 2;
+  int _leagueXpGap = 0;
+  String _leagueRivalName = '';
+
   bool _hasGoldenCrown = false;
   String _activeFrame = 'none';
 
@@ -101,10 +108,38 @@ class ProfileScreenState extends State<ProfileScreen> {
       final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
       if (!mounted) return;
 
-      await XpShopService.instance.getTotalXp();
+      final totalXp = await XpShopService.instance.getTotalXp();
       await XpShopService.instance.getGemsBalance();
       final crown = await XpShopService.instance.hasItem('golden_crown');
       final frame = await XpShopService.instance.getActiveCosmetic('frame', defaultVal: 'none');
+
+      // Lig sıralaması: leaderboard_screen.dart'taki AYNI simülasyon
+      // algoritması (sabit ofsetli rakip listesi, kullanıcının gerçek
+      // XP'sinden türetilir) burada salt-okunur biçimde tekrar çalıştırılıyor
+      // — hiçbir veri yazılmıyor, sadece Profil kartı için gösterim hesabı.
+      final int userCurrentXp = totalXp > 0 ? totalXp : 4108;
+      final List<Map<String, dynamic>> simulatedLeague = [
+        {'name': 'Seydihan Akıl.', 'xp': userCurrentXp + 30, 'isUser': false},
+        {'name': 'Eren (Sen)', 'xp': userCurrentXp, 'isUser': true},
+        {'name': 'Sezer', 'xp': (userCurrentXp - 10).clamp(0, 999999), 'isUser': false},
+        {'name': 'Zenci', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'isUser': false},
+        {'name': 'Çinli', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'isUser': false},
+        {'name': 'Gece.', 'xp': (userCurrentXp - 130).clamp(0, 999999), 'isUser': false},
+        {'name': 'Deniz Acar', 'xp': (userCurrentXp - 180).clamp(0, 999999), 'isUser': false},
+        {'name': 'Selin Öztürk', 'xp': (userCurrentXp - 230).clamp(0, 999999), 'isUser': false},
+        {'name': 'Emre Aydın', 'xp': (userCurrentXp - 280).clamp(0, 999999), 'isUser': false},
+        {'name': 'Kaan Vural', 'xp': (userCurrentXp - 330).clamp(0, 999999), 'isUser': false},
+      ];
+      simulatedLeague.sort((a, b) => (b['xp'] as int).compareTo(a['xp'] as int));
+      final leagueUserIndex = simulatedLeague.indexWhere((e) => e['isUser'] == true);
+      final leagueRank = leagueUserIndex != -1 ? leagueUserIndex + 1 : 2;
+      int leagueXpGap = 0;
+      String leagueRivalName = '';
+      if (leagueUserIndex > 0) {
+        final rival = simulatedLeague[leagueUserIndex - 1];
+        leagueXpGap = ((rival['xp'] as int) - userCurrentXp + 1).clamp(1, 9999);
+        leagueRivalName = rival['name'] as String;
+      }
 
       final unlocked = <String>{};
       for (var badge in _allBadges) {
@@ -135,6 +170,9 @@ class ProfileScreenState extends State<ProfileScreen> {
         _hasGoldenCrown = crown;
         _activeFrame = frame;
         _unlockedBadges = unlocked;
+        _leagueRank = leagueRank;
+        _leagueXpGap = leagueXpGap;
+        _leagueRivalName = leagueRivalName;
       });
     } catch (_) {}
   }
@@ -382,16 +420,19 @@ class ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
+        // Lobi'de belirlenen referans sayaç tasarımı: aynı ikon+renk eşleşmesi
+        // (Işık = XP mavi, Sketch-logo = Elmas yeşil) artık uygulama geneli
+        // standart — sadece görsel, veri kaynağı hâlâ aynı canlı notifier'lar.
         _buildHeaderStatPill(
-          icon: PhosphorIcons.diamondBold,
+          icon: PhosphorIcons.lightningBold,
           color: const Color(0xFF38BDF8),
-          listenable: XpShopService.instance.gemsNotifier,
+          listenable: XpShopService.instance.xpNotifier,
         ),
         const SizedBox(width: 6),
         _buildHeaderStatPill(
-          icon: PhosphorIcons.lightningBold,
-          color: const Color(0xFFFDE68A),
-          listenable: XpShopService.instance.xpNotifier,
+          icon: PhosphorIcons.sketchLogoBold,
+          color: const Color(0xFF34D399),
+          listenable: XpShopService.instance.gemsNotifier,
         ),
       ],
     );
@@ -401,10 +442,10 @@ class ProfileScreenState extends State<ProfileScreen> {
     return GestureDetector(
       onTap: _openShopScreen,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A).withValues(alpha: 0.85),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(13),
           border: Border.all(color: const Color(0xFF1F2937), width: 1),
         ),
         child: ValueListenableBuilder<int>(
@@ -412,9 +453,9 @@ class ProfileScreenState extends State<ProfileScreen> {
           builder: (context, value, _) => Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 13, color: color),
+              Icon(icon, size: 15, color: color),
               const SizedBox(width: 4),
-              Text('$value', style: GoogleFonts.outfit(color: color, fontWeight: FontWeight.w800, fontSize: 12)),
+              Text('$value', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
             ],
           ),
         ),
@@ -422,10 +463,94 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // achievement_service.dart'taki check() eşikleriyle BİREBİR aynı sayılar —
+  // yeni bir hesaplama mantığı değil, zaten var olan eşiklerin burada
+  // ilerleme yüzdesi göstermek için tekrar kullanılması. Sadece Profil
+  // ekranında zaten yüklü olan sayaçları (_totalFlashcards, _totalWordsExamined,
+  // _totalReadMinutes) kullandığından yeni bir servis çağrısı gerekmiyor.
+  static const Map<String, int> _badgeThresholds = {
+    'synapse_master': 25, // _totalFlashcards
+    'diamond_memory': 50, // _totalFlashcards
+    'word_collector': 30, // _totalFlashcards
+    'text_detective': 100, // _totalWordsExamined
+    'curious_mind': 50, // _totalWordsExamined
+    'voice_guide': 10, // _totalReadMinutes
+    'speed_of_light': 20, // _totalReadMinutes
+    'time_bender': 45, // _totalReadMinutes
+  };
+  static const Set<String> _flashcardBadges = {'synapse_master', 'diamond_memory', 'word_collector'};
+  static const Set<String> _wordsBadges = {'text_detective', 'curious_mind'};
+
+  List<Map<String, dynamic>> _computeUpcomingBadges() {
+    final results = <Map<String, dynamic>>[];
+    for (final badge in _allBadges) {
+      final id = badge['id'] as String;
+      if (_unlockedBadges.contains(id)) continue;
+      final threshold = _badgeThresholds[id];
+      if (threshold == null) continue;
+      final int current = _flashcardBadges.contains(id)
+          ? _totalFlashcards
+          : _wordsBadges.contains(id)
+              ? _totalWordsExamined
+              : _totalReadMinutes;
+      final ratio = (current / threshold).clamp(0.0, 1.0);
+      if (ratio <= 0) continue;
+      results.add({...badge, 'current': current, 'threshold': threshold, 'ratio': ratio});
+    }
+    results.sort((a, b) => (b['ratio'] as double).compareTo(a['ratio'] as double));
+    return results.take(2).toList();
+  }
+
   Widget _buildAchievementsGrid() {
+    final upcoming = _computeUpcomingBadges();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (upcoming.isNotEmpty) ...[
+          Text('Yaklaşan Rozetler', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 10),
+          ...upcoming.map((badge) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: GestureDetector(
+                  onTap: () => _showBadgeDetailDialog(badge, false),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF1F2937), width: 1),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(badge['emoji'] as String, style: const TextStyle(fontSize: 22)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(badge['title'] as String, style: GoogleFonts.outfit(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800)),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: badge['ratio'] as double,
+                                  minHeight: 5,
+                                  backgroundColor: const Color(0xFF334155),
+                                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFDE68A)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text('${badge['current']}/${badge['threshold']}', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                      ],
+                    ),
+                  ),
+                ),
+              )),
+          const SizedBox(height: 6),
+        ],
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -565,28 +690,39 @@ class ProfileScreenState extends State<ProfileScreen> {
                           ],
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Text('Aktif Seri: $_streakDays Gün 🔥', style: GoogleFonts.inter(color: const Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      // Streak sayısı artık sadece alt istatistik gridinde
+                      // (tekrarı önlemek için) — burada, kalkan yokken Loss
+                      // Aversion ilkesine uygun büyütülmüş bir uyarı var;
+                      // kalkan varken minimal bir "güvende" onayı gösteriliyor.
+                      // Mağazaya giriş noktası artık TEK yerde: başlıktaki
+                      // elmas/XP rozetleri.
+                      if (!_hasFreezeShield)
+                        GestureDetector(
+                          onTap: () => _navigateTo(const ShopScreen()),
+                          child: Row(
+                            children: [
+                              const Icon(PhosphorIcons.fireBold, color: Color(0xFFEF4444), size: 14),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  'Serin risk altında, kalkanın yok!',
+                                  style: GoogleFonts.inter(color: const Color(0xFFFCA5A5), fontSize: 11.5, fontWeight: FontWeight.w700),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Row(
+                          children: [
+                            const Icon(PhosphorIcons.shieldCheckBold, color: Color(0xFF34D399), size: 13),
+                            const SizedBox(width: 5),
+                            Text('Seri güvende', style: GoogleFonts.inter(color: const Color(0xFF6EE7B7), fontSize: 11.5, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
                     ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => _navigateTo(const ShopScreen()),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: (_hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B)).withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B), width: 1.5),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(_hasFreezeShield ? PhosphorIcons.shieldCheckBold : PhosphorIcons.shieldPlusBold, color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B), size: 14),
-                        const SizedBox(width: 4),
-                        Text(_hasFreezeShield ? 'Korumada' : 'Kalkan Al!', style: GoogleFonts.outfit(color: _hasFreezeShield ? const Color(0xFF93C5FD) : const Color(0xFFFDE68A), fontWeight: FontWeight.w900, fontSize: 10.5)),
-                      ],
-                    ),
                   ),
                 ),
               ],
@@ -649,10 +785,17 @@ class ProfileScreenState extends State<ProfileScreen> {
                     Text('Mastered Words Vitrini', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xFF34D399).withValues(alpha: 0.16), borderRadius: BorderRadius.circular(10)),
-                  child: Text('%$percentInt Tamamlandı', style: GoogleFonts.outfit(color: const Color(0xFF6EE7B7), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(color: const Color(0xFF34D399).withValues(alpha: 0.16), borderRadius: BorderRadius.circular(10)),
+                      child: Text('%$percentInt Tamamlandı', style: GoogleFonts.outfit(color: const Color(0xFF6EE7B7), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 14),
+                  ],
                 ),
               ],
             ),
@@ -704,15 +847,23 @@ class ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('12. Arena: Kelime Ustası', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
-                      Text('#4 Sırada', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 12)),
+                      Flexible(child: Text('12. Arena: Kelime Ustası', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14), overflow: TextOverflow.ellipsis)),
+                      Text('#$_leagueRank. Sırada', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 12)),
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Text('Lider ile aranda sadece 50 XP fark var!', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5)),
+                  Text(
+                    _leagueRank <= 1
+                        ? 'Zirvedesin! Kimse seni geçemiyor 👑'
+                        : '$_leagueRivalName\'i geçmek için sadece $_leagueXpGap XP kaldı!',
+                    style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
+            const SizedBox(width: 6),
+            const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 14),
           ],
         ),
       ),
@@ -767,9 +918,18 @@ class ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildReadingHeatmapCard() {
     final totalRead70Days = _heatmapDailyPages.fold(0, (sum, pages) => sum + pages);
+    // Kaydırmadan tek bakışta özet: son 30 gündeki aktif gün sayısı.
+    final last30 = _heatmapDailyPages.length >= 30
+        ? _heatmapDailyPages.sublist(_heatmapDailyPages.length - 30)
+        : _heatmapDailyPages;
+    final activeDaysLast30 = last30.where((p) => p > 0).length;
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFF1F2937))),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -779,6 +939,11 @@ class ProfileScreenState extends State<ProfileScreen> {
               Text('Okuma Isı Haritası (Son 70 Gün)', style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
               Text('$totalRead70Days Sayfa', style: GoogleFonts.outfit(color: const Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 11.5)),
             ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Son 30 günde $activeDaysLast30 gün okudun',
+            style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5),
           ),
           const SizedBox(height: 14),
           SingleChildScrollView(
@@ -797,7 +962,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                         height: 15,
                         margin: const EdgeInsets.only(bottom: 5),
                         decoration: BoxDecoration(
-                          color: pages == 0 ? const Color(0xFF1E293B) : const Color(0xFF10B981),
+                          color: pages == 0 ? const Color(0xFF334155) : const Color(0xFF34D399),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       );
@@ -835,7 +1000,11 @@ class ProfileScreenState extends State<ProfileScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF1F2937))),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF1F2937), width: 1),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
