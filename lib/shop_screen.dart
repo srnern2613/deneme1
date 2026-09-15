@@ -866,6 +866,76 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     );
   }
 
+  // Profil ekranındaki _buildCosmeticAvatar() ile BİREBİR aynı çerçeve→
+  // gradyan/kenarlık/animasyon eşleşmesi — itemId'ye göre parametrelenmiş
+  // hâli, böylece burada henüz sahip olunmayan bir çerçeve de (sadece
+  // önizleme amaçlı) doğru şekilde çizilebiliyor. Hiçbir state/servis
+  // çağrısı yok, tamamen görsel bir yeniden kullanım.
+  Widget _buildFramePreviewAvatar(String itemId) {
+    Gradient? frameGradient;
+    Color borderColor = const Color(0xFF38BDF8);
+    bool shouldAnimate = false;
+
+    switch (itemId) {
+      case 'flame_border':
+        frameGradient = const LinearGradient(colors: [Color(0xFFEC4899), Color(0xFFF59E0B)]);
+        borderColor = const Color(0xFFEC4899);
+        shouldAnimate = true;
+        break;
+      case 'neon_frame':
+        frameGradient = const LinearGradient(colors: [Color(0xFFA855F7), Color(0xFF38BDF8)]);
+        borderColor = const Color(0xFFA855F7);
+        shouldAnimate = true;
+        break;
+      case 'emerald_frame':
+        frameGradient = const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF34D399)]);
+        borderColor = const Color(0xFF10B981);
+        break;
+      case 'titan_frame':
+        frameGradient = const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFF78350F)]);
+        borderColor = const Color(0xFFF59E0B);
+        break;
+      case 'storm_frame':
+        frameGradient = const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF1E3A8A)]);
+        borderColor = const Color(0xFF38BDF8);
+        shouldAnimate = true;
+        break;
+      case 'cosmic_frame':
+        frameGradient = const LinearGradient(colors: [Color(0xFFC084FC), Color(0xFF6366F1), Color(0xFFEC4899)]);
+        borderColor = const Color(0xFFC084FC);
+        shouldAnimate = true;
+        break;
+      default:
+        frameGradient = null;
+        borderColor = const Color(0xFF38BDF8).withValues(alpha: 0.4);
+    }
+
+    Widget avatarWidget = Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: frameGradient,
+        border: frameGradient == null ? Border.all(color: borderColor, width: 2) : null,
+      ),
+      child: Center(
+        child: Container(
+          width: 37,
+          height: 37,
+          decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
+          child: const Center(child: Icon(PhosphorIcons.userBold, color: Color(0xFF38BDF8), size: 18)),
+        ),
+      ),
+    );
+
+    if (shouldAnimate) {
+      return avatarWidget
+          .animate(onPlay: (c) => c.repeat(reverse: true))
+          .scale(begin: const Offset(1, 1), end: const Offset(1.04, 1.04), duration: 1200.ms);
+    }
+    return avatarWidget;
+  }
+
   Widget _buildCosmeticWardrobeCard({required String itemId, required String category, required IconData icon, required Color iconColor, required String title, required String desc, required int price}) {
     final bool isOwned = _ownedItems[itemId] ?? false;
     bool isEquipped = category == 'frame' ? (_activeFrame == itemId) : (category == 'crown' ? _hasGoldenCrown : (_activeTheme == itemId));
@@ -880,11 +950,19 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
-            child: Icon(icon, color: iconColor, size: 22),
-          ),
+          // "Almadan önce dene": çerçeve kozmetikleri için sade bir ikon
+          // yerine, Profil'deki _buildCosmeticAvatar ile AYNI gradyan/kenarlık
+          // eşleşmesini kullanan küçük bir canlı önizleme avatarı gösteriyoruz
+          // — kullanıcı çerçevenin gerçek avatarında nasıl duracağını
+          // hayal etmek zorunda kalmıyor. Diğer kategoriler (tema/taç) eski
+          // sade ikonunu koruyor.
+          category == 'frame'
+              ? _buildFramePreviewAvatar(itemId)
+              : Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(icon, color: iconColor, size: 22),
+                ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

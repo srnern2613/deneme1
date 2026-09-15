@@ -146,11 +146,11 @@ class _RootScreenState extends State<RootScreen> {
           selectedLabelStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold),
           unselectedLabelStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500),
           items: const [
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.houseBold)), label: 'Ana Sayfa'),
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.bookOpenTextBold)), label: 'Dersler'),
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.cardsBold)), label: 'Kelimeler'),
+            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.compassBold)), label: 'Ana Sayfa'),
+            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.bookOpenBold)), label: 'Dersler'),
+            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.swordBold)), label: 'Kelimeler'),
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.chartBarBold)), label: 'İlerleme'),
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.dotsThreeBold)), label: 'Diğer'),
+            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.treasureChestBold)), label: 'Mağaza'),
           ],
         ),
       ),
@@ -178,8 +178,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _todayLearnedCards = 0;
   int _dailyTargetCards = 5;
   int _currentStreak = 7;
-  int _gems = 0;
-  int _xp = 0;
   int _totalReadMinutes = 0;
   bool _isLoading = true;
   List<Book> _userBooks = [];
@@ -202,8 +200,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final learnedToday = prefs.getInt('daily_learned_words_$todayKey') ?? 0;
       final target = prefs.getInt('active_daily_word_target') ?? 5;
       final readMins = prefs.getInt('stats_total_read_minutes') ?? 0;
-      final currentGems = prefs.getInt('gems_balance') ?? 0;
-      final currentXp = prefs.getInt('total_xp') ?? 0;
+      // Elmas/XP artık uygulamanın tek gerçek kaynağı olan XpShopService
+      // üzerinden okunuyor (diğer 6 ekranla birebir aynı kaynak ve
+      // ValueNotifier'lar) — eskiden burada kullanılan 'gems_balance' /
+      // 'total_xp' anahtarları hiçbir yerde yazılmıyordu, bu yüzden Lobi
+      // diğer ekranlarla senkron değildi.
+      await XpShopService.instance.getGemsBalance();
+      await XpShopService.instance.getTotalXp();
 
       List<Book> parsedBooks = [];
       final bookDataList = prefs.getStringList('saved_books');
@@ -221,8 +224,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _currentStreak = streakResult['streakDays'] ?? (prefs.getInt('current_streak_days') ?? 7);
         _todayLearnedCards = learnedToday;
         _dailyTargetCards = target;
-        _gems = currentGems;
-        _xp = currentXp;
         _totalReadMinutes = readMins;
         _userBooks = parsedBooks;
         _activeBook = parsedBooks.isNotEmpty ? parsedBooks.first : null;
@@ -366,7 +367,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            // XP Sayaç
+                            // XP Sayaç — XpShopService.instance.xpNotifier'a canlı bağlı,
+                            // diğer tüm ekranlarla aynı anda senkron güncellenir.
                             Flexible(
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
@@ -380,13 +382,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   children: [
                                     const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 15),
                                     const SizedBox(width: 4),
-                                    Flexible(child: Text(_formatNumber(_xp), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
+                                    Flexible(
+                                      child: ValueListenableBuilder<int>(
+                                        valueListenable: XpShopService.instance.xpNotifier,
+                                        builder: (context, value, _) => Text(_formatNumber(value), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
                             ),
                             const SizedBox(width: 5),
-                            // Elmas Sayaç
+                            // Elmas Sayaç — XpShopService.instance.gemsNotifier'a canlı bağlı.
                             Flexible(
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
@@ -400,7 +407,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   children: [
                                     const Icon(PhosphorIcons.sketchLogoBold, color: Color(0xFF34D399), size: 15),
                                     const SizedBox(width: 4),
-                                    Flexible(child: Text(_formatNumber(_gems), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
+                                    Flexible(
+                                      child: ValueListenableBuilder<int>(
+                                        valueListenable: XpShopService.instance.gemsNotifier,
+                                        builder: (context, value, _) => Text(_formatNumber(value), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -441,7 +453,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   color: const Color(0xFF0F172A).withValues(alpha: 0.75),
                                   border: Border.all(color: const Color(0xFF1F2937)),
                                 ),
-                                child: const Icon(PhosphorIcons.userBold, color: Colors.white, size: 14),
+                                child: const Icon(PhosphorIcons.shieldCheckBold, color: Colors.white, size: 14),
                               ),
                             ),
                           ],
@@ -475,13 +487,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
+                        // Görev panosu hissi için sol üst köşede çok soluk bir
+                        // pusula/rün süsü — tamamen kararlı, hiçbir dokunma
+                        // alanını veya veri akışını etkilemiyor.
+                        Positioned(
+                          top: 14,
+                          left: 14,
+                          child: Icon(PhosphorIcons.compassBold, size: 20, color: const Color(0xFFFDE68A).withValues(alpha: 0.15)),
+                        ),
                         Padding(
                           padding: const EdgeInsets.all(20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('Bugünün Dersi', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500)),
+                              Row(
+                                children: [
+                                  Icon(PhosphorIcons.scrollBold, size: 13, color: const Color(0xFFFDE68A).withValues(alpha: 0.8)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'GÜNÜN GÖREVİ',
+                                    style: GoogleFonts.outfit(color: const Color(0xFFFDE68A).withValues(alpha: 0.85), fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1.4),
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 4),
                               SizedBox(
                                 width: MediaQuery.of(context).size.width * 0.55,
@@ -548,6 +577,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           bottom: -5,
                           child: Image.asset('assets/images/ignis_avatar.png', width: 145, height: 165, fit: BoxFit.contain),
                         ),
+                        // Mühür/rün rozeti hissi: içi altın gradyanlı küçük
+                        // bir mühür ikonu + aynı metin — sade bir pill yerine
+                        // "görev panosuna basılmış onay mührü" gibi duruyor.
                         Positioned(
                           top: 15,
                           right: 105,
@@ -556,14 +588,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF1E293B),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFF334155)),
+                              border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.45)),
                               boxShadow: [
                                 BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 2)),
                               ],
                             ),
-                            child: Text(
-                              'Sen yaparsın!',
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(PhosphorIcons.sealCheckBold, size: 11, color: Color(0xFFFDE68A)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Sen yaparsın!',
+                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ],
                             ),
                           ),
                         ),

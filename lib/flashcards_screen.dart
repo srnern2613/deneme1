@@ -466,7 +466,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                       childAspectRatio: 0.85,
                       children: [
                         _buildGridPracticeCard(
-                          icon: PhosphorIcons.lightningBold,
+                          icon: PhosphorIcons.crosshairBold,
                           title: 'Hızlı Test',
                           desc: '4 seçenek arasından doğru anlamı yakala.',
                           reward: _dailyDoubleXpIndex == 0 ? '2X XP' : '+6 XP',
@@ -477,7 +477,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                           lockMessage: '4 Kelime Gerekli',
                         ),
                         _buildGridPracticeCard(
-                          icon: PhosphorIcons.cardsBold,
+                          icon: PhosphorIcons.brainBold,
                           title: 'SRS Hafıza',
                           desc: 'Aralıklı tekrar algoritması ile hafızanı tazele.',
                           reward: _dailyDoubleXpIndex == 1 ? '2X XP' : '+5 XP',
@@ -499,7 +499,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                           lockMessage: '4 Kelime Gerekli',
                         ),
                         _buildGridPracticeCard(
-                          icon: PhosphorIcons.headphonesBold,
+                          icon: PhosphorIcons.waveformBold,
                           title: 'Dinle & Yaz',
                           desc: 'Telaffuzu dinle, kelimenin imlasını çöz.',
                           reward: _dailyDoubleXpIndex == 3 ? '2X XP' : '+15 XP',
@@ -657,7 +657,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     String? lockMessage,
     String? fomoLabel,
   }) {
-    return Stack(
+    final card = Stack(
       children: [
         Container(
           decoration: BoxDecoration(
@@ -770,6 +770,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
           ),
       ],
     );
+
+    if (onTap == null) return card;
+    return _PressableScale(child: card);
   }
 
   Widget _buildDynamicBossBanner() {
@@ -885,6 +888,37 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PressableScale extends StatefulWidget {
+  final Widget child;
+  const _PressableScale({required this.child});
+
+  @override
+  State<_PressableScale> createState() => _PressableScaleState();
+}
+
+class _PressableScaleState extends State<_PressableScale> {
+  double _scale = 1.0;
+
+  void _setPressed(bool pressed) {
+    if (mounted) setState(() => _scale = pressed ? 0.96 : 1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => _setPressed(true),
+      onPointerUp: (_) => _setPressed(false),
+      onPointerCancel: (_) => _setPressed(false),
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: widget.child,
       ),
     );
   }

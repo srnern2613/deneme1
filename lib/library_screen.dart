@@ -308,7 +308,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 children: [
                   const Icon(PhosphorIcons.chartLineUpBold, size: 18, color: Color(0xFF38BDF8)),
                   const SizedBox(width: 8),
-                  Text('Haftalık Karne', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 14.5, color: Colors.white)),
+                  Text('Bilgi Havuzu', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 14.5, color: Colors.white)),
                 ],
               ),
               Row(
@@ -348,9 +348,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           const SizedBox(height: 14),
           Row(
             children: [
-              _buildStatMetric(icon: PhosphorIcons.timerBold, label: 'Okuma Süresi', value: '$_totalReadMinutes dk', accentColor: const Color(0xFF38BDF8)),
+              _buildStatMetric(icon: PhosphorIcons.timerBold, label: 'Dalış Süresi', value: '$_totalReadMinutes dk', accentColor: const Color(0xFF38BDF8)),
               const SizedBox(width: 10),
-              _buildStatMetric(icon: PhosphorIcons.magnifyingGlassBold, label: 'İncelenen', value: '$_totalWordsExamined Kelime', accentColor: const Color(0xFF10B981)),
+              _buildStatMetric(icon: PhosphorIcons.magnifyingGlassBold, label: 'Keşfedilen', value: '$_totalWordsExamined Kelime', accentColor: const Color(0xFF10B981)),
               const SizedBox(width: 10),
               _buildStatMetric(icon: PhosphorIcons.cardsBold, label: 'Havuzda', value: '$_totalWordsSaved Kelime', accentColor: const Color(0xFF818CF8)),
             ],
