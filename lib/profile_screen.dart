@@ -392,33 +392,10 @@ class ProfileScreenState extends State<ProfileScreen> {
   Widget _buildProfileHeaderRow() {
     return Row(
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFFA855F7).withValues(alpha: 0.16),
-            border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.35), width: 1),
-          ),
-          child: const Center(
-            child: Icon(PhosphorIcons.userBold, color: Color(0xFFA855F7), size: 20),
-          ),
-        ),
+        const ScreenHeaderBadge(icon: PhosphorIcons.userBold, color: Color(0xFFA855F7)),
         const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Profil',
-                style: GoogleFonts.lora(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: 0.1),
-              ),
-              Text(
-                'İlerleme & Başarı Odası',
-                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
+        const Expanded(
+          child: RuneTitle(title: 'Profil', subtitle: 'İlerleme & Başarı Odası'),
         ),
         // Lobi'de belirlenen referans sayaç tasarımı: aynı ikon+renk eşleşmesi
         // (Işık = XP mavi, Sketch-logo = Elmas yeşil) artık uygulama geneli

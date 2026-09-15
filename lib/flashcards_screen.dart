@@ -21,6 +21,7 @@ import 'spelling_exercise_screen.dart';
 import 'word_boss_battle_screen.dart';
 import 'xp_shop_service.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
+import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 
 class FlashcardsScreen extends StatefulWidget {
   final VoidCallback? onNavigateToLibrary;
@@ -521,43 +522,17 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   Widget _buildArenaHeaderRow() {
     return Row(
       children: [
-        GestureDetector(
+        ScreenHeaderBadge(
+          icon: PhosphorIcons.slidersBold,
+          color: const Color(0xFF38BDF8),
           onTap: _openArenaSettings,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF38BDF8).withValues(alpha: 0.16),
-              border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35), width: 1),
-            ),
-            child: const Center(
-              child: Icon(PhosphorIcons.slidersBold, color: Color(0xFF38BDF8), size: 19),
-            ),
-          ),
+          showAffordanceDot: true,
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Arena',
-                    style: GoogleFonts.lora(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: 0.1),
-                  ),
-                  if (_isTestModeActive) ...[
-                    const SizedBox(width: 6),
-                    const Text('🚨', style: TextStyle(fontSize: 16)),
-                  ],
-                ],
-              ),
-              Text(
-                'Kelime Arenası & Oyunlar',
-                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500),
-              ),
-            ],
+          child: RuneTitle(
+            title: _isTestModeActive ? 'Arena 🚨' : 'Arena',
+            subtitle: 'Kelime Arenası & Oyunlar',
           ),
         ),
         _buildArenaHeaderStatPill(

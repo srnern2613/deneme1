@@ -15,7 +15,8 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'xp_shop_service.dart';
-import 'app_header.dart'; // Global AppHeader İçe Aktarımı[cite: 3]
+import 'package:flutter/foundation.dart' show ValueListenable;
+import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 
 class ShopScreen extends StatefulWidget {
   final VoidCallback? onNavigateToExplore;
@@ -403,9 +404,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: const Color(0xFF1F2937)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -464,25 +465,19 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
 
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
-      // GLOBAL APP HEADER ENTEGRASYONU[cite: 3]
-      appBar: AppHeader(
-        title: 'Ganimet Dükkanı',
-        subtitle: 'Prestij Odası & Koleksiyon Dolabı',
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFFEC4899).withValues(alpha: isDark ? 0.16 : 0.12),
-            border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.35), width: 1),
-          ),
-          child: const Center(
-            child: Icon(PhosphorIcons.storefrontBold, color: Color(0xFFEC4899), size: 18),
-          ),
-        ),
-      ),
+      // Lobi'deki gibi nefes alan, custom başlık alanı — standart AppBar
+      // sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
+      // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları
+      // dinler; hiçbir yeni state veya iş mantığı eklenmedi.
       body: SafeArea(
-        child: NestedScrollView(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+              child: _buildShopHeaderRow(isDark),
+            ),
+            Expanded(
+              child: NestedScrollView(
           physics: const BouncingScrollPhysics(),
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
@@ -624,6 +619,54 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
               ],
             ),
           ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShopHeaderRow(bool isDark) {
+    return Row(
+      children: [
+        const ScreenHeaderBadge(icon: PhosphorIcons.storefrontBold, color: Color(0xFFEC4899)),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: RuneTitle(title: 'Ganimet Dükkanı', subtitle: 'Prestij Odası & Koleksiyon Dolabı', fontSize: 17),
+        ),
+        _buildShopHeaderStatPill(
+          icon: PhosphorIcons.lightningBold,
+          color: const Color(0xFF38BDF8),
+          listenable: XpShopService.instance.xpNotifier,
+        ),
+        const SizedBox(width: 6),
+        _buildShopHeaderStatPill(
+          icon: PhosphorIcons.sketchLogoBold,
+          color: const Color(0xFF34D399),
+          listenable: XpShopService.instance.gemsNotifier,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShopHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+      ),
+      child: ValueListenableBuilder<int>(
+        valueListenable: listenable,
+        builder: (context, value, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 4),
+            Text('$value', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
         ),
       ),
     );
@@ -641,10 +684,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF111827),
+          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF0F172A).withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? const Color(0xFF818CF8) : Colors.white.withValues(alpha: 0.08),
+            color: isSelected ? const Color(0xFF818CF8) : const Color(0xFF1F2937),
             width: isSelected ? 1.5 : 1.0,
           ),
           boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 1)] : [],
@@ -706,9 +749,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       width: double.infinity,
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: const Color(0xFF1F2937)),
       ),
       child: Row(
         children: [
@@ -830,9 +873,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isEquipped ? const Color(0xFF1E1B4B).withValues(alpha: 0.7) : const Color(0xFF111827).withValues(alpha: 0.85),
+        color: isEquipped ? const Color(0xFF1E1B4B).withValues(alpha: 0.7) : const Color(0xFF0F172A).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: isEquipped ? const Color(0xFF6366F1) : Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: isEquipped ? const Color(0xFF6366F1) : const Color(0xFF1F2937)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -916,9 +959,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: const Color(0xFF1F2937)),
       ),
       child: Row(
         children: [

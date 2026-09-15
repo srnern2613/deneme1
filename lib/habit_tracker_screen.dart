@@ -805,20 +805,10 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Alışkanlıklar',
-                style: GoogleFonts.lora(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: 0.1),
-              ),
-              Text(
-                'Günlük Hedefler & Seri Takibi',
-                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
+        const ScreenHeaderBadge(icon: PhosphorIcons.flameBold, color: Color(0xFFF59E0B)),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: RuneTitle(title: 'Alışkanlıklar', subtitle: 'Günlük Hedefler & Seri Takibi'),
         ),
         Row(
           children: [

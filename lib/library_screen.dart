@@ -23,6 +23,7 @@ import 'xp_shop_service.dart';
 import 'shop_screen.dart';
 import 'dictionary_screen.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
+import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -243,33 +244,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _buildLibraryHeaderRow() {
     return Row(
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFF10B981).withValues(alpha: 0.16),
-            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35), width: 1),
-          ),
-          child: const Center(
-            child: Icon(PhosphorIcons.booksBold, color: Color(0xFF10B981), size: 19),
-          ),
-        ),
+        const ScreenHeaderBadge(icon: PhosphorIcons.booksBold, color: Color(0xFF10B981)),
         const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Kitaplık',
-                style: GoogleFonts.lora(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: 0.1),
-              ),
-              Text(
-                'Kişisel Kütüphane & Okuma',
-                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
+        const Expanded(
+          child: RuneTitle(title: 'Kitaplık', subtitle: 'Kişisel Kütüphane & Okuma'),
         ),
         _buildLibraryHeaderStatPill(
           icon: PhosphorIcons.lightningBold,
