@@ -1,9 +1,10 @@
 // ============================================================================
 // DOSYA ADI: lib/profile_screen.dart
-// AÇIKLAMA: Profil, Okuma Isı Haritası, İhtişamlı Başarılar, Dinamik Mağaza 
+// AÇIKLAMA: Profil, Okuma Isı Haritası, İhtişamlı Başarılar, Dinamik Mağaza
 //            Kozmetikleri ve Reaktif AppHeader Entegrasyonu.
 // ============================================================================
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +22,7 @@ import 'dictionary_screen.dart';
 import 'leaderboard_screen.dart';
 import 'shop_screen.dart';
 import 'achievement_service.dart';
-import 'app_header.dart'; // Global AppHeader İçe Aktarımı[cite: 3]
+import 'core/design_system/primitives.dart'; // GlassPanel & IgnisCharacterPortrait
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -173,7 +174,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                   boxShadow: isUnlocked ? [BoxShadow(color: badge['color'].withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)] : [],
                 ),
                 child: Center(
-                  child: isUnlocked 
+                  child: isUnlocked
                       ? Text(badge['emoji'], style: const TextStyle(fontSize: 40)).animate().scale(curve: Curves.elasticOut, duration: 800.ms)
                       : const Icon(PhosphorIcons.lockFill, color: Color(0xFF475569), size: 36),
                 ),
@@ -188,7 +189,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  isUnlocked ? 'KİLİDİ AÇILDI ✓' : 'KİLİTLİ', 
+                  isUnlocked ? 'KİLİDİ AÇILDI ✓' : 'KİLİTLİ',
                   style: GoogleFonts.outfit(color: isUnlocked ? const Color(0xFF34D399) : const Color(0xFFFCA5A5), fontWeight: FontWeight.w900, fontSize: 11),
                 ),
               ),
@@ -282,51 +283,138 @@ class ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
-      // GLOBAL APP HEADER ENTEGRASYONU[cite: 3, 8]
-      appBar: AppHeader(
-        title: 'Profil',
-        subtitle: 'İlerleme & Başarı Odası',
-        onShopTap: _openShopScreen,
-        leading: Container(
-          width: 40,
-          height: 40,
+      body: Stack(
+        children: [
+          // Profile'a özel atmosferik zemin: taş kemer/kapı + uzakta kale
+          // silueti, aşağıya doğru koyu zemine eriyor — yalnızca görsel bir
+          // katman, hiçbir veri/servis çağrısını etkilemez.
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/profile_background_pic.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    const Color(0xFF070B14).withValues(alpha: 0.55),
+                    const Color(0xFF070B14),
+                  ],
+                  stops: const [0.0, 0.35, 0.7],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildProfileHeaderRow(),
+                  const SizedBox(height: 28),
+                  _buildModernProfileCard(),
+                  const SizedBox(height: 18),
+                  _buildMasteryProgressBanner(),
+                  const SizedBox(height: 16),
+                  _buildLeagueRankCard(),
+                  const SizedBox(height: 18),
+                  _buildTabSelector(),
+                  const SizedBox(height: 18),
+                  if (_selectedTab == 0) ...[
+                    _buildReadingHeatmapCard(),
+                    const SizedBox(height: 16),
+                    _buildStatsGrid(),
+                  ] else ...[
+                    _buildAchievementsGrid(),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Lobi'deki gibi nefes alan, custom başlık alanı — Scaffold'un standart
+  // appBar sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
+  // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları (
+  // XpShopService.instance.gemsNotifier / xpNotifier) dinler; hiçbir yeni
+  // state veya iş mantığı eklenmedi, sadece görsel sunum değişti.
+  Widget _buildProfileHeaderRow() {
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: const Color(0xFFA855F7).withValues(alpha: isDark ? 0.16 : 0.12),
+            color: const Color(0xFFA855F7).withValues(alpha: 0.16),
             border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.35), width: 1),
           ),
           child: const Center(
-            child: Icon(PhosphorIcons.userBold, color: Color(0xFFA855F7), size: 18),
+            child: Icon(PhosphorIcons.userBold, color: Color(0xFFA855F7), size: 20),
           ),
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+        const SizedBox(width: 12),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 6),
-              _buildModernProfileCard(),
-              const SizedBox(height: 18),
-              _buildMasteryProgressBanner(),
-              const SizedBox(height: 16),
-              _buildLeagueRankCard(),
-              const SizedBox(height: 18),
-              _buildTabSelector(),
-              const SizedBox(height: 18),
-              if (_selectedTab == 0) ...[
-                _buildReadingHeatmapCard(),
-                const SizedBox(height: 16),
-                _buildStatsGrid(),
-              ] else ...[
-                _buildAchievementsGrid(),
-              ],
+              Text(
+                'Profil',
+                style: GoogleFonts.lora(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: 0.1),
+              ),
+              Text(
+                'İlerleme & Başarı Odası',
+                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+        _buildHeaderStatPill(
+          icon: PhosphorIcons.diamondBold,
+          color: const Color(0xFF38BDF8),
+          listenable: XpShopService.instance.gemsNotifier,
+        ),
+        const SizedBox(width: 6),
+        _buildHeaderStatPill(
+          icon: PhosphorIcons.lightningBold,
+          color: const Color(0xFFFDE68A),
+          listenable: XpShopService.instance.xpNotifier,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
+    return GestureDetector(
+      onTap: _openShopScreen,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF1F2937), width: 1),
+        ),
+        child: ValueListenableBuilder<int>(
+          valueListenable: listenable,
+          builder: (context, value, _) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 4),
+              Text('$value', style: GoogleFonts.outfit(color: color, fontWeight: FontWeight.w800, fontSize: 12)),
             ],
           ),
         ),
@@ -383,7 +471,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: Center(
-                        child: isUnlocked 
+                        child: isUnlocked
                             ? Text(badge['emoji'], style: const TextStyle(fontSize: 22))
                             : const Icon(PhosphorIcons.lockFill, color: Color(0xFF475569), size: 20),
                       ),
@@ -414,66 +502,117 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // Hero profil kartı — artık Lobi'nin kendi "Today's Lesson" kartıyla aynı
+  // dilde: koyu sıcak gradient + altın kenarlık + glow. Ignis, kartın sağ
+  // üstünden bir konuşma balonuyla birlikte sahneye giriyor; ileride
+  // sayfaya özel karakterle değişecek tek yer IgnisCharacterPortrait
+  // (core/design_system/primitives.dart).
   Widget _buildModernProfileCard() {
     return Container(
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(top: 40),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              _buildCosmeticAvatar(),
-              if (_hasGoldenCrown)
-                Positioned(
-                  top: -14,
-                  child: Icon(PhosphorIcons.crownBold, color: const Color(0xFFF59E0B), size: 22)
-                      .animate(onPlay: (c) => c.repeat(reverse: true))
-                      .moveY(duration: 1000.ms, begin: 0, end: -3),
-                ),
-            ],
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFDE68A).withValues(alpha: 0.12),
+            blurRadius: 26,
+            spreadRadius: 0,
+            offset: const Offset(0, 10),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF17213C), Color(0xFF0B0F1A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.4), width: 1.2),
+            ),
+            child: Row(
               children: [
-                Row(
+                Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
                   children: [
-                    Text('Eren', style: GoogleFonts.outfit(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
-                    if (_hasGoldenCrown) ...[
-                      const SizedBox(width: 4),
-                      const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 14),
-                    ],
+                    _buildCosmeticAvatar(),
+                    if (_hasGoldenCrown)
+                      Positioned(
+                        top: -14,
+                        child: Icon(PhosphorIcons.crownBold, color: const Color(0xFFF59E0B), size: 22)
+                            .animate(onPlay: (c) => c.repeat(reverse: true))
+                            .moveY(duration: 1000.ms, begin: 0, end: -3),
+                      ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text('Aktif Seri: $_streakDays Gün 🔥', style: GoogleFonts.inter(color: const Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('Eren', style: GoogleFonts.outfit(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+                          if (_hasGoldenCrown) ...[
+                            const SizedBox(width: 4),
+                            const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 14),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text('Aktif Seri: $_streakDays Gün 🔥', style: GoogleFonts.inter(color: const Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _navigateTo(const ShopScreen()),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: (_hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B)).withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B), width: 1.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_hasFreezeShield ? PhosphorIcons.shieldCheckBold : PhosphorIcons.shieldPlusBold, color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B), size: 14),
+                        const SizedBox(width: 4),
+                        Text(_hasFreezeShield ? 'Korumada' : 'Kalkan Al!', style: GoogleFonts.outfit(color: _hasFreezeShield ? const Color(0xFF93C5FD) : const Color(0xFFFDE68A), fontWeight: FontWeight.w900, fontSize: 10.5)),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          GestureDetector(
-            onTap: () => _navigateTo(const ShopScreen()),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: (_hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B)).withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B), width: 1.5),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(_hasFreezeShield ? PhosphorIcons.shieldCheckBold : PhosphorIcons.shieldPlusBold, color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B), size: 14),
-                  const SizedBox(width: 4),
-                  Text(_hasFreezeShield ? 'Korumada' : 'Kalkan Al!', style: GoogleFonts.outfit(color: _hasFreezeShield ? const Color(0xFF93C5FD) : const Color(0xFFFDE68A), fontWeight: FontWeight.w900, fontSize: 10.5)),
-                ],
-              ),
+          Positioned(
+            top: -40,
+            right: 6,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 3))],
+                  ),
+                  child: Text(
+                    'Harika gidiyorsun!',
+                    style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 10.5, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const IgnisCharacterPortrait(size: 78),
+              ],
             ),
           ),
         ],
@@ -490,9 +629,12 @@ class ProfileScreenState extends State<ProfileScreen> {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFF111827),
+          color: const Color(0xFF0F172A).withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFF10B981), width: 1.5),
+          border: Border.all(color: const Color(0xFF1F2937), width: 1),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 14, spreadRadius: 0, offset: const Offset(0, 4)),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,8 +651,8 @@ class ProfileScreenState extends State<ProfileScreen> {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
-                  child: Text('%$percentInt Tamamlandı', style: GoogleFonts.outfit(color: const Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                  decoration: BoxDecoration(color: const Color(0xFF34D399).withValues(alpha: 0.16), borderRadius: BorderRadius.circular(10)),
+                  child: Text('%$percentInt Tamamlandı', style: GoogleFonts.outfit(color: const Color(0xFF6EE7B7), fontWeight: FontWeight.bold, fontSize: 11.5)),
                 ),
               ],
             ),
@@ -522,8 +664,8 @@ class ProfileScreenState extends State<ProfileScreen> {
               child: LinearProgressIndicator(
                 value: percentage,
                 minHeight: 7,
-                backgroundColor: const Color(0xFF1F2937),
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                backgroundColor: const Color(0xFF334155),
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
               ),
             ),
           ],
@@ -540,9 +682,12 @@ class ProfileScreenState extends State<ProfileScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF111827),
+          color: const Color(0xFF0F172A).withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 1.5),
+          border: Border.all(color: const Color(0xFF1F2937), width: 1),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 14, spreadRadius: 0, offset: const Offset(0, 4)),
+          ],
         ),
         child: Row(
           children: [
@@ -574,34 +719,48 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // Sekme seçici — Lobi'deki amber-altın gradient pill diline geçirildi.
   Widget _buildTabSelector() {
     return Container(
       height: 50,
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+      ),
       child: Row(
         children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedTab = 0),
-              child: Container(
-                decoration: BoxDecoration(color: _selectedTab == 0 ? const Color(0xFF6366F1) : Colors.transparent, borderRadius: BorderRadius.circular(14)),
-                alignment: Alignment.center,
-                child: Text('📊 Isı Haritası', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedTab = 1),
-              child: Container(
-                decoration: BoxDecoration(color: _selectedTab == 1 ? const Color(0xFF6366F1) : Colors.transparent, borderRadius: BorderRadius.circular(14)),
-                alignment: Alignment.center,
-                child: Text('🏆 Başarılar', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
-            ),
-          ),
+          Expanded(child: _buildTabPill('📊 Isı Haritası', 0)),
+          Expanded(child: _buildTabPill('🏆 Başarılar', 1)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTabPill(String label, int index) {
+    final bool active = _selectedTab == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTab = index),
+      child: AnimatedContainer(
+        duration: 250.ms,
+        decoration: BoxDecoration(
+          gradient: active
+              ? const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)])
+              : null,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: active
+              ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.35), blurRadius: 12, spreadRadius: 0)]
+              : null,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: active ? const Color(0xFF070B14) : const Color(0xFF94A3B8),
+          ),
+        ),
       ),
     );
   }

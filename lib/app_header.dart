@@ -100,6 +100,10 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     return MediaQuery(
       data: MediaQuery.of(context).copyWith(textScaler: clampedScaler),
       child: Container(
+        // Lobi'nin sıcak altın kimliğiyle tutarlı olsun diye indigo yıkama
+        // yerine amber/altın bir atmosfer geçişi kullanılıyor — bu TEK
+        // dosya değişikliği, AppHeader'ı kullanan bütün ekranların üst
+        // barını aynı anda Lobi diline taşır.
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF090D16) : const Color(0xFFF6F8FC),
           gradient: LinearGradient(
@@ -107,19 +111,19 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
             end: Alignment.bottomRight,
             colors: isDark
                 ? [
-                    const Color(0xFF6366F1).withValues(alpha: 0.14),
-                    const Color(0xFF090D16).withValues(alpha: 0.95),
+                    const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                    const Color(0xFF090D16).withValues(alpha: 0.96),
                   ]
                 : [
-                    const Color(0xFF818CF8).withValues(alpha: 0.10),
+                    const Color(0xFFFBBF24).withValues(alpha: 0.10),
                     const Color(0xFFF6F8FC),
                   ],
           ),
           border: Border(
             bottom: BorderSide(
               color: isDark
-                  ? const Color(0xFF1E293B).withValues(alpha: 0.6)
-                  : const Color(0xFFE2E8F0).withValues(alpha: 0.8),
+                  ? const Color(0xFFF59E0B).withValues(alpha: 0.18)
+                  : const Color(0xFFFBBF24).withValues(alpha: 0.25),
               width: 1,
             ),
           ),

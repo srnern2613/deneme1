@@ -1,11 +1,10 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 enum DevicePerformanceTier { high, low }
 
 class DraconicTheme extends ThemeExtension<DraconicTheme> {
   final DevicePerformanceTier performanceTier;
-  
+
   // Zemin ve Yüzeyler
   final Color background;
   final Color surfaceDark;
@@ -56,11 +55,13 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
   }
 
   factory DraconicTheme.lowEnd() {
-    return DraconicTheme.highEnd().copyWith(
+    final DraconicTheme base = DraconicTheme.highEnd();
+    final DraconicTheme result = base.copyWith(
       performanceTier: DevicePerformanceTier.low,
       glassBlurSigma: 0.0, // Düşük cihazlarda cam efekti kapatılır
       enableHeavyGlow: false,
     );
+    return result;
   }
 
   @override
@@ -94,6 +95,11 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
     );
   }
 
+  // dart:ui'nin global lerpDouble'ına bağımlı olmamak için yerel bir
+  // karşılığı burada tanımlıyoruz — isim çözümlemesiyle ilgili hiçbir
+  // belirsizliğe yer bırakmaz.
+  static double _lerpD(double a, double b, double t) => a + (b - a) * t;
+
   @override
   DraconicTheme lerp(ThemeExtension<DraconicTheme>? other, double t) {
     if (other is! DraconicTheme) return this;
@@ -108,7 +114,7 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
       infoTeal: Color.lerp(infoTeal, other.infoTeal, t)!,
       cognitiveIndigo: Color.lerp(cognitiveIndigo, other.cognitiveIndigo, t)!,
       dangerRed: Color.lerp(dangerRed, other.dangerRed, t)!,
-      glassBlurSigma: lerpDouble(glassBlurSigma, other.glassBlurSigma, t) ?? glassBlurSigma,
+      glassBlurSigma: _lerpD(glassBlurSigma, other.glassBlurSigma, t),
       enableHeavyGlow: t < 0.5 ? enableHeavyGlow : other.enableHeavyGlow,
     );
   }
