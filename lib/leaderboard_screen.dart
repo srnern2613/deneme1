@@ -199,12 +199,25 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     const SizedBox(height: 20),
 
                     // --- 2. GÜNLÜK MİKRO-MEYDAN OKUMALAR ---
+                    // EJDERHA ROTASI V2 — FAZ 5: Arena Odaklılık. Görevler
+                    // artık tam genişlikte dikey 3 kart yerine, tek satırlık
+                    // yatay kaydırılabilir kompakt kartlar — ekranın büyük
+                    // kısmı aşağıdaki liderlik tablosuna ayrılıyor.
                     Text(
                       'Mikro-Meydan Okumalar',
                       style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
                     ),
                     const SizedBox(height: 12),
-                    ..._challenges.map((c) => _buildChallengeCard(c)),
+                    SizedBox(
+                      height: 132,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _challenges.length,
+                        separatorBuilder: (context, index) => const SizedBox(width: 10),
+                        itemBuilder: (context, index) => _buildChallengeCard(_challenges[index]),
+                      ),
+                    ),
                     const SizedBox(height: 22),
 
                     // --- 3. LİDERLİK TABLOSU ---
@@ -392,7 +405,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  /// Mikro Görev Kartı (Görsel Dengesizlik ve Sıkışma Tamamen Giderildi)
+  /// Kompakt Yatay Görev Kartı — EJDERHA ROTASI V2 FAZ 5: sabit 148px
+  /// genişlikte, yalnızca XP ödülüne odaklı, ikon üstte / ilerleme altta.
   Widget _buildChallengeCard(Map<String, dynamic> challenge) {
     final String cId = challenge['id'] as String;
     final int current = challenge['current'] as int;
@@ -404,11 +418,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final bool isProcessing = _claimingChallengeIds.contains(cId);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      width: 148,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isCompleted && !isClaimed
               ? itemColor.withValues(alpha: 0.6)
@@ -416,130 +430,94 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           width: isCompleted && !isClaimed ? 1.5 : 1,
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Sol İkon Kutusu (Optik Dengeli)
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: itemColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: Icon(challenge['icon'] as IconData, color: itemColor, size: 22),
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // 2. Orta Bölüm: Başlık, Ödül Rozetleri ve Tam Genişlikte İlerleme Çubuğu
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. Satır: Görev Başlığı ve Sağında XP & Elmas Rozetleri
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        challenge['title'] as String,
-                        style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(PhosphorIcons.lightningBold, color: Colors.orange, size: 10),
-                              const SizedBox(width: 2),
-                              Text(
-                                '+${challenge['rewardXp']}',
-                                style: GoogleFonts.outfit(color: Colors.orange, fontWeight: FontWeight.w900, fontSize: 10),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: itemColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 3),
-
-                // 2. Satır: Görev Açıklaması
-                Text(
-                  challenge['desc'] as String,
-                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Center(
+                  child: Icon(challenge['icon'] as IconData, color: itemColor, size: 17),
                 ),
-                const SizedBox(height: 8),
-
-                // 3. Satır: Tam Genişlikte İlerleme Çubuğu ve Sayacı
-                Row(
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 6,
-                          backgroundColor: const Color(0xFF1E293B),
-                          valueColor: AlwaysStoppedAnimation<Color>(itemColor),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
+                    const Icon(PhosphorIcons.lightningBold, color: Colors.orange, size: 10),
+                    const SizedBox(width: 2),
                     Text(
-                      '$current/$target',
-                      style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 11),
+                      '+${challenge['rewardXp']}',
+                      style: GoogleFonts.outfit(color: Colors.orange, fontWeight: FontWeight.w900, fontSize: 10),
                     ),
                   ],
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            challenge['title'] as String,
+            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 5,
+              backgroundColor: const Color(0xFF1E293B),
+              valueColor: AlwaysStoppedAnimation<Color>(itemColor),
             ),
           ),
-          const SizedBox(width: 12),
-
-          // 3. Sağ Aksiyon Bölümü (Sabit Genişlik: 58px)
+          const SizedBox(height: 6),
           SizedBox(
-            width: 58,
+            width: double.infinity,
+            height: 26,
             child: isCompleted && !isClaimed
-                ? SizedBox(
-                    height: 36,
-                    child: ElevatedButton(
-                      onPressed: isProcessing ? null : () => _claimReward(challenge),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: itemColor,
-                        foregroundColor: const Color(0xFF0F172A),
-                        padding: EdgeInsets.zero,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: isProcessing
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
-                          : Text('AL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12.5)),
+                ? ElevatedButton(
+                    onPressed: isProcessing ? null : () => _claimReward(challenge),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: itemColor,
+                      foregroundColor: const Color(0xFF0F172A),
+                      padding: EdgeInsets.zero,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
+                    child: isProcessing
+                        ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
+                        : Text('AL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11.5)),
                   )
-                : isClaimed
-                    ? const Center(
-                        child: Icon(PhosphorIcons.checkCircleFill, color: Color(0xFF10B981), size: 26),
-                      )
-                    : const Center(
-                        child: Icon(PhosphorIcons.lockSimpleBold, color: Color(0xFF475569), size: 22),
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isClaimed ? PhosphorIcons.checkCircleFill : PhosphorIcons.lockSimpleBold,
+                        color: isClaimed ? const Color(0xFF10B981) : const Color(0xFF475569),
+                        size: 16,
                       ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$current/$target',
+                        style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 10.5),
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
