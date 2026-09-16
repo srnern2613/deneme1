@@ -1,8 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- KRİTİK: Ağ Erişimi İzni. Flutter'ın debug/profile araç zinciri bu izni
+         kendi ürettiği geçici manifestte OTOMATİK ekler; bu yüzden bilgisayara
+         bağlı debug modda ağ istekleri (Supabase Edge Function / AI Koç dahil)
+         sorunsuz çalışır. Ancak RELEASE APK yalnızca bu dosyayı kullanır — izin
+         burada açıkça tanımlı olmazsa telefona kurulan gerçek APK'da HER türlü
+         internet isteği sessizce başarısız olur. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
     <!-- Android 13+ Bildirim Çubuğu ve Kilit Ekranı İzni -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    
+
     <!-- Arka Plan ve Medya Oynatma İzinleri -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
