@@ -280,7 +280,6 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       title: feedback.title,
       subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
-      earnedGems: _score >= 12 ? 5 : 0,
       actionLabel: feedback.actionLabel,
       onAction: () {
         if (!mounted) return;

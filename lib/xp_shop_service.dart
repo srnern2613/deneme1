@@ -6,10 +6,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// EJDERHA ROTASI V2 — FAZ 1 NOTU:
+// Elmas ekonomisi kaldırıldı. Aşağıdaki elmas alanları/metodları
+// SİLİNMEDİ — veri modelini ve derlemeyi bozmamak için @Deprecated
+// olarak bırakıldı. Yeni kod bunları çağırmamalı; kalan çağrı
+// noktaları (shop_screen, library/flashcards/profile/leaderboard
+// ekranlarındaki elmas rozetleri) sırayla temizlenecek. "Seri Koruma"
+// gibi haklar Faz 2'den itibaren entitlement/PaywallTrigger üzerinden
+// (Premium) sunulacak, elmasla satın alma yolu kullanılmayacak.
 class XpShopService {
   static final XpShopService instance = XpShopService._init();
   XpShopService._init();
 
+  @Deprecated('Elmas ekonomisi kaldırıldı (Ejderha Rotası V2 — Faz 1). Yeni kod kullanmasın.')
   final ValueNotifier<int> gemsNotifier = ValueNotifier<int>(50);
   final ValueNotifier<int> xpNotifier = ValueNotifier<int>(100);
   bool _isInitialized = false;
@@ -29,6 +38,7 @@ class XpShopService {
     return xp;
   }
 
+  @Deprecated('Elmas ekonomisi kaldırıldı (Ejderha Rotası V2 — Faz 1). Yeni kod kullanmasın.')
   Future<int> getGemsBalance() async {
     final prefs = await SharedPreferences.getInstance();
     final gems = prefs.getInt('user_gems_balance') ?? 50;
@@ -54,6 +64,7 @@ class XpShopService {
     return updatedXp;
   }
 
+  @Deprecated('Elmas ekonomisi kaldırıldı (Ejderha Rotası V2 — Faz 1). Yeni kod kullanmasın.')
   Future<int> addGems(int amount) async {
     final prefs = await SharedPreferences.getInstance();
     int currentGems = prefs.getInt('user_gems_balance') ?? 50;
@@ -64,6 +75,7 @@ class XpShopService {
   }
 
   /// Doğrudan elmas harcamak yerine basit eksiltmeler için kullanılır.
+  @Deprecated('Elmas ekonomisi kaldırıldı (Ejderha Rotası V2 — Faz 1). Yeni kod kullanmasın.')
   Future<bool> spendGems(int amount) async {
     final prefs = await SharedPreferences.getInstance();
     int currentGems = prefs.getInt('user_gems_balance') ?? 50;
@@ -79,6 +91,7 @@ class XpShopService {
   /// ATOMİK SATIN ALIM VE ROLLBACK MEKANİZMASI
   /// Satın alma işlemi sırasında SharedPreferences yazma hatası oluşursa,
   /// düşülen elmas miktarı kullanıcıya otomatik iade edilir.
+  @Deprecated('Elmas ekonomisi kaldırıldı (Ejderha Rotası V2 — Faz 1). Satın alma akışı Faz 2\'de RevenueCat/PaywallTrigger\'a taşınacak.')
   Future<bool> buyItemWithRollback(String itemId, int price, {String? categoryToEquip}) async {
     final prefs = await SharedPreferences.getInstance();
     int currentGems = prefs.getInt('user_gems_balance') ?? 50;

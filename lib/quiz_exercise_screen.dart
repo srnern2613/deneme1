@@ -298,7 +298,6 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       title: feedback.title,
       subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
-      earnedGems: _score >= (_questions.length * 0.8) ? 5 : 0,
       actionLabel: feedback.actionLabel,
       onAction: () {
         if (!mounted) return;

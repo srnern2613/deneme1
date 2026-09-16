@@ -76,16 +76,9 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
           staticValue: streak,
           onTap: onStreakTap,
         ),
-      _HeaderStat(
-        icon: PhosphorIcons.diamondBold,
-        accentColor: isDark ? Colors.cyanAccent : Colors.cyan[700]!,
-        bgColor: Colors.cyan.withValues(alpha: isDark ? 0.16 : 0.12),
-        borderColor: Colors.cyan.withValues(alpha: 0.35),
-        flex: 2,
-        onTap: onShopTap,
-        staticValue: initialGems,
-        liveValue: initialGems == null ? XpShopService.instance.gemsNotifier : null,
-      ),
+      // EJDERHA ROTASI V2 — FAZ 1: Elmas rozeti kaldırıldı. initialGems/
+      // onShopTap parametreleri geriye dönük uyumluluk için duruyor ama
+      // artık hiçbir şey render etmiyor.
       _HeaderStat(
         icon: PhosphorIcons.lightningBold,
         accentColor: isDark ? Colors.amberAccent : Colors.amber[800]!,

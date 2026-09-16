@@ -122,7 +122,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     try {
       var allValidCards = await DatabaseHelper.instance.getActivePracticeCards();
       final bossCards = await DatabaseHelper.instance.getActiveBossCards(limit: 3);
-      await XpShopService.instance.getGemsBalance();
       await XpShopService.instance.getTotalXp();
 
       if (!mounted) return;
@@ -539,12 +538,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
           icon: PhosphorIcons.lightningBold,
           color: const Color(0xFF38BDF8),
           listenable: XpShopService.instance.xpNotifier,
-        ),
-        const SizedBox(width: 6),
-        _buildArenaHeaderStatPill(
-          icon: PhosphorIcons.sketchLogoBold,
-          color: const Color(0xFF34D399),
-          listenable: XpShopService.instance.gemsNotifier,
         ),
       ],
     );

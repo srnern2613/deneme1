@@ -20,7 +20,6 @@ import 'book_journey_screen.dart';
 import 'database_helper.dart';
 import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
-import 'shop_screen.dart';
 import 'dictionary_screen.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
@@ -62,7 +61,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await DefaultBooksManager.seedDefaultBooksIfNeeded();
 
     final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
-    await XpShopService.instance.getGemsBalance();
     await XpShopService.instance.getTotalXp();
     final shieldStatus = await XpShopService.instance.hasFreezeShield();
 
@@ -231,11 +229,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     ).then((_) => _loadAllData());
   }
 
-  void _openShopScreen() {
-    HapticFeedback.lightImpact();
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShopScreen())).then((_) => _loadAllData());
-  }
-
   void _openDictionary() {
     HapticFeedback.selectionClick();
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DictionaryScreen())).then((_) => _loadAllData());
@@ -254,20 +247,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
           color: const Color(0xFF38BDF8),
           listenable: XpShopService.instance.xpNotifier,
         ),
-        const SizedBox(width: 6),
-        _buildLibraryHeaderStatPill(
-          icon: PhosphorIcons.sketchLogoBold,
-          color: const Color(0xFF34D399),
-          listenable: XpShopService.instance.gemsNotifier,
-        ),
       ],
     );
   }
 
   Widget _buildLibraryHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
-    return GestureDetector(
-      onTap: _openShopScreen,
-      child: Container(
+    return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A).withValues(alpha: 0.85),
@@ -285,8 +270,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildReadingDashboard() {

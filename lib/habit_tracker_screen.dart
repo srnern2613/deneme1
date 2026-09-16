@@ -30,7 +30,6 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   int _todayMinutes = 0;
   int _currentStreak = 1;
   bool _hasFreezeShield = false;
-  int _userGems = 50;
   int _userTotalXp = 100;
 
   // Son 7 günün seri tamamlama durumları
@@ -87,7 +86,6 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
       final todayKey = _getTodayKey();
       final pages = prefs.getInt('daily_pages_$todayKey') ?? 0;
       final minutes = prefs.getInt('daily_minutes_$todayKey') ?? 0;
-      final gems = await XpShopService.instance.getGemsBalance();
       final xp = await XpShopService.instance.getTotalXp();
       final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
 
@@ -114,7 +112,6 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
       setState(() {
         _todayPages = pages;
         _todayMinutes = minutes;
-        _userGems = gems;
         _userTotalXp = xp;
         _currentStreak = streakResult['streakDays'] ?? 1;
         _hasFreezeShield = streakResult['hasFreezeShield'] ?? false;
@@ -798,9 +795,9 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   }
 
   // Lobi/Profil/Lig'de kurulan referans başlık ve rozet dili buraya da
-  // taşındı: Lora serif başlık + AYNI ikon/renk eşleşmesi (Işık=XP mavi,
-  // Sketch-logo=Elmas yeşil). Rozetler zaten yüklü olan _userGems/_userTotalXp
-  // state alanlarını gösteriyor — hiçbir veri akışı değişmedi.
+  // taşındı. EJDERHA ROTASI V2 — FAZ 1: Elmas rozeti kaldırıldı, sadece
+  // _userTotalXp gösteriliyor.
+  // TODO(Faz 2): _openShop çağrısı PaywallTrigger'a taşınacak.
   Widget _buildModernHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -827,26 +824,6 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                     const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 15),
                     const SizedBox(width: 4),
                     Text('$_userTotalXp', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            InkWell(
-              borderRadius: BorderRadius.circular(13),
-              onTap: _openShop,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: const Color(0xFF1F2937), width: 1),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(PhosphorIcons.sketchLogoBold, color: Color(0xFF34D399), size: 15),
-                    const SizedBox(width: 4),
-                    Text('$_userGems', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                   ],
                 ),
               ),

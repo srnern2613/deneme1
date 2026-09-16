@@ -18,7 +18,6 @@ import 'flashcards_screen.dart';
 import 'reader_screen.dart';
 import 'habit_tracker_screen.dart';
 import 'profile_screen.dart';
-import 'shop_screen.dart';
 import 'leaderboard_screen.dart';
 import 'xp_shop_service.dart';
 import 'streak_freeze_service.dart';
@@ -96,6 +95,9 @@ class _RootScreenState extends State<RootScreen> {
     _screens = [
       DashboardScreen(
         key: _dashboardKey,
+        // Ejderha Rotası V2 — Faz 1: Mağaza sekmesi kalktı; "mağazaya git"
+        // kısayolları artık Profil sekmesine yönlendiriyor (Seri Koruma vb.
+        // haklar Faz 2'den itibaren Premium/PaywallTrigger üzerinden sunulacak).
         onNavigateToShop: () => _onTabTapped(4),
         onNavigateToLibrary: () => _onTabTapped(1),
         onNavigateToFlashcards: () => _onTabTapped(2),
@@ -106,7 +108,7 @@ class _RootScreenState extends State<RootScreen> {
         onNavigateToShop: () => _onTabTapped(4),
       ),
       const LeaderboardScreen(),
-      const ShopScreen(),
+      const ProfileScreen(),
     ];
   }
 
@@ -150,7 +152,7 @@ class _RootScreenState extends State<RootScreen> {
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.bookOpenBold)), label: 'Dersler'),
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.swordBold)), label: 'Kelimeler'),
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.chartBarBold)), label: 'İlerleme'),
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.treasureChestBold)), label: 'Mağaza'),
+            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.userBold)), label: 'Profil'),
           ],
         ),
       ),
@@ -393,31 +395,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                             const SizedBox(width: 5),
-                            // Elmas Sayaç — XpShopService.instance.gemsNotifier'a canlı bağlı.
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF0F172A).withValues(alpha: 0.75),
-                                  borderRadius: BorderRadius.circular(13),
-                                  border: Border.all(color: const Color(0xFF1F2937)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(PhosphorIcons.sketchLogoBold, color: Color(0xFF34D399), size: 15),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: ValueListenableBuilder<int>(
-                                        valueListenable: XpShopService.instance.gemsNotifier,
-                                        builder: (context, value, _) => Text(_formatNumber(value), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 5),
+                            // NOT (Ejderha Rotası V2 — Faz 1): Elmas sayacı top bar'dan
+                            // kaldırıldı. XpShopService.gemsNotifier ve ilişkili metodlar
+                            // (addGems/spendGems) veri modelinde @Deprecated olarak
+                            // bırakıldı — okuma yolları kapatılıyor, alan silinmiyor.
                             // Streak Sayaç
                             Flexible(
                               child: Container(

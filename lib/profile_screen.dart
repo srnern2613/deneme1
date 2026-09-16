@@ -109,7 +109,6 @@ class ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       final totalXp = await XpShopService.instance.getTotalXp();
-      await XpShopService.instance.getGemsBalance();
       final crown = await XpShopService.instance.hasItem('golden_crown');
       final frame = await XpShopService.instance.getActiveCosmetic('frame', defaultVal: 'none');
 
@@ -182,11 +181,6 @@ class ProfileScreenState extends State<ProfileScreen> {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen)).then((_) {
       if (mounted) _loadProfileData();
     });
-  }
-
-  void _openShopScreen() {
-    HapticFeedback.lightImpact();
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShopScreen())).then((_) => _loadProfileData());
   }
 
   void _showBadgeDetailDialog(Map<String, dynamic> badge, bool isUnlocked) {
@@ -385,10 +379,10 @@ class ProfileScreenState extends State<ProfileScreen> {
   }
 
   // Lobi'deki gibi nefes alan, custom başlık alanı — Scaffold'un standart
-  // appBar sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
-  // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları (
-  // XpShopService.instance.gemsNotifier / xpNotifier) dinler; hiçbir yeni
-  // state veya iş mantığı eklenmedi, sadece görsel sunum değişti.
+  // appBar sıkışıklığı yerine SafeArea içinde serbest bir Row. Rozet
+  // AppHeader'ın kullandığı AYNI canlı XpShopService.xpNotifier'ı dinler;
+  // hiçbir yeni state veya iş mantığı eklenmedi, sadece görsel sunum.
+  // EJDERHA ROTASI V2 — FAZ 1: Elmas rozeti kaldırıldı.
   Widget _buildProfileHeaderRow() {
     return Row(
       children: [
@@ -397,28 +391,17 @@ class ProfileScreenState extends State<ProfileScreen> {
         const Expanded(
           child: RuneTitle(title: 'Profil', subtitle: 'İlerleme & Başarı Odası'),
         ),
-        // Lobi'de belirlenen referans sayaç tasarımı: aynı ikon+renk eşleşmesi
-        // (Işık = XP mavi, Sketch-logo = Elmas yeşil) artık uygulama geneli
-        // standart — sadece görsel, veri kaynağı hâlâ aynı canlı notifier'lar.
         _buildHeaderStatPill(
           icon: PhosphorIcons.lightningBold,
           color: const Color(0xFF38BDF8),
           listenable: XpShopService.instance.xpNotifier,
-        ),
-        const SizedBox(width: 6),
-        _buildHeaderStatPill(
-          icon: PhosphorIcons.sketchLogoBold,
-          color: const Color(0xFF34D399),
-          listenable: XpShopService.instance.gemsNotifier,
         ),
       ],
     );
   }
 
   Widget _buildHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
-    return GestureDetector(
-      onTap: _openShopScreen,
-      child: Container(
+    return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A).withValues(alpha: 0.85),
@@ -436,8 +419,7 @@ class ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   // achievement_service.dart'taki check() eşikleriyle BİREBİR aynı sayılar —
@@ -672,8 +654,9 @@ class ProfileScreenState extends State<ProfileScreen> {
                       // (tekrarı önlemek için) — burada, kalkan yokken Loss
                       // Aversion ilkesine uygun büyütülmüş bir uyarı var;
                       // kalkan varken minimal bir "güvende" onayı gösteriliyor.
-                      // Mağazaya giriş noktası artık TEK yerde: başlıktaki
-                      // elmas/XP rozetleri.
+                      // TODO(Ejderha Rotası V2 — Faz 2): Bu ShopScreen yönlendirmesi
+                      // PaywallTrigger'a taşınacak — Seri Koruma artık elmasla değil
+                      // Premium üyelikle açılacak.
                       if (!_hasFreezeShield)
                         GestureDetector(
                           onTap: () => _navigateTo(const ShopScreen()),

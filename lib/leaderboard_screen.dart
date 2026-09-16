@@ -36,6 +36,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   List<Map<String, dynamic>> _leaderboardData = [];
 
   // Günlük ve Haftalık Mikro-Meydan Okumalar
+  // EJDERHA ROTASI V2 — FAZ 1: Elmas ödülü kaldırıldı, eski 'rewardGems'
+  // değerleri sabit bir oranla (1 elmas = 10 XP) 'rewardXp'ye katıldı.
   final List<Map<String, dynamic>> _challenges = [
     {
       'id': 'c1',
@@ -43,8 +45,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       'desc': 'Kitap okurken 3 yeni kelime avla',
       'current': 3,
       'target': 3,
-      'rewardXp': 30,
-      'rewardGems': 2,
+      'rewardXp': 50, // eski: 30 XP + 2 elmas
       'isClaimed': false,
       'icon': PhosphorIcons.crosshairBold,
       'color': const Color(0xFF10B981),
@@ -55,8 +56,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       'desc': '5 SRS kart tekrarını hatasız tamamla',
       'current': 5,
       'target': 5,
-      'rewardXp': 50,
-      'rewardGems': 5,
+      'rewardXp': 100, // eski: 50 XP + 5 elmas
       'isClaimed': false,
       'icon': PhosphorIcons.brainBold,
       'color': const Color(0xFF818CF8),
@@ -67,8 +67,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       'desc': 'Bugün en az 10 sayfa kitap oku',
       'current': 6,
       'target': 10,
-      'rewardXp': 40,
-      'rewardGems': 3,
+      'rewardXp': 70, // eski: 40 XP + 3 elmas
       'isClaimed': false,
       'icon': PhosphorIcons.bookOpenBold,
       'color': const Color(0xFFF59E0B),
@@ -137,11 +136,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     HapticFeedback.heavyImpact();
 
     final int xp = challenge['rewardXp'] as int;
-    final int gems = challenge['rewardGems'] as int;
     final String title = challenge['title'] as String;
 
     await XpShopService.instance.addXp(xp).catchError((_) => 0);
-    await XpShopService.instance.addGems(gems).catchError((_) => 0);
 
     if (!mounted) return;
     setState(() {
@@ -164,7 +161,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       subtitle: '"$title" görevini tamamlayarak ödülleri kasanıza eklediniz.',
       themeColor: const Color(0xFF10B981),
       earnedXp: xp,
-      earnedGems: gems,
       actionLabel: 'Harika!',
     );
   }
@@ -258,8 +254,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           child: RuneTitle(title: 'Lig Arenası', subtitle: 'Günlük Görevler & Sıralama'),
         ),
         _buildHeaderStatPill(icon: PhosphorIcons.lightningBold, color: const Color(0xFF38BDF8), listenable: XpShopService.instance.xpNotifier),
-        const SizedBox(width: 6),
-        _buildHeaderStatPill(icon: PhosphorIcons.sketchLogoBold, color: const Color(0xFF34D399), listenable: XpShopService.instance.gemsNotifier),
       ],
     );
   }
@@ -474,25 +468,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               Text(
                                 '+${challenge['rewardXp']}',
                                 style: GoogleFonts.outfit(color: Colors.orange, fontWeight: FontWeight.w900, fontSize: 10),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 10),
-                              const SizedBox(width: 2),
-                              Text(
-                                '+${challenge['rewardGems']}',
-                                style: GoogleFonts.outfit(color: const Color(0xFF38BDF8), fontWeight: FontWeight.w900, fontSize: 10),
                               ),
                             ],
                           ),

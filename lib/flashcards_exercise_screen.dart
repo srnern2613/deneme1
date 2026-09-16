@@ -219,7 +219,6 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           : feedback.subtitle,
       themeColor: _masteredCountInSession > 0 ? const Color(0xFFF59E0B) : feedback.themeColor,
       earnedXp: _totalEarnedXp,
-      earnedGems: _knownCount == _initialTotal && _initialTotal >= 5 ? 5 : 0,
       totalWordsReviewed: _initialTotal,
       strengthenedWords: _knownCount,
       needsReviewWords: needsReviewCount,
