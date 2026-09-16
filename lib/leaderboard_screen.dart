@@ -16,7 +16,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
-import 'core/design_system/primitives.dart'; // IgnisCharacterPortrait
+import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -208,8 +208,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
                     ),
                     const SizedBox(height: 12),
+                    // EJDERHA ROTASI V2 — Faz C: Sabit yükseklikli SizedBox +
+                    // Column(Spacer) kombinasyonu, büyük yazı tipi/erişilebilirlik
+                    // ölçeklemesinde veya 2 satıra taşan başlıklarda birkaç
+                    // piksellik "BOTTOM OVERFLOWED" hatasına yol açıyordu.
+                    // Çözüm: dış yüksekliğe güvenlik payı eklendi VE kart
+                    // içeriği kendi SingleChildScrollView'ı içine alındı — bu
+                    // sayede içerik ne kadar büyürse büyüsün taşma render
+                    // hatası artık YAPISAL olarak imkansız (en kötü ihtimalle
+                    // kart içinde görünmez bir iç kaydırma payı oluşur).
                     SizedBox(
-                      height: 132,
+                      height: 148,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         physics: const BouncingScrollPhysics(),
@@ -293,11 +302,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  /// Üst Lig Özeti Kartı (Optik Hizalı ve Taşma Korumalı)
+  /// Üst Lig Özeti Kartı — EJDERHA ROTASI V2 Faz A "Ignis Temizliği":
+  /// maskot ve konuşma balonu kaldırıldı, sade Apple tarzı bir özet kart.
   Widget _buildLeagueHeaderCard(int userRank, int xpGap, String rivalName) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 30),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -306,100 +315,81 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.4), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFDE68A).withValues(alpha: 0.12),
-            blurRadius: 26,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.3), width: 1),
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Row(
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 22),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '12. Arena: Kelime Ustası',
+                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Sezon Bitişi: ${_getRemainingSeasonTime()}',
+                      style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111827),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  '#$userRank. Sıra',
+                  style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.w900, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          if (xpGap > 0) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111827).withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+              ),
+              child: Row(
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 22),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '12. Arena: Kelime Ustası',
-                          style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Sezon Bitişi: ${_getRemainingSeasonTime()}',
-                          style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5),
-                        ),
-                      ],
-                    ),
-                  ),
+                  const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 18),
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF111827),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
-                    ),
+                  Expanded(
                     child: Text(
-                      '#$userRank. Sıra',
-                      style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.w900, fontSize: 13),
+                      '${userRank - 1}. sıradaki $rivalName adlı rakibini geçmek için son $xpGap XP!',
+                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ],
               ),
-              if (xpGap > 0) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827).withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '${userRank - 1}. sıradaki $rivalName adlı rakibini geçmek için son $xpGap XP!',
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-          // Ignis: arenada kullanıcıyı destekleyen küçük bir maskot — ileride
-          // sayfaya özel karakterle değişecek tek yer IgnisCharacterPortrait.
-          const Positioned(
-            top: -34,
-            right: 2,
-            child: IgnisCharacterPortrait(size: 66),
-          ),
+            ),
+          ],
         ],
       ),
     );
@@ -417,6 +407,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final double progress = (current / target).clamp(0.0, 1.0);
     final bool isProcessing = _claimingChallengeIds.contains(cId);
 
+    // Kart artık sabit yüksekliğini DIŞ SizedBox'tan (148) alıyor; kendi
+    // içinde `mainAxisSize: MainAxisSize.min` + `SingleChildScrollView` ile
+    // sarılı — bu iki katmanlı güvence, içeriğin (2 satırlık başlık, büyük
+    // yazı tipi ölçeklemesi vb. yüzünden) ayrılan alanı birkaç piksel aşması
+    // durumunda bile artık render hatası (`OVERFLOWED BY n PIXELS`) DEĞİL,
+    // en fazla görünmez bir iç kaydırma üretir. `Spacer()` da bu yüzden sabit
+    // bir SizedBox boşluğuyla değiştirildi (esnek boşluk, sınırsız yükseklikli
+    // bir scroll view içinde anlamsız/undefined davranışa yol açar).
     return Container(
       width: 148,
       padding: const EdgeInsets.all(12),
@@ -430,96 +428,104 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           width: isCompleted && !isClaimed ? 1.5 : 1,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: itemColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
+      child: SingleChildScrollView(
+        // Dikey eksende varsayılan (kaydırılabilir) physics bilinçli olarak
+        // korunuyor: normal şartlarda 148px'e rahatça sığar ve kaydırma
+        // hissedilmez, ama aşırı büyük erişilebilirlik yazı tipi gibi uç bir
+        // durumda içerik taşarsa kullanıcı hâlâ kaydırıp görebilir — sessizce
+        // kırpılmaz.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: itemColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Icon(challenge['icon'] as IconData, color: itemColor, size: 17),
+                  ),
                 ),
-                child: Center(
-                  child: Icon(challenge['icon'] as IconData, color: itemColor, size: 17),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(PhosphorIcons.lightningBold, color: Colors.orange, size: 10),
-                    const SizedBox(width: 2),
-                    Text(
-                      '+${challenge['rewardXp']}',
-                      style: GoogleFonts.outfit(color: Colors.orange, fontWeight: FontWeight.w900, fontSize: 10),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            challenge['title'] as String,
-            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Spacer(),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 5,
-              backgroundColor: const Color(0xFF1E293B),
-              valueColor: AlwaysStoppedAnimation<Color>(itemColor),
-            ),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: double.infinity,
-            height: 26,
-            child: isCompleted && !isClaimed
-                ? ElevatedButton(
-                    onPressed: isProcessing ? null : () => _claimReward(challenge),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: itemColor,
-                      foregroundColor: const Color(0xFF0F172A),
-                      padding: EdgeInsets.zero,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: isProcessing
-                        ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
-                        : Text('AL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11.5)),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        isClaimed ? PhosphorIcons.checkCircleFill : PhosphorIcons.lockSimpleBold,
-                        color: isClaimed ? const Color(0xFF10B981) : const Color(0xFF475569),
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
+                      const Icon(PhosphorIcons.lightningBold, color: Colors.orange, size: 10),
+                      const SizedBox(width: 2),
                       Text(
-                        '$current/$target',
-                        style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 10.5),
+                        '+${challenge['rewardXp']}',
+                        style: GoogleFonts.outfit(color: Colors.orange, fontWeight: FontWeight.w900, fontSize: 10),
                       ),
                     ],
                   ),
-          ),
-        ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              challenge['title'] as String,
+              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 5,
+                backgroundColor: const Color(0xFF1E293B),
+                valueColor: AlwaysStoppedAnimation<Color>(itemColor),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              height: 26,
+              child: isCompleted && !isClaimed
+                  ? ElevatedButton(
+                      onPressed: isProcessing ? null : () => _claimReward(challenge),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: itemColor,
+                        foregroundColor: const Color(0xFF0F172A),
+                        padding: EdgeInsets.zero,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: isProcessing
+                          ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
+                          : Text('AL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11.5)),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isClaimed ? PhosphorIcons.checkCircleFill : PhosphorIcons.lockSimpleBold,
+                          color: isClaimed ? const Color(0xFF10B981) : const Color(0xFF475569),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$current/$target',
+                          style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 10.5),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

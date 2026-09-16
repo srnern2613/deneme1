@@ -21,7 +21,7 @@ import 'xp_shop_service.dart';
 import 'dictionary_screen.dart';
 import 'leaderboard_screen.dart';
 import 'achievement_service.dart';
-import 'core/design_system/primitives.dart'; // GlassPanel & IgnisCharacterPortrait
+import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/entitlement/paywall_trigger.dart';
 import 'core/entitlement/entitlement_repository.dart';
 
@@ -306,8 +306,13 @@ class ProfileScreenState extends State<ProfileScreen> {
                         return;
                       }
                       await XpShopService.instance.setActiveCosmetic('frame', id);
-                      if (!mounted) return;
+                      // `ctx` alt sayfanın (bottom sheet) kendi BuildContext'i;
+                      // State'in `mounted`'ı onun hâlâ ağaçta olduğunu garanti
+                      // etmiyor (use_build_context_synchronously uyarısı bu
+                      // yüzden çıkıyordu) — doğru kontrol `ctx.mounted`.
+                      if (!ctx.mounted) return;
                       Navigator.pop(ctx);
+                      if (!mounted) return;
                       _loadProfileData();
                     },
                     child: Column(
@@ -711,131 +716,89 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Hero profil kartı — artık Lobi'nin kendi "Today's Lesson" kartıyla aynı
-  // dilde: koyu sıcak gradient + altın kenarlık + glow. Ignis, kartın sağ
-  // üstünden bir konuşma balonuyla birlikte sahneye giriyor; ileride
-  // sayfaya özel karakterle değişecek tek yer IgnisCharacterPortrait
-  // (core/design_system/primitives.dart).
+  // Hero profil kartı — EJDERHA ROTASI V2: Ignis maskotu ve konuşma balonu
+  // kaldırıldı (Faz A, "Ignis Temizliği"). Sade, Apple tarzı minimalist bir
+  // kart: koyu gradient + ince altın kenarlık, dikkat dağıtıcı üst rozet
+  // katmanı olmadan doğrudan avatar + isim + seri durumuna odaklanıyor.
   Widget _buildModernProfileCard() {
     return Container(
-      margin: const EdgeInsets.only(top: 40),
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF17213C), Color(0xFF0B0F1A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFDE68A).withValues(alpha: 0.12),
-            blurRadius: 26,
-            spreadRadius: 0,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.3), width: 1),
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF17213C), Color(0xFF0B0F1A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.4), width: 1.2),
-            ),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: _showFramePickerSheet,
-                  child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    _buildCosmeticAvatar(),
-                    if (_hasGoldenCrown)
-                      Positioned(
-                        top: -14,
-                        child: Icon(PhosphorIcons.crownBold, color: const Color(0xFFF59E0B), size: 22)
-                            .animate(onPlay: (c) => c.repeat(reverse: true))
-                            .moveY(duration: 1000.ms, begin: 0, end: -3),
-                      ),
-                  ],
-                  ),
+          GestureDetector(
+            onTap: _showFramePickerSheet,
+            child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              _buildCosmeticAvatar(),
+              if (_hasGoldenCrown)
+                Positioned(
+                  top: -14,
+                  child: Icon(PhosphorIcons.crownBold, color: const Color(0xFFF59E0B), size: 22)
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .moveY(duration: 1000.ms, begin: 0, end: -3),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text('Eren', style: GoogleFonts.outfit(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
-                          if (_hasGoldenCrown) ...[
-                            const SizedBox(width: 4),
-                            const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 14),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      // Streak sayısı artık sadece alt istatistik gridinde
-                      // (tekrarı önlemek için) — burada, kalkan yokken Loss
-                      // Aversion ilkesine uygun büyütülmüş bir uyarı var;
-                      // kalkan varken minimal bir "güvende" onayı gösteriliyor.
-                      // EJDERHA ROTASI V2 — FAZ 2: Seri Koruma artık elmasla değil
-                      // Premium üyelikle açılıyor; dokunuş doğrudan merkezi
-                      // PaywallTrigger'ı tetikliyor (bkz. streak_freeze_service.dart).
-                      if (!_hasFreezeShield)
-                        PaywallTrigger(
-                          onUnlocked: _loadProfileData,
-                          child: Row(
-                            children: [
-                              const Icon(PhosphorIcons.fireBold, color: Color(0xFFEF4444), size: 14),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  'Serin risk altında, kalkanın yok!',
-                                  style: GoogleFonts.inter(color: const Color(0xFFFCA5A5), fontSize: 11.5, fontWeight: FontWeight.w700),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+            ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('Eren', style: GoogleFonts.outfit(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+                    if (_hasGoldenCrown) ...[
+                      const SizedBox(width: 4),
+                      const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 14),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                // Streak sayısı artık sadece alt istatistik gridinde
+                // (tekrarı önlemek için) — burada, kalkan yokken Loss
+                // Aversion ilkesine uygun büyütülmüş bir uyarı var;
+                // kalkan varken minimal bir "güvende" onayı gösteriliyor.
+                // EJDERHA ROTASI V2 — FAZ 2: Seri Koruma artık elmasla değil
+                // Premium üyelikle açılıyor; dokunuş doğrudan merkezi
+                // PaywallTrigger'ı tetikliyor (bkz. streak_freeze_service.dart).
+                if (!_hasFreezeShield)
+                  PaywallTrigger(
+                    onUnlocked: _loadProfileData,
+                    child: Row(
+                      children: [
+                        const Icon(PhosphorIcons.fireBold, color: Color(0xFFEF4444), size: 14),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            'Serin risk altında, kalkanın yok!',
+                            style: GoogleFonts.inter(color: const Color(0xFFFCA5A5), fontSize: 11.5, fontWeight: FontWeight.w700),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        )
-                      else
-                        Row(
-                          children: [
-                            const Icon(PhosphorIcons.shieldCheckBold, color: Color(0xFF34D399), size: 13),
-                            const SizedBox(width: 5),
-                            Text('Seri güvende', style: GoogleFonts.inter(color: const Color(0xFF6EE7B7), fontSize: 11.5, fontWeight: FontWeight.w600)),
-                          ],
                         ),
+                      ],
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      const Icon(PhosphorIcons.shieldCheckBold, color: Color(0xFF34D399), size: 13),
+                      const SizedBox(width: 5),
+                      Text('Seri güvende', style: GoogleFonts.inter(color: const Color(0xFF6EE7B7), fontSize: 11.5, fontWeight: FontWeight.w600)),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            top: -40,
-            right: 6,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 3))],
-                  ),
-                  child: Text(
-                    'Harika gidiyorsun!',
-                    style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 10.5, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const IgnisCharacterPortrait(size: 78),
               ],
             ),
           ),

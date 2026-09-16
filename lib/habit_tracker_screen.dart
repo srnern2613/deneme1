@@ -16,7 +16,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'xp_shop_service.dart';
 import 'streak_freeze_service.dart';
 import 'shop_screen.dart';
-import 'core/design_system/primitives.dart'; // IgnisCharacterPortrait
+import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 
 class HabitTrackerScreen extends StatefulWidget {
   const HabitTrackerScreen({super.key});
@@ -413,93 +413,75 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
               _buildWeeklyChainTracker(),
               const SizedBox(height: 18),
 
+              // EJDERHA ROTASI V2 — Faz A "Ignis Temizliği": maskot ve
+              // konuşma balonu kaldırıldı, sade Apple tarzı bir özet kart.
               Container(
                 width: double.infinity,
-                margin: const EdgeInsets.only(top: 30),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF17213C), Color(0xFF0B0F1A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(color: const Color(0xFFFDE68A).withValues(alpha: 0.12), blurRadius: 26, offset: const Offset(0, 10)),
-                  ],
+                  border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.3), width: 1),
                 ),
-                child: Stack(
-                  clipBehavior: Clip.none,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF17213C), Color(0xFF0B0F1A)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Bugünkü İlerleme',
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.4), width: 1.2),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
                             children: [
+                              const Icon(PhosphorIcons.fireBold, color: Color(0xFFF59E0B), size: 14),
+                              const SizedBox(width: 4),
                               Text(
-                                'Bugünkü İlerleme',
-                                style: GoogleFonts.outfit(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(PhosphorIcons.fireBold, color: Color(0xFFF59E0B), size: 14),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '$completedCount / ${_habits.length}',
-                                      style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 12),
-                                    ),
-                                  ],
-                                ),
+                                '$completedCount / ${_habits.length}',
+                                style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 12),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: LinearProgressIndicator(
-                              value: progress,
-                              backgroundColor: const Color(0xFF334155),
-                              color: const Color(0xFF34D399),
-                              minHeight: 7,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            completedCount == _habits.length && _habits.isNotEmpty
-                                ? 'Harika! Bugünkü tüm hedeflerini tamamladın! 🚀'
-                                : (_todayPages > 0 || _todayMinutes > 0)
-                                    ? 'Bugün $_todayPages sayfa ($_todayMinutes dk) okundu. Zinciri kırma!'
-                                    : 'Zinciri kırma, bugünkü alışkanlıklarını tamamla.',
-                            style: GoogleFonts.inter(
-                              color: const Color(0xFF94A3B8),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: const Color(0xFF334155),
+                        color: const Color(0xFF34D399),
+                        minHeight: 7,
                       ),
                     ),
-                    const Positioned(
-                      top: -34,
-                      right: 4,
-                      child: IgnisCharacterPortrait(size: 66),
+                    const SizedBox(height: 12),
+                    Text(
+                      completedCount == _habits.length && _habits.isNotEmpty
+                          ? 'Harika! Bugünkü tüm hedeflerini tamamladın! 🚀'
+                          : (_todayPages > 0 || _todayMinutes > 0)
+                              ? 'Bugün $_todayPages sayfa ($_todayMinutes dk) okundu. Zinciri kırma!'
+                              : 'Zinciri kırma, bugünkü alışkanlıklarını tamamla.',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),

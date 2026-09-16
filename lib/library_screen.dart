@@ -276,61 +276,89 @@ class _LibraryScreenState extends State<LibraryScreen> {
       );
   }
 
-  // EJDERHA ROTASI V2 — FAZ 4: Eski büyük "Bilgi Havuzu" haftalık rapor
-  // kartının (ikonlu 3 kutulu grid + üstte iki rozet) yerine, tek satırlık
-  // ince bir bilgi bandı. Aynı veriler (dalış süresi, keşfedilen/havuzdaki
-  // kelime, seri, kalkan) korunuyor — sadece dikey yer kaplaması azaltıldı.
-  Widget _buildReadingBanner() {
+  // EJDERHA ROTASI V2 — FAZ B "Kitaplık Üst İstatistik Modernizasyonu":
+  // Eski tek satırlık, emoji + ayraçlarla sıkıştırılmış "bilgi bandı" yerine
+  // her biri kendi anlamını AÇIKÇA anlatan (ikon + değer + etiket), Apple
+  // Sağlık tarzı 4'lü minimalist istatistik ızgarası. Metin karmaşası
+  // (çıplak sayılar, belirsiz emoji, "G." gibi kısaltmalar) tamamen kaldırıldı.
+  Widget _buildStatsOverviewRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: PaywallTrigger(
+            onUnlocked: _loadAllData,
+            child: _buildStatTile(
+              icon: _hasFreezeShield ? PhosphorIcons.shieldCheckBold : PhosphorIcons.fireBold,
+              value: '$_streakDays',
+              label: 'Gün Serisi',
+              color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildStatTile(
+            icon: PhosphorIcons.timerBold,
+            value: '$_totalReadMinutes',
+            label: 'Dakika Okuma',
+            color: const Color(0xFF38BDF8),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildStatTile(
+            icon: PhosphorIcons.magnifyingGlassBold,
+            value: '$_totalWordsExamined',
+            label: 'Keşfedilen Kelime',
+            color: const Color(0xFF10B981),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildStatTile(
+            icon: PhosphorIcons.cardsBold,
+            value: '$_totalWordsSaved',
+            label: 'Kaydedilen Kart',
+            color: const Color(0xFF818CF8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatTile({required IconData icon, required String value, required String label, required Color color}) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF1F2937), width: 1),
       ),
-      child: Row(
-        children: [
-          // EJDERHA ROTASI V2 — FAZ 2: Kalkan yokken rozet PaywallTrigger ile
-          // sarılı — dokunuş merkezi paywall'ı açar.
-          PaywallTrigger(
-            onUnlocked: _loadAllData,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_hasFreezeShield ? '🛡️' : '⏳', style: const TextStyle(fontSize: 13)),
-                const SizedBox(width: 4),
-                Text('$_streakDays G.', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 12, color: const Color(0xFFF59E0B))),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(width: 1, height: 16, color: const Color(0xFF1F2937)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Row(
-              children: [
-                _buildBannerStat(icon: PhosphorIcons.timerBold, value: '$_totalReadMinutes dk', color: const Color(0xFF38BDF8)),
-                _buildBannerStat(icon: PhosphorIcons.magnifyingGlassBold, value: '$_totalWordsExamined', color: const Color(0xFF10B981)),
-                _buildBannerStat(icon: PhosphorIcons.cardsBold, value: '$_totalWordsSaved', color: const Color(0xFF818CF8)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBannerStat({required IconData icon, required String value, required Color color}) {
-    return Expanded(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(value, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11.5, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 15, color: color),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 17, color: Colors.white),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8), height: 1.2),
+            maxLines: 2,
           ),
         ],
       ),
@@ -438,7 +466,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               const SizedBox(height: 4),
               _buildLibraryHeaderRow(),
               const SizedBox(height: 16),
-              _buildReadingBanner(),
+              _buildStatsOverviewRow(),
 
               const SizedBox(height: 12),
               // Dikey Yığılmayı Önleyen Hibrit Banner
