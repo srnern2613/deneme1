@@ -12,6 +12,8 @@ import 'celebration_dialog.dart';
 import 'coach_messages.dart';
 import 'database_helper.dart';
 import 'dictionary_service.dart';
+import 'core/fsrs/fsrs_repository.dart';
+import 'core/fsrs/fsrs_models.dart';
 
 class FlashcardsExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -174,6 +176,12 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
           cardId: cardId,
           isCorrect: isCorrect,
           mode: 'srs',
+        ).catchError((_) {});
+        // EJDERHA ROTASI V2 — FAZ 3: FSRS paralel yazım. V1 sistemine
+        // dokunmadan aynı sonucu FSRS motoruna da besliyoruz.
+        FsrsRepository.instance.recordReview(
+          cardId: cardId,
+          rating: FsrsRating.fromCorrectness(isCorrect),
         ).catchError((_) {});
       }
     }

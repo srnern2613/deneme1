@@ -22,6 +22,8 @@ import 'word_boss_battle_screen.dart';
 import 'xp_shop_service.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
+import 'core/fsrs/fsrs_repository.dart';
+import 'mixed_dungeon_session_screen.dart';
 
 class FlashcardsScreen extends StatefulWidget {
   final VoidCallback? onNavigateToLibrary;
@@ -369,11 +371,40 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     widget.onNavigateToLibrary?.call();
   }
 
-  void _startSrsExercise() {
+  // EJDERHA ROTASI V2 — FAZ 3: "Zindana Gir" ana butonu artık FSRS'in
+  // vadesi gelmiş kartlarıyla Otomatik Karma Mod'u başlatıyor (soru tipi
+  // her kartta rastgele değişir). Alttaki 4 manuel mod butonu (Hızlı Test,
+  // SRS Hafıza, Eşleştirme, Dinle&Yaz) kullanıcının isteğiyle AYNEN kalıyor.
+  void _startMixedDungeonSession() async {
     HapticFeedback.mediumImpact();
     final multiplier = _dailyDoubleXpIndex == 1 ? 2 : 1;
+    List<Map<String, dynamic>> dueCards = [];
+    try {
+      dueCards = await FsrsRepository.instance.getDueCards(limit: _cards.isNotEmpty ? _cards.length : 20);
+    } catch (_) {}
+    final sessionCards = dueCards.isNotEmpty ? dueCards : _cards;
+    if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => FlashcardsExerciseScreen(cards: _cards, xpMultiplier: multiplier)
+      builder: (context) => MixedDungeonSessionScreen(cards: sessionCards, xpMultiplier: multiplier, allCards: _cards),
+    )).then((_) {
+      if (mounted) _loadCardsAndStats();
+    });
+  }
+
+  void _startSrsExercise() async {
+    HapticFeedback.mediumImpact();
+    final multiplier = _dailyDoubleXpIndex == 1 ? 2 : 1;
+    // EJDERHA ROTASI V2 — FAZ 3: Hafıza Zindanı artık FSRS'in vadesi gelmiş
+    // kart sıralamasını kullanıyor. FSRS henüz boş dönerse (ör. hiçbir kart
+    // FSRS ile incelenmemişse) eski _cards havuzuna düşüyoruz — kırılma yok.
+    List<Map<String, dynamic>> dueCards = [];
+    try {
+      dueCards = await FsrsRepository.instance.getDueCards(limit: _cards.isNotEmpty ? _cards.length : 20);
+    } catch (_) {}
+    final sessionCards = dueCards.isNotEmpty ? dueCards : _cards;
+    if (!mounted) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => FlashcardsExerciseScreen(cards: sessionCards, xpMultiplier: multiplier)
     )).then((_) {
       if (mounted) _loadCardsAndStats();
     });
@@ -626,7 +657,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                 foregroundColor: isPoolEmpty ? Colors.white : const Color(0xFFFDE68A),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              onPressed: isPoolEmpty ? _navigateToLibraryRoot : _startSrsExercise,
+              onPressed: isPoolEmpty ? _navigateToLibraryRoot : _startMixedDungeonSession,
               child: Text(
                 isPoolEmpty ? 'KİTAPLIĞA GİT VE AVLAN 🏹' : 'ZİNDANA GİR ⚔️',
                 style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5),

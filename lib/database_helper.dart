@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 15,
+      version: 16,
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
     );
@@ -64,7 +64,14 @@ class DatabaseHelper {
         cooldown_until TEXT,
         context_sentence TEXT,
         book_title TEXT,
-        chapter_info TEXT
+        chapter_info TEXT,
+        fsrs_stability REAL,
+        fsrs_difficulty REAL,
+        fsrs_due_at TEXT,
+        fsrs_state INTEGER DEFAULT 0,
+        fsrs_reps INTEGER DEFAULT 0,
+        fsrs_lapses INTEGER DEFAULT 0,
+        fsrs_last_reviewed_at TEXT
       )
     ''');
 
@@ -121,15 +128,36 @@ class DatabaseHelper {
     if (oldVersion < 15) {
       try {
         await db.execute('''
-          DELETE FROM flashcards 
+          DELETE FROM flashcards
           WHERE id NOT IN (
-            SELECT MAX(id) 
-            FROM flashcards 
+            SELECT MAX(id)
+            FROM flashcards
             GROUP BY word COLLATE NOCASE
           )
         ''');
         await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_flashcards_unique_word ON flashcards(word COLLATE NOCASE)');
       } catch (_) {}
+    }
+    if (oldVersion < 16) {
+      // EJDERHA ROTASI V2 — FAZ 3: FSRS kolonları eklendi. Mevcut kartlar
+      // için bu alanlar NULL/0 kalır — FsrsRepository bunu "hiç
+      // incelenmemiş, hemen vadesi gelmiş" (cold start) olarak okur, hata
+      // fırlatmaz. Eski sabit-aralıklı sistemin kolonlarına dokunulmadı.
+      for (final stmt in [
+        "ALTER TABLE flashcards ADD COLUMN fsrs_stability REAL",
+        "ALTER TABLE flashcards ADD COLUMN fsrs_difficulty REAL",
+        "ALTER TABLE flashcards ADD COLUMN fsrs_due_at TEXT",
+        "ALTER TABLE flashcards ADD COLUMN fsrs_state INTEGER DEFAULT 0",
+        "ALTER TABLE flashcards ADD COLUMN fsrs_reps INTEGER DEFAULT 0",
+        "ALTER TABLE flashcards ADD COLUMN fsrs_lapses INTEGER DEFAULT 0",
+        "ALTER TABLE flashcards ADD COLUMN fsrs_last_reviewed_at TEXT",
+      ]) {
+        try {
+          await db.execute(stmt);
+        } catch (_) {
+          // Kolon zaten varsa (ör. tekrar eden upgrade denemesi) sessizce geç.
+        }
+      }
     }
   }
 
