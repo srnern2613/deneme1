@@ -1,0 +1,280 @@
+// ============================================================================
+// DOSYA ADI: lib/ai_coach_screen.dart
+// AÇIKLAMA: Ejderha Rotası V2 — Faz 7. AI Koç (Ignis) sohbet ekranı.
+// Mesajlar core/ai_coach/ai_coach_repository.dart üzerinden ince bir
+// Supabase Edge Function proxy'sine gönderilir — uygulama hiçbir LLM API
+// anahtarı taşımaz. Ücretsiz kullanıcılar günlük sınırlı, Premium
+// kullanıcılar sınırsız mesaj hakkına sahiptir.
+// ============================================================================
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+
+import 'core/ai_coach/ai_coach_repository.dart';
+import 'core/ai_coach/ai_coach_models.dart';
+import 'core/entitlement/entitlement_repository.dart';
+
+class AiCoachScreen extends StatefulWidget {
+  const AiCoachScreen({super.key});
+
+  @override
+  State<AiCoachScreen> createState() => _AiCoachScreenState();
+}
+
+class _AiCoachScreenState extends State<AiCoachScreen> {
+  final TextEditingController _inputController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final List<AiCoachMessage> _messages = [];
+
+  bool _isSending = false;
+  int _remainingFree = -1; // -1 = henüz yüklenmedi / sınırsız
+
+  @override
+  void initState() {
+    super.initState();
+    _messages.add(AiCoachMessage(
+      role: AiCoachRole.assistant,
+      content: 'Selam maceracı! Ben Ignis 🐉 Kelime, telaffuz ya da çalışma stratejisi hakkında ne sormak istersin?',
+    ));
+    _refreshQuota();
+  }
+
+  @override
+  void dispose() {
+    _inputController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshQuota() async {
+    final remaining = await AiCoachRepository.instance.getRemainingFreeMessages();
+    if (!mounted) return;
+    setState(() => _remainingFree = remaining);
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _inputController.text.trim();
+    if (text.isEmpty || _isSending) return;
+
+    HapticFeedback.selectionClick();
+    _inputController.clear();
+    setState(() {
+      _messages.add(AiCoachMessage(role: AiCoachRole.user, content: text));
+      _isSending = true;
+    });
+    _scrollToBottom();
+
+    try {
+      final reply = await AiCoachRepository.instance.sendMessage(
+        message: text,
+        history: _messages,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages.add(AiCoachMessage(role: AiCoachRole.assistant, content: reply));
+        _isSending = false;
+      });
+      _scrollToBottom();
+      _refreshQuota();
+    } on AiCoachQuotaExceededException {
+      if (!mounted) return;
+      setState(() => _isSending = false);
+      final unlocked = await EntitlementRepository.instance.presentPaywall();
+      if (unlocked) {
+        _refreshQuota();
+      }
+    } on AiCoachNotConfiguredException {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(AiCoachMessage(
+          role: AiCoachRole.assistant,
+          content: 'AI Koç henüz yapılandırılmadı — geliştirici tarafında Supabase Edge Function kurulumu tamamlanmalı (ai_coach_config.dart).',
+        ));
+        _isSending = false;
+      });
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(AiCoachMessage(
+          role: AiCoachRole.assistant,
+          content: 'Şu an sana ulaşamıyorum, birazdan tekrar dener misin?',
+        ));
+        _isSending = false;
+      });
+      _scrollToBottom();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF070B14),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF070B14),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        centerTitle: true,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🐉', style: TextStyle(fontSize: 18)),
+            const SizedBox(width: 6),
+            Text('AI Koç Ignis', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Center(child: _buildQuotaBadge()),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                itemCount: _messages.length + (_isSending ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == _messages.length) {
+                    return _buildTypingBubble();
+                  }
+                  return _buildMessageBubble(_messages[index]);
+                },
+              ),
+            ),
+            _buildInputBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuotaBadge() {
+    if (_remainingFree < 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFDE68A).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 12),
+            const SizedBox(width: 4),
+            Text('Sınırsız', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.w800, fontSize: 11)),
+          ],
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF334155)),
+      ),
+      child: Text('$_remainingFree hak kaldı', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w700, fontSize: 11)),
+    );
+  }
+
+  Widget _buildMessageBubble(AiCoachMessage message) {
+    final bool isUser = message.role == AiCoachRole.user;
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+        decoration: BoxDecoration(
+          color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.18) : const Color(0xFF0F172A).withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(16).copyWith(
+            bottomRight: isUser ? const Radius.circular(4) : null,
+            bottomLeft: !isUser ? const Radius.circular(4) : null,
+          ),
+          border: Border.all(color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.35) : const Color(0xFF1F2937)),
+        ),
+        child: Text(
+          message.content,
+          style: GoogleFonts.inter(color: Colors.white, fontSize: 13.5, height: 1.4),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypingBubble() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(16).copyWith(bottomLeft: const Radius.circular(4)),
+          border: Border.all(color: const Color(0xFF1F2937)),
+        ),
+        child: const SizedBox(
+          width: 20,
+          height: 12,
+          child: Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)))),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B0F1A),
+        border: Border(top: BorderSide(color: const Color(0xFF1F2937))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _inputController,
+              style: GoogleFonts.inter(color: Colors.white, fontSize: 13.5),
+              maxLines: 4,
+              minLines: 1,
+              textCapitalization: TextCapitalization.sentences,
+              onSubmitted: (_) => _sendMessage(),
+              decoration: InputDecoration(
+                hintText: 'Ignis\'e bir şey sor...',
+                hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
+                filled: true,
+                fillColor: const Color(0xFF111827),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            style: IconButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), padding: const EdgeInsets.all(12)),
+            onPressed: _isSending ? null : _sendMessage,
+            icon: const Icon(Icons.send_rounded, color: Color(0xFF070B14), size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+}

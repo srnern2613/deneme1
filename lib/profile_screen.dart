@@ -23,6 +23,7 @@ import 'leaderboard_screen.dart';
 import 'achievement_service.dart';
 import 'core/design_system/primitives.dart'; // GlassPanel & IgnisCharacterPortrait
 import 'core/entitlement/paywall_trigger.dart';
+import 'core/entitlement/entitlement_repository.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -39,7 +40,6 @@ class ProfileScreenState extends State<ProfileScreen> {
   int _masteredFlashcardsCount = 0;
   int _streakDays = 1;
   bool _hasFreezeShield = false;
-  int _selectedTab = 0;
 
   // Lig kartı artık leaderboard_screen.dart'taki GERÇEK sıralama algoritmasının
   // (kullanıcının gerçek XP'sinden türetilen simülasyon) burada yeniden
@@ -51,8 +51,21 @@ class ProfileScreenState extends State<ProfileScreen> {
   bool _hasGoldenCrown = false;
   String _activeFrame = 'none';
 
-  List<int> _heatmapDailyPages = [];
   Set<String> _unlockedBadges = {};
+
+  // EJDERHA ROTASI V2 — FAZ 6: Apple tarzı minimal Profil. Eski Mağaza'nın
+  // (Faz 1'de kaldırıldı) elmasla çerçeve satın alma akışı yerine, tüm
+  // çerçeveler artık Premium'un bir parçası — kilitli/kilitli-değil önizleme
+  // popup'ından doğrudan seçiliyor, ayrı bir satın alma adımı yok.
+  static const List<Map<String, dynamic>> _frameOptions = [
+    {'id': 'none', 'label': 'Yok', 'gradient': null, 'free': true},
+    {'id': 'flame_border', 'label': 'Alev', 'gradient': [Color(0xFFEC4899), Color(0xFFF59E0B)], 'free': false},
+    {'id': 'neon_frame', 'label': 'Neon', 'gradient': [Color(0xFFA855F7), Color(0xFF38BDF8)], 'free': false},
+    {'id': 'emerald_frame', 'label': 'Zümrüt', 'gradient': [Color(0xFF10B981), Color(0xFF34D399)], 'free': false},
+    {'id': 'titan_frame', 'label': 'Titan', 'gradient': [Color(0xFFF59E0B), Color(0xFF78350F)], 'free': false},
+    {'id': 'storm_frame', 'label': 'Fırtına', 'gradient': [Color(0xFF38BDF8), Color(0xFF1E3A8A)], 'free': false},
+    {'id': 'cosmic_frame', 'label': 'Kozmik', 'gradient': [Color(0xFFC084FC), Color(0xFF6366F1), Color(0xFFEC4899)], 'free': false},
+  ];
 
   final List<Map<String, dynamic>> _allBadges = [
     {'id': 'first_step', 'title': 'İlk Adım', 'emoji': '🐣', 'hint': 'Sisteme giriş yap ve ilk kitabını incele.', 'color': const Color(0xFF38BDF8)},
@@ -148,16 +161,6 @@ class ProfileScreenState extends State<ProfileScreen> {
       }
 
       if (!mounted) return;
-
-      final List<int> heatmapData = [];
-      final now = DateTime.now();
-      for (int i = 69; i >= 0; i--) {
-        final date = now.subtract(Duration(days: i));
-        final key = 'daily_pages_${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-        heatmapData.add(prefs.getInt(key) ?? 0);
-      }
-
-      if (!mounted) return;
       setState(() {
         _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
         _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
@@ -165,7 +168,6 @@ class ProfileScreenState extends State<ProfileScreen> {
         _masteredFlashcardsCount = masteredCount;
         _streakDays = streakResult['streakDays'] ?? 1;
         _hasFreezeShield = streakResult['hasFreezeShield'] ?? false;
-        _heatmapDailyPages = heatmapData;
         _hasGoldenCrown = crown;
         _activeFrame = frame;
         _unlockedBadges = unlocked;
@@ -239,6 +241,131 @@ class ProfileScreenState extends State<ProfileScreen> {
                   onPressed: () => Navigator.pop(ctx),
                   child: Text('Kapat', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14)),
                 ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // EJDERHA ROTASI V2 — FAZ 6: Çerçeve Önizleme Popup'ı. Avatara dokununca
+  // açılır; kilitli (Premium olmayan) çerçeveler soluk + kilit ikonlu
+  // gösterilir ve dokunuşları merkezi paywall'ı açar. Kilitsiz bir çerçeveye
+  // dokunmak anında aktif çerçeve olarak kaydedilir — ayrı bir "satın alma"
+  // adımı yok, hepsi Premium'un bir parçası.
+  void _showFramePickerSheet() {
+    HapticFeedback.lightImpact();
+    final bool isPremium = EntitlementRepository.instance.isPremium;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF111827),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(2))),
+              ),
+              const SizedBox(height: 20),
+              Text('Avatar Çerçevesi', style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 4),
+              Text(
+                isPremium ? 'Dilediğin çerçeveyi seç.' : 'Çerçeveler Premium ile açılır.',
+                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12.5),
+              ),
+              const SizedBox(height: 18),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _frameOptions.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 0.8,
+                ),
+                itemBuilder: (context, index) {
+                  final frame = _frameOptions[index];
+                  final String id = frame['id'] as String;
+                  final bool isFree = frame['free'] as bool;
+                  final bool isLocked = !isFree && !isPremium;
+                  final bool isActive = _activeFrame == id;
+                  final List<Color>? gradientColors = frame['gradient'] as List<Color>?;
+
+                  return GestureDetector(
+                    onTap: () async {
+                      if (isLocked) {
+                        Navigator.pop(ctx);
+                        final unlocked = await EntitlementRepository.instance.presentPaywall();
+                        if (unlocked) _showFramePickerSheet();
+                        return;
+                      }
+                      await XpShopService.instance.setActiveCosmetic('frame', id);
+                      if (!mounted) return;
+                      Navigator.pop(ctx);
+                      _loadProfileData();
+                    },
+                    child: Column(
+                      children: [
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: gradientColors != null ? LinearGradient(colors: gradientColors) : null,
+                                border: gradientColors == null ? Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4), width: 2) : null,
+                                boxShadow: isActive ? [BoxShadow(color: const Color(0xFFFDE68A).withValues(alpha: 0.5), blurRadius: 10, spreadRadius: 1)] : [],
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
+                                  child: Icon(PhosphorIcons.userBold, color: isLocked ? const Color(0xFF475569) : const Color(0xFF38BDF8), size: 20),
+                                ),
+                              ),
+                            ),
+                            if (isLocked)
+                              Positioned(
+                                bottom: -2,
+                                right: -2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(color: Color(0xFF111827), shape: BoxShape.circle),
+                                  child: const Icon(PhosphorIcons.lockSimpleBold, color: Color(0xFF94A3B8), size: 12),
+                                ),
+                              ),
+                            if (isActive)
+                              Positioned(
+                                bottom: -2,
+                                right: -2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
+                                  child: const Icon(PhosphorIcons.checkBold, color: Colors.white, size: 10),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          frame['label'] as String,
+                          style: GoogleFonts.inter(color: isLocked ? const Color(0xFF64748B) : Colors.white, fontSize: 10),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -359,16 +486,14 @@ class ProfileScreenState extends State<ProfileScreen> {
                   _buildMasteryProgressBanner(),
                   const SizedBox(height: 16),
                   _buildLeagueRankCard(),
-                  const SizedBox(height: 18),
-                  _buildTabSelector(),
-                  const SizedBox(height: 18),
-                  if (_selectedTab == 0) ...[
-                    _buildReadingHeatmapCard(),
-                    const SizedBox(height: 16),
-                    _buildStatsGrid(),
-                  ] else ...[
-                    _buildAchievementsGrid(),
-                  ],
+                  const SizedBox(height: 22),
+                  // EJDERHA ROTASI V2 — FAZ 6: Apple tarzı minimal Profil —
+                  // eski sekme seçici (Isı Haritası/Başarılar) ve ısı
+                  // haritası kaldırıldı; istatistikler iOS Ayarlar tarzı
+                  // temiz bir liste olarak sunuluyor, başarılar hep görünür.
+                  _buildSettingsStyleStatsList(),
+                  const SizedBox(height: 22),
+                  _buildAchievementsGrid(),
                 ],
               ),
             ),
@@ -621,7 +746,9 @@ class ProfileScreenState extends State<ProfileScreen> {
             ),
             child: Row(
               children: [
-                Stack(
+                GestureDetector(
+                  onTap: _showFramePickerSheet,
+                  child: Stack(
                   alignment: Alignment.center,
                   clipBehavior: Clip.none,
                   children: [
@@ -634,6 +761,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                             .moveY(duration: 1000.ms, begin: 0, end: -3),
                       ),
                   ],
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -830,153 +958,54 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Sekme seçici — Lobi'deki amber-altın gradient pill diline geçirildi.
-  Widget _buildTabSelector() {
+  // EJDERHA ROTASI V2 — FAZ 6: Apple/iOS Ayarlar tarzı temiz liste — eski
+  // 2x2 kutu grid'i yerine tek grup içinde ince ayraçlarla bölünen satırlar.
+  // Aynı 4 istatistik ve aynı navigasyon hedefleri korunuyor.
+  Widget _buildSettingsStyleStatsList() {
+    final rows = [
+      (title: 'Okuma Süresi', value: '$_totalReadMinutes dk', icon: PhosphorIcons.timerBold, color: const Color(0xFF38BDF8), onTap: () => _navigateTo(const LibraryScreen())),
+      (title: 'Kelime Havuzu', value: '$_totalFlashcards Kart', icon: PhosphorIcons.cardsBold, color: const Color(0xFFEC4899), onTap: () => _navigateTo(const FlashcardsScreen())),
+      (title: 'Koleksiyon Arşivi', value: '$_totalWordsExamined Kelime', icon: PhosphorIcons.magnifyingGlassBold, color: const Color(0xFF10B981), onTap: () => _navigateTo(const DictionaryScreen())),
+      (title: 'Başarı Serisi', value: '$_streakDays Gün', icon: PhosphorIcons.fireBold, color: const Color(0xFFF59E0B), onTap: () => _navigateTo(const HabitTrackerScreen())),
+    ];
+
     return Container(
-      height: 50,
-      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1),
-      ),
-      child: Row(
-        children: [
-          Expanded(child: _buildTabPill('📊 Isı Haritası', 0)),
-          Expanded(child: _buildTabPill('🏆 Başarılar', 1)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabPill(String label, int index) {
-    final bool active = _selectedTab == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTab = index),
-      child: AnimatedContainer(
-        duration: 250.ms,
-        decoration: BoxDecoration(
-          gradient: active
-              ? const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)])
-              : null,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: active
-              ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.35), blurRadius: 12, spreadRadius: 0)]
-              : null,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.bold,
-            color: active ? const Color(0xFF070B14) : const Color(0xFF94A3B8),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReadingHeatmapCard() {
-    final totalRead70Days = _heatmapDailyPages.fold(0, (sum, pages) => sum + pages);
-    // Kaydırmadan tek bakışta özet: son 30 gündeki aktif gün sayısı.
-    final last30 = _heatmapDailyPages.length >= 30
-        ? _heatmapDailyPages.sublist(_heatmapDailyPages.length - 30)
-        : _heatmapDailyPages;
-    final activeDaysLast30 = last30.where((p) => p > 0).length;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFF1F2937), width: 1),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Okuma Isı Haritası (Son 70 Gün)', style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
-              Text('$totalRead70Days Sayfa', style: GoogleFonts.outfit(color: const Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 11.5)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Son 30 günde $activeDaysLast30 gün okudun',
-            style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5),
-          ),
-          const SizedBox(height: 14),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: List.generate(10, (colIndex) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 5),
-                  child: Column(
-                    children: List.generate(7, (rowIndex) {
-                      final itemIndex = (colIndex * 7) + rowIndex;
-                      final pages = itemIndex < _heatmapDailyPages.length ? _heatmapDailyPages[itemIndex] : 0;
-                      return Container(
-                        width: 15,
-                        height: 15,
-                        margin: const EdgeInsets.only(bottom: 5),
-                        decoration: BoxDecoration(
-                          color: pages == 0 ? const Color(0xFF334155) : const Color(0xFF34D399),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      );
-                    }),
-                  ),
-                );
-              }),
-            ),
-          ),
+          for (int i = 0; i < rows.length; i++) ...[
+            _buildSettingsRow(rows[i]),
+            if (i < rows.length - 1) const Divider(height: 1, color: Color(0xFF1F2937), indent: 56),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildStatsGrid() {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.35,
-      children: [
-        _buildStatCard('Okuma Süresi', '$_totalReadMinutes dk', PhosphorIcons.timerBold, const Color(0xFF38BDF8), () => _navigateTo(const LibraryScreen())),
-        _buildStatCard('Kelime Havuzu', '$_totalFlashcards Kart', PhosphorIcons.cardsBold, const Color(0xFFEC4899), () => _navigateTo(const FlashcardsScreen())),
-        _buildStatCard('Koleksiyon Arşivi', '$_totalWordsExamined Kelime', PhosphorIcons.magnifyingGlassBold, const Color(0xFF10B981), () => _navigateTo(const DictionaryScreen())),
-        _buildStatCard('Başarı Serisi', '$_streakDays Gün', PhosphorIcons.fireBold, const Color(0xFFF59E0B), () => _navigateTo(const HabitTrackerScreen())),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(String title, String value, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildSettingsRow(({String title, String value, IconData icon, Color color, VoidCallback onTap}) row) {
     return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF1F2937), width: 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      onTap: row.onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 20),
-                Text(value, style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
-              ],
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(color: row.color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(9)),
+              child: Icon(row.icon, color: row.color, size: 16),
             ),
-            Text(title, style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(row.title, style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+            ),
+            Text(row.value, style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 6),
+            const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF475569), size: 14),
           ],
         ),
       ),

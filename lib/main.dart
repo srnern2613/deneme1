@@ -22,6 +22,7 @@ import 'profile_screen.dart';
 import 'leaderboard_screen.dart';
 import 'xp_shop_service.dart';
 import 'streak_freeze_service.dart';
+import 'ai_coach_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -595,7 +596,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 16),
+
+                  // EJDERHA ROTASI V2 — FAZ 7: AI Koç (Ignis) giriş bandı.
+                  // İnce, tek satırlık tıklanabilir kart — sohbet ekranını
+                  // açar. Kota/Premium mantığı tamamen ai_coach_repository
+                  // ve ai_coach_screen içinde; burada yalnızca bir giriş
+                  // noktası var.
+                  InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AiCoachScreen()));
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.35)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(color: const Color(0xFFA855F7).withValues(alpha: 0.15), shape: BoxShape.circle),
+                            child: const Center(child: Text('🐉', style: TextStyle(fontSize: 17))),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('AI Koç Ignis\'e sor', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5)),
+                                Text('Kelime, telaffuz ve strateji önerileri', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 14),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
 
                   // --- 3. DEVAM EDEN KİTAPLAR (YÜKSEK KONTRASTLI MİNİ BARLAR) ---[cite: 3, 4]
                   Row(
