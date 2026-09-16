@@ -385,7 +385,12 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     final sessionCards = dueCards.isNotEmpty ? dueCards : _cards;
     if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => MixedDungeonSessionScreen(cards: sessionCards, xpMultiplier: multiplier, allCards: _cards),
+      builder: (context) => MixedDungeonSessionScreen(
+        cards: sessionCards,
+        xpMultiplier: multiplier,
+        allCards: _cards,
+        onNavigateToLibrary: _navigateToLibraryRoot,
+      ),
     )).then((_) {
       if (mounted) _loadCardsAndStats();
     });
@@ -414,7 +419,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     HapticFeedback.mediumImpact();
     final multiplier = _dailyDoubleXpIndex == 0 ? 2 : 1;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => QuizExerciseScreen(cards: _cards, xpMultiplier: multiplier)
+      builder: (context) => QuizExerciseScreen(cards: _cards, xpMultiplier: multiplier, onNavigateToLibrary: _navigateToLibraryRoot)
     )).then((_) {
       if (mounted) _loadCardsAndStats();
     });
@@ -424,7 +429,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     HapticFeedback.mediumImpact();
     final multiplier = _dailyDoubleXpIndex == 2 ? 2 : 1;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => MatchExerciseScreen(cards: _cards, xpMultiplier: multiplier)
+      builder: (context) => MatchExerciseScreen(cards: _cards, xpMultiplier: multiplier, onNavigateToLibrary: _navigateToLibraryRoot)
     )).then((_) {
       if (mounted) _loadCardsAndStats();
     });
@@ -447,7 +452,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     HapticFeedback.mediumImpact();
     final multiplier = _dailyDoubleXpIndex == 3 ? 2 : 1;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => SpellingExerciseScreen(cards: _cards, xpMultiplier: multiplier)
+      builder: (context) => SpellingExerciseScreen(cards: _cards, xpMultiplier: multiplier, onNavigateToLibrary: _navigateToLibraryRoot)
     )).then((_) {
       if (mounted) _loadCardsAndStats();
     });

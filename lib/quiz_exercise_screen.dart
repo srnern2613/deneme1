@@ -16,15 +16,18 @@ import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'coach_messages.dart';
 import 'database_helper.dart';
+import 'core/design_system/primitives.dart';
 
 class QuizExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
   final int xpMultiplier; // Dinamik 2X XP FOMO Koruması
+  final VoidCallback? onNavigateToLibrary;
 
   const QuizExerciseScreen({
-    super.key, 
+    super.key,
     required this.cards,
     this.xpMultiplier = 1,
+    this.onNavigateToLibrary,
   });
 
   @override
@@ -308,8 +311,14 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
             _streak = 0;
             _totalEarnedXp = 0;
             _questions.shuffle();
-            _loadOptionsForCurrent();
           });
+          // _loadOptionsForCurrent() kendi setState'ini ve Timer'ını
+          // başlatıyor; yukarıdaki setState'in senkron callback'i İÇİNDE
+          // çağrılırsa iç içe (nested) setState/Timer yeniden zamanlaması
+          // oluşur ve bu, karma modda görülen donma (freeze/ANR) türü
+          // hatalara yol açabilir. Bu yüzden bilinçli olarak DIŞARIDA.
+          if (!mounted) return;
+          _loadOptionsForCurrent();
         } else {
           Navigator.of(context).pop();
         }
@@ -327,8 +336,9 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
           elevation: 0,
           title: Text('Hızlı Test', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
-        body: Center(
-          child: Text('Test edilecek kelime bulunamadı.', style: GoogleFonts.inter(color: const Color(0xFF94A3B8))),
+        body: EmptyWordPoolState(
+          message: 'Bu testi çözebilmek için önce Kitaplığından birkaç kelime eklemen gerekiyor.',
+          onGoToLibrary: widget.onNavigateToLibrary,
         ),
       );
     }

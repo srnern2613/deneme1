@@ -27,6 +27,7 @@ import 'celebration_dialog.dart';
 import 'coach_messages.dart';
 import 'core/fsrs/fsrs_repository.dart';
 import 'core/fsrs/fsrs_models.dart';
+import 'core/design_system/primitives.dart';
 
 enum _MixedMode { quiz, match, spelling }
 
@@ -41,11 +42,14 @@ class MixedDungeonSessionScreen extends StatefulWidget {
 
   final int xpMultiplier;
 
+  final VoidCallback? onNavigateToLibrary;
+
   const MixedDungeonSessionScreen({
     super.key,
     required this.cards,
     this.allCards = const [],
     this.xpMultiplier = 1,
+    this.onNavigateToLibrary,
   });
 
   @override
@@ -259,7 +263,9 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
     });
 
     await _recordAnswer(isCorrect: isCorrect, subMode: subMode);
+    if (!mounted) return;
     await _applyResult(isCorrect);
+    if (!mounted) return;
 
     Future.delayed(const Duration(milliseconds: 1100), () {
       if (!mounted) return;
@@ -300,7 +306,9 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
     });
 
     await _recordAnswer(isCorrect: isCorrect, subMode: 'spelling');
+    if (!mounted) return;
     await _applyResult(isCorrect);
+    if (!mounted) return;
 
     Future.delayed(const Duration(milliseconds: 1300), () {
       if (!mounted) return;
@@ -386,8 +394,9 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
           iconTheme: const IconThemeData(color: Colors.white),
           title: Text('Hafıza Zindanı', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
-        body: Center(
-          child: Text('Tekrar edilecek kelime bulunamadı.', style: GoogleFonts.inter(color: const Color(0xFF94A3B8))),
+        body: EmptyWordPoolState(
+          message: 'Zindanda tekrar edilecek vadesi gelmiş bir kelime bulunamadı. Kitaplığından yeni kelimeler ekleyebilirsin.',
+          onGoToLibrary: widget.onNavigateToLibrary,
         ),
       );
     }

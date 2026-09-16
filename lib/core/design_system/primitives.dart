@@ -280,3 +280,79 @@ class IgnisCharacterPortrait extends StatelessWidget {
      );
   }
 }
+
+// 5. Boş Kelime Havuzu Durumu — egzersiz ekranları (Hızlı Test, Eşleştirme,
+// Dinle & Yaz, Hafıza Zindanı Karma Mod) kullanıcının pratik yapacak yeterli
+// kelimesi olmadığında bunu gösterir. Düz bir metin yerine, kullanıcıyı
+// doğrudan Kitaplık'a yönlendiren tek bir eylem sunar — [onGoToLibrary]
+// verilmezse (ekran bir callback almadan bağımsız açıldıysa) yalnızca geri
+// döner, hiçbir zaman kırık bir buton göstermez.
+class EmptyWordPoolState extends StatelessWidget {
+  final String title;
+  final String message;
+  final VoidCallback? onGoToLibrary;
+
+  const EmptyWordPoolState({
+    super.key,
+    this.title = 'Havuz Şu An Boş',
+    required this.message,
+    this.onGoToLibrary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.auto_stories_rounded, size: 44, color: Color(0xFFF59E0B)),
+            ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
+                  begin: const Offset(1, 1),
+                  end: const Offset(1.05, 1.05),
+                  duration: 1200.ms,
+                ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w900, color: Colors.white),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF94A3B8), height: 1.5),
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              height: 46,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFF59E0B),
+                  foregroundColor: const Color(0xFF070B14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                ),
+                onPressed: () {
+                  final nav = Navigator.of(context);
+                  if (nav.canPop()) nav.pop();
+                  onGoToLibrary?.call();
+                },
+                icon: const Icon(Icons.menu_book_rounded, size: 18),
+                label: Text('Kitaplığa Git', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

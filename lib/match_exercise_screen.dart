@@ -17,6 +17,7 @@ import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'coach_messages.dart';
 import 'tts_service.dart';
+import 'core/design_system/primitives.dart';
 
 class MatchItem {
   final String id;
@@ -37,11 +38,13 @@ class MatchItem {
 class MatchExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
   final int xpMultiplier; // Dinamik 2X XP FOMO Koruması
+  final VoidCallback? onNavigateToLibrary;
 
   const MatchExerciseScreen({
-    super.key, 
+    super.key,
     required this.cards,
     this.xpMultiplier = 1,
+    this.onNavigateToLibrary,
   });
 
   @override
@@ -284,9 +287,13 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       onAction: () {
         if (!mounted) return;
         if (feedback.shouldOfferRetry) {
-          setState(() {
-            _restartGame();
-          });
+          // _restartGame() -> _loadSettingsAndInitGame() ASENKRON bir
+          // metottur ve kendi içinde `await` + `setState` içerir. Bunu bir
+          // setState() callback'inin İÇİNE sarmak senkron olarak hiçbir
+          // şey kazandırmıyordu ve donmuş/tutarsız bir render penceresi
+          // yaratıyordu; bu yüzden setState sarmalayıcısı tamamen
+          // kaldırıldı, doğrudan çağrılıyor.
+          _restartGame();
         } else {
           Navigator.of(context).pop();
         }
@@ -318,8 +325,9 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
           elevation: 0,
           title: Text('Kelime Eşleştirme', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
-        body: Center(
-          child: Text('Eşleştirilecek geçerli kelime bulunamadı.', style: GoogleFonts.inter(color: const Color(0xFF94A3B8))),
+        body: EmptyWordPoolState(
+          message: 'Eşleştirme oyunu için Kitaplığında geçerli bir kelime bulunamadı.',
+          onGoToLibrary: widget.onNavigateToLibrary,
         ),
       );
     }

@@ -205,6 +205,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
   }
 
   void _finishSrs() {
+    if (!mounted) return;
     if (widget.isReviewOnly) {
       Navigator.of(context).pop();
       return;
@@ -233,13 +234,15 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       masteredWordsCount: _masteredCountInSession,
       actionLabel: feedback.actionLabel,
       onAction: () {
+        if (!mounted) return;
         Navigator.of(context).pop();
       },
-      secondaryActionLabel: needsReviewCount > 0 
-          ? '🧠 Zorlandıklarımı Tekrar Et ($needsReviewCount kelime)' 
+      secondaryActionLabel: needsReviewCount > 0
+          ? '🧠 Zorlandıklarımı Tekrar Et ($needsReviewCount kelime)'
           : null,
-      onSecondaryAction: needsReviewCount > 0 
+      onSecondaryAction: needsReviewCount > 0
           ? () {
+              if (!mounted) return;
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
