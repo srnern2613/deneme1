@@ -36,7 +36,7 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
     super.initState();
     _messages.add(AiCoachMessage(
       role: AiCoachRole.assistant,
-      content: 'Selam maceracı! Ben Ignis 🐉 Kelime, telaffuz ya da çalışma stratejisi hakkında ne sormak istersin?',
+      content: 'Selam maceracı! Ben Ignis. Kelime, telaffuz ya da çalışma stratejisi hakkında ne sormak istersin?',
     ));
     _refreshQuota();
   }
@@ -131,8 +131,8 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🐉', style: TextStyle(fontSize: 18)),
-            const SizedBox(width: 6),
+            _buildIgnisAvatar(size: 26),
+            const SizedBox(width: 8),
             Text('AI Koç Ignis', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
           ],
         ),
@@ -196,46 +196,85 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
     );
   }
 
+  // EJDERHA ROTASI V2 — Görsel Entegrasyonu: tüm ekranda tek bir yerden
+  // yönetilen Ignis avatarı. Eski 🐉 emoji placeholder'ının yerini,
+  // assets/images/ignis_avatar_badge.png (yuvarlak rünik arkaplanlı) alıyor.
+  Widget _buildIgnisAvatar({double size = 28}) {
+    return ClipOval(
+      child: Image.asset(
+        'assets/images/ignis_avatar_badge.png',
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+      ),
+    );
+  }
+
   Widget _buildMessageBubble(AiCoachMessage message) {
     final bool isUser = message.role == AiCoachRole.user;
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
-        decoration: BoxDecoration(
-          color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.18) : const Color(0xFF0F172A).withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(16).copyWith(
-            bottomRight: isUser ? const Radius.circular(4) : null,
-            bottomLeft: !isUser ? const Radius.circular(4) : null,
-          ),
-          border: Border.all(color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.35) : const Color(0xFF1F2937)),
+    final bubble = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.68),
+      decoration: BoxDecoration(
+        color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.18) : const Color(0xFF0F172A).withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(16).copyWith(
+          bottomRight: isUser ? const Radius.circular(4) : null,
+          bottomLeft: !isUser ? const Radius.circular(4) : null,
         ),
-        child: Text(
-          message.content,
-          style: GoogleFonts.inter(color: Colors.white, fontSize: 13.5, height: 1.4),
-        ),
+        border: Border.all(color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.35) : const Color(0xFF1F2937)),
+      ),
+      child: Text(
+        message.content,
+        style: GoogleFonts.inter(color: Colors.white, fontSize: 13.5, height: 1.4),
+      ),
+    );
+
+    if (isUser) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Align(alignment: Alignment.centerRight, child: bubble),
+      );
+    }
+
+    // Asistan mesajlarının solunda küçük bir Ignis avatarı — konuşmanın
+    // kimden geldiğini emoji yerine görsel olarak belli eder.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          _buildIgnisAvatar(size: 24),
+          const SizedBox(width: 8),
+          Flexible(child: bubble),
+        ],
       ),
     );
   }
 
   Widget _buildTypingBubble() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(16).copyWith(bottomLeft: const Radius.circular(4)),
-          border: Border.all(color: const Color(0xFF1F2937)),
-        ),
-        child: const SizedBox(
-          width: 20,
-          height: 12,
-          child: Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)))),
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          _buildIgnisAvatar(size: 24),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(16).copyWith(bottomLeft: const Radius.circular(4)),
+              border: Border.all(color: const Color(0xFF1F2937)),
+            ),
+            child: const SizedBox(
+              width: 20,
+              height: 12,
+              child: Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)))),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -618,11 +618,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       child: Row(
                         children: [
+                          // EJDERHA ROTASI V2 — Görsel Entegrasyonu: eski 🐉
+                          // emoji placeholder'ı yerine yeni üretilen, yuvarlak
+                          // rünik arkaplanlı ignis_avatar_badge.png kullanılıyor.
                           Container(
                             width: 34,
                             height: 34,
                             decoration: BoxDecoration(color: const Color(0xFFA855F7).withValues(alpha: 0.15), shape: BoxShape.circle),
-                            child: const Center(child: Text('🐉', style: TextStyle(fontSize: 17))),
+                            child: ClipOval(
+                              child: Image.asset(
+                                'assets/images/ignis_avatar_badge.png',
+                                width: 34,
+                                height: 34,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
