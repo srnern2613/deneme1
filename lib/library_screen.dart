@@ -23,6 +23,7 @@ import 'xp_shop_service.dart';
 import 'dictionary_screen.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
+import 'core/entitlement/paywall_trigger.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -60,9 +61,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     
     await DefaultBooksManager.seedDefaultBooksIfNeeded();
 
+    // EJDERHA ROTASI V2 — FAZ 2: Kalkan durumu artık TEK yerden
+    // (checkAndUpdateStreak, Premium'u da hesaba katan) okunuyor — ayrı
+    // bir XpShopService.hasFreezeShield() çağrısı tutarsızlığa yol açıyordu.
     final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
     await XpShopService.instance.getTotalXp();
-    final shieldStatus = await XpShopService.instance.hasFreezeShield();
 
     if (!mounted) return;
     setState(() {
@@ -70,7 +73,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
       _totalWordsSaved = prefs.getInt('stats_total_words_saved') ?? 0;
       _streakDays = streakResult['streakDays'] ?? 1;
-      _hasFreezeShield = shieldStatus;
+      _hasFreezeShield = streakResult['hasFreezeShield'] ?? false;
     });
 
     final bookDataList = prefs.getStringList('saved_books');
@@ -298,19 +301,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: (_hasFreezeShield ? const Color(0xFF38BDF8) : Colors.grey).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _hasFreezeShield ? const Color(0xFF38BDF8) : Colors.grey),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(_hasFreezeShield ? '🛡️' : '⏳', style: const TextStyle(fontSize: 10)),
-                        const SizedBox(width: 3),
-                        Text(_hasFreezeShield ? 'Kalkan' : 'Yok', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 10, color: _hasFreezeShield ? const Color(0xFF93C5FD) : Colors.grey)),
-                      ],
+                  // EJDERHA ROTASI V2 — FAZ 2: Kalkan yokken rozet artık
+                  // PaywallTrigger ile sarılı — dokunuş merkezi paywall'ı açar.
+                  PaywallTrigger(
+                    onUnlocked: _loadAllData,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: (_hasFreezeShield ? const Color(0xFF38BDF8) : Colors.grey).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _hasFreezeShield ? const Color(0xFF38BDF8) : Colors.grey),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(_hasFreezeShield ? '🛡️' : '⏳', style: const TextStyle(fontSize: 10)),
+                          const SizedBox(width: 3),
+                          Text(_hasFreezeShield ? 'Kalkan' : 'Yok', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 10, color: _hasFreezeShield ? const Color(0xFF93C5FD) : Colors.grey)),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 6),

@@ -28,6 +28,10 @@ dependencies:
   flutter_animate: ^4.5.2
   rive: ^0.13.1
 
+  # Ejderha Rotası V2 — Faz 2: Entitlement/Paywall (RevenueCat)
+  purchases_flutter: ^10.12.0
+  purchases_ui_flutter: ^10.12.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

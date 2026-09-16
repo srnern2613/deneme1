@@ -5,16 +5,24 @@
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/entitlement/entitlement_repository.dart';
+
 class StreakFreezeService {
   static final StreakFreezeService instance = StreakFreezeService._init();
   StreakFreezeService._init();
 
   // Uygulama açıldığında veya okuma bittiğinde seri kontrolü yapılır
+  //
+  // EJDERHA ROTASI V2 — FAZ 2: "Seri Koruma" artık elmasla satın alınan
+  // bir eşya değil, Premium üyeliğin bir parçası. Premium kullanıcıda
+  // kalkan hiçbir zaman tükenmez (ücretsiz kullanıcının tek seferlik
+  // hediye kalkanı hâlâ aynı şekilde çalışır).
   Future<Map<String, dynamic>> checkAndUpdateStreak() async {
     final prefs = await SharedPreferences.getInstance();
     final todayStr = _getDateKey(DateTime.now());
     final lastActiveStr = prefs.getString('stats_last_active_date');
-    
+    final isPremium = EntitlementRepository.instance.isPremium;
+
     int streakDays = prefs.getInt('current_streak_days') ?? 1;
     bool hasFreezeShield = prefs.getBool('has_freeze_shield') ?? true; // Varsayılan 1 kalkan hediye
     bool shieldUsedToday = false;
@@ -33,8 +41,11 @@ class StreakFreezeService {
         await prefs.setInt('current_streak_days', streakDays);
       } else if (difference > 1) {
         // Arada 1 günden fazla boşluk var! Kalkan var mı?
-        if (hasFreezeShield) {
-          // Kalkan seriyi kurtardı!
+        if (isPremium) {
+          // Premium: kalkan sınırsız, hiç tükenmez.
+          shieldUsedToday = true;
+        } else if (hasFreezeShield) {
+          // Ücretsiz: tek seferlik hediye kalkan seriyi kurtardı.
           hasFreezeShield = false;
           shieldUsedToday = true;
           await prefs.setBool('has_freeze_shield', false);
@@ -51,7 +62,7 @@ class StreakFreezeService {
 
     return {
       'streakDays': streakDays,
-      'hasFreezeShield': hasFreezeShield,
+      'hasFreezeShield': hasFreezeShield || isPremium,
       'shieldUsedToday': shieldUsedToday,
     };
   }

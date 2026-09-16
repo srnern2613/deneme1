@@ -11,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import 'core/theme/draconic_theme.dart';
+import 'core/entitlement/entitlement_repository.dart';
 import 'book_model.dart';
 import 'default_books.dart';
 import 'library_screen.dart';
@@ -28,6 +29,10 @@ void main() async {
   try {
     await DefaultBooksManager.seedDefaultBooksIfNeeded();
     await XpShopService.instance.init();
+    // Ejderha Rotası V2 — Faz 2: RevenueCat entitlement katmanı. Uygulama
+    // her açılışta bunu önce kurmalı ki PaywallTrigger'lar doğru premium
+    // durumuyla render edilsin.
+    await EntitlementRepository.instance.init();
   } catch (e) {
     debugPrint('Servis başlatma hatası: $e');
   }

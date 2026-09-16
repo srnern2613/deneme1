@@ -20,9 +20,9 @@ import 'streak_freeze_service.dart';
 import 'xp_shop_service.dart';
 import 'dictionary_screen.dart';
 import 'leaderboard_screen.dart';
-import 'shop_screen.dart';
 import 'achievement_service.dart';
 import 'core/design_system/primitives.dart'; // GlassPanel & IgnisCharacterPortrait
+import 'core/entitlement/paywall_trigger.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -654,12 +654,12 @@ class ProfileScreenState extends State<ProfileScreen> {
                       // (tekrarı önlemek için) — burada, kalkan yokken Loss
                       // Aversion ilkesine uygun büyütülmüş bir uyarı var;
                       // kalkan varken minimal bir "güvende" onayı gösteriliyor.
-                      // TODO(Ejderha Rotası V2 — Faz 2): Bu ShopScreen yönlendirmesi
-                      // PaywallTrigger'a taşınacak — Seri Koruma artık elmasla değil
-                      // Premium üyelikle açılacak.
+                      // EJDERHA ROTASI V2 — FAZ 2: Seri Koruma artık elmasla değil
+                      // Premium üyelikle açılıyor; dokunuş doğrudan merkezi
+                      // PaywallTrigger'ı tetikliyor (bkz. streak_freeze_service.dart).
                       if (!_hasFreezeShield)
-                        GestureDetector(
-                          onTap: () => _navigateTo(const ShopScreen()),
+                        PaywallTrigger(
+                          onUnlocked: _loadProfileData,
                           child: Row(
                             children: [
                               const Icon(PhosphorIcons.fireBold, color: Color(0xFFEF4444), size: 14),
