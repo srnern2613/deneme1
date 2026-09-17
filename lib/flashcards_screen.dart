@@ -120,6 +120,13 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     }
   }
 
+  /// BUG DÜZELTMESİ: main.dart bottom nav'ı IndexedStack kullanıyor, yani bu
+  /// ekran "Kelimeler" sekmesine her dönüşte yeniden initState çalıştırmıyor
+  /// — yeni eklenen kelimeler ve kilit sayaçları (_totalValidPoolCount) eski
+  /// kalıyordu. Ana Sayfa sekmesi zaten aynı desenle (refreshDashboardStats)
+  /// düzeltilmişti; main.dart artık bu sekmeye her geçişte bunu da çağırıyor.
+  Future<void> refreshCardsAndStats() => _loadCardsAndStats();
+
   Future<void> _loadCardsAndStats() async {
     try {
       var allValidCards = await DatabaseHelper.instance.getActivePracticeCards();

@@ -23,6 +23,10 @@ class CelebrationDialog extends StatefulWidget {
   final VoidCallback? onAction;
   final String? secondaryActionLabel;
   final VoidCallback? onSecondaryAction;
+  // AŞAMA 2 — Ignis Anı: mevcut modalı ZENGİNLEŞTİRİR, ayrı bir popup değil.
+  // null bırakılırsa hiçbir şey değişmez (eski davranış aynen korunur).
+  final String? ignisMomentTitle;
+  final String? ignisMomentMessage;
 
   const CelebrationDialog({
     super.key,
@@ -40,6 +44,8 @@ class CelebrationDialog extends StatefulWidget {
     this.onAction,
     this.secondaryActionLabel,
     this.onSecondaryAction,
+    this.ignisMomentTitle,
+    this.ignisMomentMessage,
   });
 
   static Future<void> show(
@@ -58,6 +64,8 @@ class CelebrationDialog extends StatefulWidget {
     VoidCallback? onAction,
     String? secondaryActionLabel,
     VoidCallback? onSecondaryAction,
+    String? ignisMomentTitle,
+    String? ignisMomentMessage,
   }) {
     HapticFeedback.heavyImpact();
     return showGeneralDialog(
@@ -81,6 +89,8 @@ class CelebrationDialog extends StatefulWidget {
         onAction: onAction,
         secondaryActionLabel: secondaryActionLabel,
         onSecondaryAction: onSecondaryAction,
+        ignisMomentTitle: ignisMomentTitle,
+        ignisMomentMessage: ignisMomentMessage,
       ),
       transitionBuilder: (ctx, anim, _, child) {
         return Transform.scale(
@@ -323,6 +333,46 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                               color: widget.masteredWordsCount > 0 ? Colors.amber : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // AŞAMA 2 — Ignis Anı: karakterin veriye dayalı mesajı.
+                  // Ayrı bir popup DEĞİL, bu modalın bir uzantısı.
+                  if (widget.ignisMomentMessage != null && widget.ignisMomentMessage!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: themeColor.withValues(alpha: isDark ? 0.14 : 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: themeColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (widget.ignisMomentTitle != null && widget.ignisMomentTitle!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                widget.ignisMomentTitle!,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                          Text(
+                            widget.ignisMomentMessage!,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              height: 1.4,
+                              color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
                             ),
                           ),
                         ],

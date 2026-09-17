@@ -14,6 +14,7 @@ import 'database_helper.dart';
 import 'dictionary_service.dart';
 import 'core/fsrs/fsrs_repository.dart';
 import 'core/fsrs/fsrs_models.dart';
+import 'core/coach/ignis_moments_engine.dart';
 
 class FlashcardsExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -204,7 +205,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     }
   }
 
-  void _finishSrs() {
+  Future<void> _finishSrs() async {
     if (!mounted) return;
     if (widget.isReviewOnly) {
       Navigator.of(context).pop();
@@ -219,12 +220,18 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
 
     final needsReviewCount = _reviewCount + _hardCount;
 
+    // AŞAMA 2 — Ignis Anı: yerel istatistik motorundan veriye dayalı bir
+    // mesaj iste (AI yok, sadece daily_stats/flashcards okuması). Ekranın
+    // hâlâ mounted olduğunu bu async ara noktadan sonra tekrar kontrol et.
+    final ignisMoment = await IgnisMomentsEngine.instance.getSessionEndMoment();
+    if (!mounted) return;
+
     CelebrationDialog.show(
       context,
       emoji: _masteredCountInSession > 0 ? '🏆' : feedback.emoji,
       title: _masteredCountInSession > 0 ? 'Kalıcı Hafızaya Yeni Kelime Eklendi!' : feedback.title,
-      subtitle: _masteredCountInSession > 0 
-          ? '$_masteredCountInSession kelimede ustalığa ulaştın.' 
+      subtitle: _masteredCountInSession > 0
+          ? '$_masteredCountInSession kelimede ustalığa ulaştın.'
           : feedback.subtitle,
       themeColor: _masteredCountInSession > 0 ? const Color(0xFFF59E0B) : feedback.themeColor,
       earnedXp: _totalEarnedXp,
@@ -232,6 +239,8 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       strengthenedWords: _knownCount,
       needsReviewWords: needsReviewCount,
       masteredWordsCount: _masteredCountInSession,
+      ignisMomentTitle: ignisMoment?.title,
+      ignisMomentMessage: ignisMoment?.message,
       actionLabel: feedback.actionLabel,
       onAction: () {
         if (!mounted) return;

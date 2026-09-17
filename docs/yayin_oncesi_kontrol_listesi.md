@@ -49,8 +49,9 @@ Yapıldı (diskte doğrulandı): `pubspec.yaml` (`name: ignis` + açıklama) · 
 - [ ] **`flutter pub get` çalıştır** (pubspec `name` değişti). Kodda hiç `package:deneme1` importu yok — hepsi göreli import — bu yüzden kırılma beklenmiyor, ama IDE'yi yeniden başlatmak gerekebilir.
 - [ ] **Logo görselini yenile.** Ana sayfadaki `assets/images/lobi_logo1.png` görselinde muhtemelen hâlâ "Draconic Lingua" yazıyor. Asıl görünen marka orada — "Ignis" olarak yeniden üretilmeli. (Koddaki metin sadece görsel yüklenemezse çıkan yedek.)
 - [ ] **iOS tarafı:** `ios/Runner/Info.plist` içindeki `CFBundleDisplayName`. (iOS şimdilik gündemde değil, sırası gelince.)
-- [ ] **Mağaza adı ASO için tanımlayıcı taşısın.** Tek başına "Ignis" bir arama yapana ne olduğunu anlatmıyor, üstelik aynı adı taşıyan başka şeyler var (ör. bir otomobil modeli). Uygulama içi ad ve ikon "Ignis" kalsın; mağaza vitrininde "Ignis: İngilizce Kelime Öğren" gibi bir biçim kullan.
-- [ ] **Play Store'da "Ignis" adıyla başka uygulama var mı diye bak** (ad çakışması ve arama görünürlüğü için).
+- [x] **Mağaza adı kararı: "Ignis Kitaptan İngilizce Öğren"** ✅ 17.09.2026 — 30 karakter (Play limiti tam), iki nokta olmadan (":" ile 31 karakter olup sığmıyordu). "İngilizce öğren" yüksek hacimli arama terimi, "Kitaptan" farklılaştırıcı (kitap-temelli kelime avlama rakiplerde yok), marka ("Ignis") önde. Uygulama içi ad/ikon "Ignis" kalıyor, bu sadece mağaza vitrini başlığı.
+  - Not: App Store'da "Ignis: Bite-Size Learning" adında ayrı bir öğrenme uygulaması zaten var — yasal bir sorun değil (o da tescilsiz görünüyor) ama ASO'da karışma riski var, bu yüzden tek kelime "Ignis" değil tanımlayıcı ekli başlık seçildi.
+- [ ] **Play Store'da "Ignis" adıyla başka uygulama var mı diye bak** (ad çakışması ve arama görünürlüğü için) — App Store'da bir tane bulundu, Play Store'a henüz bakılmadı.
 
 ---
 
@@ -95,10 +96,9 @@ Hesap sistemi yerine seçilen ucuz yol. Android, API 23+ hedefleyen uygulamalard
 
 Limit **uygulama başına 25 MB**. Veri aşarsa sistem `onQuotaExceeded()` çağırıp **hiçbir şeyi yedeklemiyor** — kısmi yedek yok, komple iptal. Senin uygulamada yüklenen PDF'lerin **tüm sayfa metni** `saved_books` içinde SharedPreferences'ta duruyor; birkaç kitap bu limiti rahatlıkla aşar ve o anda kelimelerin yedeklenmesi de sessizce durur.
 
-- [ ] **Kitap metinlerini SharedPreferences'tan çıkar**, dosya veya SQLite tarafına taşı.
-  - Yan kazanç: `shared_preferences` açılışta dosyanın tamamını belleğe yüklüyor. Kitap metinleri orada durdukça uygulama her açılışta megabaytlarca veriyi RAM'e okuyor — başlangıç performansı bundan zarar görüyor olabilir.
-- [ ] Manifest'e `android:allowBackup="true"` açıkça yaz + veri çıkarma kurallarıyla (`dataExtractionRules`) kitap metinlerini **hariç tut**. Kelimeler, ilerleme, XP, seri 25 MB'ın çok altında kalsın.
-- [ ] Test: gerçek cihazda uygulamayı kaldır → Play/adb ile tekrar kur → kelimeler geri geldi mi?
+- [x] **Kitap metinlerini SharedPreferences'tan çıkar** ✅ 17.09.2026 — yeni `lib/core/storage/book_storage_service.dart`: sayfa metni ayrı bir SQLite dosyasında (`book_content.db`), künye (başlık/yazar/ilerleme) hafif haliyle SharedPreferences'ta. Eski kayıtlar otomatik taşınıyor (`loadBooks()` içinde self-healing migration, ayrı adım gerekmez). Çağrı noktaları güncellendi: `main.dart`, `library_screen.dart`, `default_books.dart` (5 varsayılan roman dahil).
+- [x] Manifest'e `android:allowBackup="true"` açıkça yazıldı + iki kural dosyasıyla (`res/xml/data_extraction_rules.xml` API 31+, `res/xml/backup_rules.xml` API 23-30) `book_content.db` yedekten hariç tutuldu.
+- [ ] **Test: gerçek cihazda uygulamayı kaldır → tekrar kur → kelimeler geri geldi mi?** HENÜZ YAPILMADI — Google hesabına bağlı gerçek cihaz gerektiriyor, Aşama 5'e yakın migration testiyle birlikte tekrar doğrulanacak. Emülatörde temel sağlamlık testi (kitaplar açılıyor, kelimeler duruyor, çökme yok) yapıldı.
 
 ### Bu çözümün sınırları (bilerek kabul ediliyor)
 

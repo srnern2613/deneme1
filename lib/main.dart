@@ -95,6 +95,11 @@ class _RootScreenState extends State<RootScreen> {
   int _currentIndex = 0; 
   
   final GlobalKey<_DashboardScreenState> _dashboardKey = GlobalKey<_DashboardScreenState>();
+  // BUG DÜZELTMESİ: FlashcardsScreenState ayrı dosyada ve private
+  // (_FlashcardsScreenState) olduğu için buradan tip olarak referans
+  // verilemiyor; State<FlashcardsScreen> ile tutup çağrıda dynamic cast
+  // kullanıyoruz (aynı _dashboardKey deseninin bu sınırlama içindeki hâli).
+  final GlobalKey<State<FlashcardsScreen>> _flashcardsKey = GlobalKey<State<FlashcardsScreen>>();
   late final List<Widget> _screens;
 
   @override
@@ -112,6 +117,7 @@ class _RootScreenState extends State<RootScreen> {
       ),
       const LibraryScreen(),
       FlashcardsScreen(
+        key: _flashcardsKey,
         onNavigateToLibrary: () => _onTabTapped(1),
         onNavigateToShop: () => _onTabTapped(4),
       ),
@@ -128,6 +134,11 @@ class _RootScreenState extends State<RootScreen> {
     });
     if (index == 0) {
       _dashboardKey.currentState?.refreshDashboardStats();
+    } else if (index == 2) {
+      // BUG DÜZELTMESİ: IndexedStack bu sekmeyi canlı tuttuğu için yeni
+      // eklenen kelimeler/kilit sayaçları tazelenmiyordu (bkz.
+      // flashcards_screen.dart refreshCardsAndStats yorumu).
+      (_flashcardsKey.currentState as dynamic)?.refreshCardsAndStats();
     }
   }
 
