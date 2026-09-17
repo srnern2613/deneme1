@@ -169,7 +169,7 @@ Mevcut modlar: Hızlı Test, SRS Hafıza, Eşleştirme, Dinle & Yaz, Karma Mod, 
 **Cümle doldurma neden ücretsiz:** Uygulamanın "bu farklıymış" dedirten tek anı bu — cümle kullanıcının okuduğu kitaptan geliyor, rakiplerin kopyalayamayacağı özellik. Ücretsiz tarafta hiç "vay" anı bırakmazsan kimse Premium'u merak etmez.
 
 **Uygulama notları:**
-- [ ] Cümle doldurma: `context_sentence` boş olan kelimeler bu moda girmemeli; havuz yetersizse `EmptyWordPoolState` göster
+- [x] Cümle doldurma: `context_sentence` boş olan kelimeler bu moda girmemeli; havuz yetersizse `EmptyWordPoolState` göster — **YAPILDI**: `lib/cloze_exercise_screen.dart` oluşturuldu (quiz ekranından türetilmiş 4 şıklı yapı, ama seçenekler İngilizce kelimeler ve soru cümle içindeki boşluk). Filtre: `context_sentence` dolu VE kelime cümlede kelime-sınırıyla (`\b...\b`, case-insensitive) geçiyor olmalı. Arena'ya (`flashcards_screen.dart`) 5. grid kartı olarak "Boşluk Doldurma" eklendi, **kilitsiz** (ücretsiz vitrin — proje kararı). `recordMultiModalResult` mode: `'cloze'`. `flutter analyze` bekleniyor.
 - [ ] Ters Test: `quiz_exercise_screen.dart`'tan türetilecek — çeldiriciler artık İngilizce kelimeler olmalı
 - [ ] Hız Turu: mevcut test mantığı + geri sayım; seans sonu modalıyla uyumlu
 - [ ] Premium kilitleri **merkezi `PaywallTrigger` üzerinden** (proje kuralı — yeni kilit mantığı yazma)

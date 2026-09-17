@@ -18,6 +18,7 @@ import 'flashcards_exercise_screen.dart';
 import 'quiz_exercise_screen.dart';
 import 'match_exercise_screen.dart';
 import 'spelling_exercise_screen.dart';
+import 'cloze_exercise_screen.dart';
 import 'word_boss_battle_screen.dart';
 import 'xp_shop_service.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
@@ -465,6 +466,19 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     });
   }
 
+  // AŞAMA 3 — Cümlede Boşluk Doldurma: ÜCRETSİZ vitrin modu, kilit yok.
+  // Havuz kontrolü (context_sentence dolu kart var mı) ekranın kendi
+  // içinde EmptyWordPoolState ile yapılıyor; burada ekstra kilit mantığı
+  // eklenmedi (proje kuralı: yeni kilit mantığı yazma).
+  void _startClozeExercise() {
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => ClozeExerciseScreen(cards: _cards, onNavigateToLibrary: _navigateToLibraryRoot)
+    )).then((_) {
+      if (mounted) _loadCardsAndStats();
+    });
+  }
+
   void _startBossBattle(Map<String, dynamic> bossCard) {
     HapticFeedback.heavyImpact();
     Navigator.of(context).push(MaterialPageRoute(builder: (context) => WordBossBattleScreen(bossCard: bossCard))).then((_) {
@@ -550,6 +564,14 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                           onTap: _startSpellingExerciseWithPaywall,
                           isLocked: !_isTestModeActive && _totalValidPoolCount < 20,
                           lockMessage: '20 Kelime Gerekli',
+                        ),
+                        _buildGridPracticeCard(
+                          icon: PhosphorIcons.pencilSimpleBold,
+                          title: 'Boşluk Doldurma',
+                          desc: 'Kitabındaki gerçek cümlede eksik kelimeyi bul.',
+                          reward: 'ÜCRETSİZ',
+                          accentColor: const Color(0xFF34D399),
+                          onTap: _startClozeExercise,
                         ),
                       ],
                     ),
