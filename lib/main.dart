@@ -25,6 +25,7 @@ import 'leaderboard_screen.dart';
 import 'xp_shop_service.dart';
 import 'streak_freeze_service.dart';
 import 'ai_coach_screen.dart';
+import 'core/coach/ignis_moments_engine.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -203,6 +204,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   List<Book> _userBooks = [];
   Book? _activeBook;
+  // AŞAMA 4 — Ana Sayfa "Günlük Durum" kartı: Ignis Anları'nın kalıcı, sessiz
+  // versiyonu. Popup beklemeden her zaman güncel istatistik gösterir.
+  IgnisDailyStatus? _dailyStatus;
 
   @override
   void initState() {
@@ -228,6 +232,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // diğer ekranlarla senkron değildi.
       await XpShopService.instance.getGemsBalance();
       await XpShopService.instance.getTotalXp();
+      final dailyStatus = await IgnisMomentsEngine.instance.getDailyStatusSnapshot();
 
       // AŞAMA 1: kitap sayfa metni artık book_content.db'de (Android Auto
       // Backup kotası dışında); BookStorageService bunu şeffaf birleştirir.
@@ -246,6 +251,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _totalReadMinutes = readMins;
         _userBooks = parsedBooks;
         _activeBook = parsedBooks.isNotEmpty ? parsedBooks.first : null;
+        _dailyStatus = dailyStatus;
         _isLoading = false;
       });
     } catch (_) {
@@ -292,6 +298,108 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return '${(number / 1000).toStringAsFixed(1)}k';
     }
     return number.toString();
+  }
+
+  // AŞAMA 4 — "Günlük Durum" kartı: Apple tarzı sade istatistik satırı.
+  // Ignis Anları'ndaki (getSessionEndMoment) AYNI veri kaynağını kullanır
+  // ama günde-1-kez kısıtı yok — her zaman güncel durumu gösterir.
+  Widget _buildIgnisDailyStatusCard() {
+    final status = _dailyStatus;
+    final hasActivity = status?.hasActivityToday ?? false;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipOval(
+                child: Image.asset(
+                  'assets/images/ignis_avatar_badge.png',
+                  width: 20,
+                  height: 20,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 16),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'GÜNLÜK DURUM',
+                style: GoogleFonts.outfit(fontSize: 11.5, fontWeight: FontWeight.w800, color: const Color(0xFF64748B), letterSpacing: 0.8),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (!hasActivity)
+            Text(
+              'Bugün henüz pratik yapmadın. Bir seans tamamla, Ignis ilerlemeni burada gösterecek.',
+              style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF94A3B8), height: 1.4),
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDailyStatusStat(
+                    icon: PhosphorIcons.sparkleBold,
+                    color: const Color(0xFF34D399),
+                    value: '${status!.newWordsToday}',
+                    label: 'Yeni Kelime',
+                  ),
+                ),
+                Expanded(
+                  child: _buildDailyStatusStat(
+                    icon: PhosphorIcons.arrowClockwiseBold,
+                    color: const Color(0xFF38BDF8),
+                    value: '${status.reviewsToday}',
+                    label: 'Tekrar',
+                  ),
+                ),
+                Expanded(
+                  child: _buildDailyStatusStat(
+                    icon: PhosphorIcons.clockBold,
+                    color: const Color(0xFFF59E0B),
+                    value: '${status.dueTomorrow}',
+                    label: 'Yarın Bekleyen',
+                  ),
+                ),
+              ],
+            ),
+            if (status.weeklyProjection > 0) ...[
+              const SizedBox(height: 12),
+              Container(height: 1, color: const Color(0xFF1F2937)),
+              const SizedBox(height: 12),
+              Text(
+                'Bu hızla bir haftada ~${status.weeklyProjection} kelime öğrenmiş olacaksın.',
+                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8), height: 1.4),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDailyStatusStat({required IconData icon, required Color color, required String value, required String label}) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(height: 6),
+        Text(value, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17)),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 10, height: 1.2),
+        ),
+      ],
+    );
   }
 
   @override
@@ -660,6 +768,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // AŞAMA 4 — "Günlük Durum" kartı: Ignis Anları'nın kalıcı,
+                  // sessiz versiyonu — bir seans sonu popup'ı beklemeden
+                  // bugünkü ilerleme her zaman burada görünür.
+                  _buildIgnisDailyStatusCard(),
                   const SizedBox(height: 24),
 
                   // --- 3. DEVAM EDEN KİTAPLAR (YÜKSEK KONTRASTLI MİNİ BARLAR) ---[cite: 3, 4]

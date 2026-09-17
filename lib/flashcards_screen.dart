@@ -6,7 +6,6 @@
 // ============================================================================
 
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -554,107 +553,113 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                     _buildMemoryDungeonHero(),
                     const SizedBox(height: 24),
                     Text('Öğrenme & Oyun Modları', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3)),
-                    const SizedBox(height: 14),
-                    
-                    // --- 2x2 KARESEL GRID (IZGARA) MİMARİSİ ---[cite: 6]
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      childAspectRatio: 0.85,
-                      children: [
-                        _buildGridPracticeCard(
-                          icon: PhosphorIcons.crosshairBold,
-                          title: 'Hızlı Test',
-                          desc: '4 seçenek arasından doğru anlamı yakala.',
-                          reward: _dailyDoubleXpIndex == 0 ? '2X XP' : '+6 XP',
-                          fomoLabel: _dailyDoubleXpIndex == 0 ? 'Son $_fomoTimeLeft' : null,
-                          accentColor: const Color(0xFF38BDF8),
-                          onTap: (_isTestModeActive || _totalValidPoolCount >= 4) ? _startQuizExercise : null,
-                          isLocked: !_isTestModeActive && _totalValidPoolCount < 4,
-                          lockMessage: '4 Kelime Gerekli',
-                        ),
-                        _buildGridPracticeCard(
-                          icon: PhosphorIcons.brainBold,
-                          title: 'SRS Hafıza',
-                          desc: 'Aralıklı tekrar algoritması ile hafızanı tazele.',
-                          reward: _dailyDoubleXpIndex == 1 ? '2X XP' : '+5 XP',
-                          fomoLabel: _dailyDoubleXpIndex == 1 ? 'Son $_fomoTimeLeft' : null,
+                    const SizedBox(height: 16),
+
+                    // --- APPLE (iOS Ayarlar) TARZI GRUPLANMIŞ LİSTE ---
+                    // Kare ızgara yerine: bölüm etiketi + rounded-corner kart
+                    // içinde satır listesi, satırlar arası ince ayraç —
+                    // Apple'ın "inset grouped" tablo görünümü. 8 mod artık
+                    // "Temel" ve "Premium" olmak üzere iki ayrı gruplu kartta,
+                    // her satır: renkli ikon karesi + başlık/açıklama + ödül
+                    // rozeti + chevron/kilit — tıklama/kilit/FOMO/Premium
+                    // mantığının hiçbiri değişmedi, sadece görünüm.
+                    _buildSectionLabel('TEMEL PRATİKLER'),
+                    const SizedBox(height: 8),
+                    _buildPracticeSection([
+                      _buildPracticeRow(
+                        icon: PhosphorIcons.crosshairBold,
+                        title: 'Hızlı Test',
+                        desc: '4 seçenek arasından doğru anlamı yakala.',
+                        reward: _dailyDoubleXpIndex == 0 ? '2X XP' : '+6 XP',
+                        fomoLabel: _dailyDoubleXpIndex == 0 ? 'Son $_fomoTimeLeft' : null,
+                        accentColor: const Color(0xFF38BDF8),
+                        onTap: (_isTestModeActive || _totalValidPoolCount >= 4) ? _startQuizExercise : null,
+                        isLocked: !_isTestModeActive && _totalValidPoolCount < 4,
+                        lockMessage: '4 Kelime Gerekli',
+                      ),
+                      _buildPracticeRow(
+                        icon: PhosphorIcons.brainBold,
+                        title: 'SRS Hafıza',
+                        desc: 'Aralıklı tekrar algoritması ile hafızanı tazele.',
+                        reward: _dailyDoubleXpIndex == 1 ? '2X XP' : '+5 XP',
+                        fomoLabel: _dailyDoubleXpIndex == 1 ? 'Son $_fomoTimeLeft' : null,
+                        accentColor: const Color(0xFFA855F7),
+                        onTap: (_isTestModeActive || _totalValidPoolCount >= 1) ? _startSrsExercise : null,
+                        isLocked: !_isTestModeActive && _totalValidPoolCount < 1,
+                        lockMessage: '1 Kelime Gerekli',
+                      ),
+                      _buildPracticeRow(
+                        icon: PhosphorIcons.puzzlePieceBold,
+                        title: 'Eşleştirme',
+                        desc: 'Blokları eşleştirerek tahtayı temizle.',
+                        reward: _dailyDoubleXpIndex == 2 ? '2X XP' : '+10 XP',
+                        fomoLabel: _dailyDoubleXpIndex == 2 ? 'Son $_fomoTimeLeft' : null,
+                        accentColor: const Color(0xFF6366F1),
+                        onTap: (_isTestModeActive || _totalValidPoolCount >= 4) ? _startMatchExercise : null,
+                        isLocked: !_isTestModeActive && _totalValidPoolCount < 4,
+                        lockMessage: '4 Kelime Gerekli',
+                      ),
+                      _buildPracticeRow(
+                        icon: PhosphorIcons.waveformBold,
+                        title: 'Dinle & Yaz',
+                        desc: 'Telaffuzu dinle, kelimenin imlasını çöz.',
+                        reward: _dailyDoubleXpIndex == 3 ? '2X XP' : '+15 XP',
+                        fomoLabel: _dailyDoubleXpIndex == 3 ? 'Son $_fomoTimeLeft' : null,
+                        accentColor: const Color(0xFF10B981),
+                        onTap: _startSpellingExerciseWithPaywall,
+                        isLocked: !_isTestModeActive && _totalValidPoolCount < 20,
+                        lockMessage: '20 Kelime Gerekli',
+                      ),
+                      _buildPracticeRow(
+                        icon: PhosphorIcons.pencilSimpleBold,
+                        title: 'Boşluk Doldurma',
+                        desc: 'Kitabındaki gerçek cümlede eksik kelimeyi bul.',
+                        reward: 'ÜCRETSİZ',
+                        accentColor: const Color(0xFF34D399),
+                        onTap: _startClozeExercise,
+                      ),
+                    ]),
+                    const SizedBox(height: 22),
+                    _buildSectionLabel('PREMIUM PRATİKLER'),
+                    const SizedBox(height: 8),
+                    _buildPracticeSection([
+                      PaywallTrigger(
+                        onUnlocked: _loadCardsAndStats,
+                        featureName: 'Ters Test',
+                        child: _buildPracticeRow(
+                          icon: PhosphorIcons.magnifyingGlassBold,
+                          title: 'Ters Test',
+                          desc: 'Türkçe anlamı gör, İngilizce kelimeyi bul.',
+                          reward: 'PREMIUM',
                           accentColor: const Color(0xFFA855F7),
-                          onTap: (_isTestModeActive || _totalValidPoolCount >= 1) ? _startSrsExercise : null,
-                          isLocked: !_isTestModeActive && _totalValidPoolCount < 1,
-                          lockMessage: '1 Kelime Gerekli',
+                          onTap: _startReverseQuizExercise,
                         ),
-                        _buildGridPracticeCard(
-                          icon: PhosphorIcons.puzzlePieceBold,
-                          title: 'Eşleştirme',
-                          desc: 'Blokları eşleştirerek tahtayı temizle.',
-                          reward: _dailyDoubleXpIndex == 2 ? '2X XP' : '+10 XP',
-                          fomoLabel: _dailyDoubleXpIndex == 2 ? 'Son $_fomoTimeLeft' : null,
-                          accentColor: const Color(0xFF6366F1),
-                          onTap: (_isTestModeActive || _totalValidPoolCount >= 4) ? _startMatchExercise : null,
-                          isLocked: !_isTestModeActive && _totalValidPoolCount < 4,
-                          lockMessage: '4 Kelime Gerekli',
-                        ),
-                        _buildGridPracticeCard(
+                      ),
+                      PaywallTrigger(
+                        onUnlocked: _loadCardsAndStats,
+                        featureName: 'Sadece Dinleme',
+                        child: _buildPracticeRow(
                           icon: PhosphorIcons.waveformBold,
-                          title: 'Dinle & Yaz',
-                          desc: 'Telaffuzu dinle, kelimenin imlasını çöz.',
-                          reward: _dailyDoubleXpIndex == 3 ? '2X XP' : '+15 XP',
-                          fomoLabel: _dailyDoubleXpIndex == 3 ? 'Son $_fomoTimeLeft' : null,
+                          title: 'Sadece Dinleme',
+                          desc: 'Yazıyı görmeden dinle, anlamını seç.',
+                          reward: 'PREMIUM',
                           accentColor: const Color(0xFF10B981),
-                          onTap: _startSpellingExerciseWithPaywall,
-                          isLocked: !_isTestModeActive && _totalValidPoolCount < 20,
-                          lockMessage: '20 Kelime Gerekli',
+                          onTap: _startListeningExercise,
                         ),
-                        _buildGridPracticeCard(
-                          icon: PhosphorIcons.pencilSimpleBold,
-                          title: 'Boşluk Doldurma',
-                          desc: 'Kitabındaki gerçek cümlede eksik kelimeyi bul.',
-                          reward: 'ÜCRETSİZ',
-                          accentColor: const Color(0xFF34D399),
-                          onTap: _startClozeExercise,
+                      ),
+                      PaywallTrigger(
+                        onUnlocked: _loadCardsAndStats,
+                        featureName: 'Hız Turu',
+                        child: _buildPracticeRow(
+                          icon: PhosphorIcons.timerBold,
+                          title: 'Hız Turu',
+                          desc: '60 saniyede süreye karşı maksimum doğru.',
+                          reward: 'PREMIUM',
+                          accentColor: const Color(0xFFF59E0B),
+                          onTap: _startSpeedRound,
                         ),
-                        PaywallTrigger(
-                          onUnlocked: _loadCardsAndStats,
-                          featureName: 'Ters Test',
-                          child: _buildGridPracticeCard(
-                            icon: PhosphorIcons.magnifyingGlassBold,
-                            title: 'Ters Test',
-                            desc: 'Türkçe anlamı gör, İngilizce kelimeyi bul.',
-                            reward: 'PREMIUM',
-                            accentColor: const Color(0xFFA855F7),
-                            onTap: _startReverseQuizExercise,
-                          ),
-                        ),
-                        PaywallTrigger(
-                          onUnlocked: _loadCardsAndStats,
-                          featureName: 'Sadece Dinleme',
-                          child: _buildGridPracticeCard(
-                            icon: PhosphorIcons.waveformBold,
-                            title: 'Sadece Dinleme',
-                            desc: 'Yazıyı görmeden dinle, anlamını seç.',
-                            reward: 'PREMIUM',
-                            accentColor: const Color(0xFF10B981),
-                            onTap: _startListeningExercise,
-                          ),
-                        ),
-                        PaywallTrigger(
-                          onUnlocked: _loadCardsAndStats,
-                          featureName: 'Hız Turu',
-                          child: _buildGridPracticeCard(
-                            icon: PhosphorIcons.timerBold,
-                            title: 'Hız Turu',
-                            desc: '60 saniyede süreye karşı maksimum doğru.',
-                            reward: 'PREMIUM',
-                            accentColor: const Color(0xFFF59E0B),
-                            onTap: _startSpeedRound,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ]),
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -784,7 +789,47 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   }
 
   // --- 2x2 GRID UYUMLU KART TASARIMI VE SOFT PAYWALL KİLİDİ ---[cite: 6]
-  Widget _buildGridPracticeCard({
+  // Apple (iOS Ayarlar) tarzı bölüm etiketi: küçük, büyük harf, gri.
+  Widget _buildSectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        text,
+        style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B), letterSpacing: 0.6),
+      ),
+    );
+  }
+
+  // Apple tarzı "inset grouped" kart: rounded-corner tek kapsayıcı, satırlar
+  // arasında ince ayraç (iOS Ayarlar/App Store liste görünümü gibi).
+  Widget _buildPracticeSection(List<Widget> rows) {
+    final children = <Widget>[];
+    for (var i = 0; i < rows.length; i++) {
+      children.add(rows[i]);
+      if (i != rows.length - 1) {
+        children.add(Container(
+          margin: const EdgeInsets.only(left: 68),
+          height: 1,
+          color: const Color(0xFF1F2937),
+        ));
+      }
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
+    );
+  }
+
+  // Tek satır: renkli dolgu ikon karesi + başlık/açıklama + ödül rozeti +
+  // chevron (veya kilitliyse kilit ikonu). Kilit/FOMO/Premium/tıklama
+  // mantığı eskisiyle AYNEN korundu, sadece kare kart yerine tam genişlik
+  // satır olarak çiziliyor.
+  Widget _buildPracticeRow({
     required IconData icon,
     required String title,
     required String desc,
@@ -795,122 +840,84 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     String? lockMessage,
     String? fomoLabel,
   }) {
-    final card = Stack(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.88),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: fomoLabel != null ? const Color(0xFFF59E0B).withValues(alpha: 0.6) : const Color(0xFF1F2937),
-              width: fomoLabel != null ? 2.0 : 1.0
-            ),
-            boxShadow: fomoLabel != null ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1)] : [],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: accentColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Icon(icon, color: accentColor, size: 22),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            if (fomoLabel != null && fomoLabel.isNotEmpty)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 4),
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
-                                child: Text(fomoLabel, style: GoogleFonts.outfit(fontSize: 8.5, fontWeight: FontWeight.bold, color: const Color(0xFFFCA5A5))),
-                              ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: fomoLabel != null ? const Color(0xFFF59E0B) : accentColor.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                reward,
-                                style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: fomoLabel != null ? const Color(0xFF070B14) : accentColor),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      title,
-                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Expanded(
-                      child: Text(
-                        desc,
-                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8), height: 1.3),
-                        maxLines: 3,
+    final row = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Opacity(
+          opacity: isLocked ? 0.45 : 1.0,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: accentColor, borderRadius: BorderRadius.circular(11)),
+                  child: Icon(icon, color: Colors.white, size: 19),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        desc,
+                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8), height: 1.25),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (fomoLabel != null && fomoLabel.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
+                        child: Text(fomoLabel, style: GoogleFonts.outfit(fontSize: 8.5, fontWeight: FontWeight.bold, color: const Color(0xFFFCA5A5))),
+                      ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: fomoLabel != null ? const Color(0xFFF59E0B) : accentColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        (isLocked && lockMessage != null) ? lockMessage : reward,
+                        style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: fomoLabel != null ? const Color(0xFF070B14) : accentColor),
                       ),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(width: 8),
+                Icon(
+                  isLocked ? PhosphorIcons.lockKeyBold : PhosphorIcons.caretRightBold,
+                  size: isLocked ? 16 : 14,
+                  color: const Color(0xFF64748B),
+                ),
+              ],
             ),
           ),
         ),
-
-        // SOFT PAYWALL KİLİT KATMANI[cite: 6]
-        if (isLocked)
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: true,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-                  child: Container(
-                    color: const Color(0xFF070B14).withValues(alpha: 0.78),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(PhosphorIcons.lockKeyBold, color: Color(0xFF94A3B8), size: 26),
-                          if (lockMessage != null) ...[
-                            const SizedBox(height: 4),
-                            Text(lockMessage, style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 11)),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+      ),
     );
 
-    if (onTap == null) return card;
-    return _PressableScale(child: card);
+    if (onTap == null) return row;
+    return _PressableScale(child: row);
   }
 
   Widget _buildDynamicBossBanner() {

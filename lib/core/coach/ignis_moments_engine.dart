@@ -35,6 +35,25 @@ class IgnisMoment {
   });
 }
 
+/// AŞAMA 4 — Ana Sayfa "Günlük Durum" kartı için: Ignis Anları'nın kalıcı,
+/// sessiz versiyonu. getSessionEndMoment()'ın aksine hiçbir "günde 1 kez"
+/// kısıtı YOK — kart her açıldığında güncel veriyi gösterir, popup değildir.
+class IgnisDailyStatus {
+  final int newWordsToday;
+  final int reviewsToday;
+  final int dueTomorrow;
+  final int weeklyProjection;
+
+  IgnisDailyStatus({
+    required this.newWordsToday,
+    required this.reviewsToday,
+    required this.dueTomorrow,
+    required this.weeklyProjection,
+  });
+
+  bool get hasActivityToday => newWordsToday > 0 || reviewsToday > 0;
+}
+
 class IgnisMomentsEngine {
   IgnisMomentsEngine._();
   static final IgnisMomentsEngine instance = IgnisMomentsEngine._();
@@ -119,6 +138,30 @@ class IgnisMomentsEngine {
       title: 'Bugünkü İlerlemen',
       message: 'Bugün $newWords yeni kelime, $reviews tekrar yaptın. '
           'Yarın $dueTomorrow kelimenin tekrar vakti geliyor.',
+    );
+  }
+
+  /// Ana Sayfa'daki "Günlük Durum" kartı için anlık veri — popup/gösterim
+  /// sıklığı kısıtına tabi DEĞİL, her çağrıda güncel değerleri döner.
+  Future<IgnisDailyStatus> getDailyStatusSnapshot() async {
+    final db = DatabaseHelper.instance;
+    final today = await db.getTodayStatsSummary();
+    final newWords = today['new_words_count'] ?? 0;
+    final reviews = today['review_count'] ?? 0;
+    final dueTomorrow = await db.getDueTomorrowCount();
+
+    final range = await db.getDailyStatsRange(7);
+    final totalNewLast7Days = range.fold<int>(
+      0,
+      (sum, row) => sum + ((row['new_words_count'] as int?) ?? 0),
+    );
+    final weeklyProjection = ((totalNewLast7Days / 7.0) * 7).round();
+
+    return IgnisDailyStatus(
+      newWordsToday: newWords,
+      reviewsToday: reviews,
+      dueTomorrow: dueTomorrow,
+      weeklyProjection: weeklyProjection,
     );
   }
 }
