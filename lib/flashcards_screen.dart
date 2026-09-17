@@ -19,11 +19,15 @@ import 'quiz_exercise_screen.dart';
 import 'match_exercise_screen.dart';
 import 'spelling_exercise_screen.dart';
 import 'cloze_exercise_screen.dart';
+import 'reverse_quiz_screen.dart';
+import 'listening_exercise_screen.dart';
+import 'speed_round_screen.dart';
 import 'word_boss_battle_screen.dart';
 import 'xp_shop_service.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/fsrs/fsrs_repository.dart';
+import 'core/entitlement/paywall_trigger.dart';
 import 'mixed_dungeon_session_screen.dart';
 
 class FlashcardsScreen extends StatefulWidget {
@@ -479,6 +483,38 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     });
   }
 
+  // AŞAMA 3 — Ters Test (TR → EN): PREMIUM mod. Kilit mantığı burada
+  // YOK — kart merkezi `PaywallTrigger` ile sarılıyor (proje kuralı).
+  // Premium değilse dokunuş paywall'ı açar, premium'sa doğrudan navigasyon.
+  void _startReverseQuizExercise() {
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => ReverseQuizScreen(cards: _cards, onNavigateToLibrary: _navigateToLibraryRoot)
+    )).then((_) {
+      if (mounted) _loadCardsAndStats();
+    });
+  }
+
+  // AŞAMA 3 — Sadece Dinleme: PREMIUM mod. Kilit `PaywallTrigger` ile.
+  void _startListeningExercise() {
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => ListeningExerciseScreen(cards: _cards, onNavigateToLibrary: _navigateToLibraryRoot)
+    )).then((_) {
+      if (mounted) _loadCardsAndStats();
+    });
+  }
+
+  // AŞAMA 3 — Hız Turu (60 sn): PREMIUM mod. Kilit `PaywallTrigger` ile.
+  void _startSpeedRound() {
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => SpeedRoundScreen(cards: _cards, onNavigateToLibrary: _navigateToLibraryRoot)
+    )).then((_) {
+      if (mounted) _loadCardsAndStats();
+    });
+  }
+
   void _startBossBattle(Map<String, dynamic> bossCard) {
     HapticFeedback.heavyImpact();
     Navigator.of(context).push(MaterialPageRoute(builder: (context) => WordBossBattleScreen(bossCard: bossCard))).then((_) {
@@ -572,6 +608,39 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                           reward: 'ÜCRETSİZ',
                           accentColor: const Color(0xFF34D399),
                           onTap: _startClozeExercise,
+                        ),
+                        PaywallTrigger(
+                          onUnlocked: _loadCardsAndStats,
+                          child: _buildGridPracticeCard(
+                            icon: PhosphorIcons.magnifyingGlassBold,
+                            title: 'Ters Test',
+                            desc: 'Türkçe anlamı gör, İngilizce kelimeyi bul.',
+                            reward: 'PREMIUM',
+                            accentColor: const Color(0xFFA855F7),
+                            onTap: _startReverseQuizExercise,
+                          ),
+                        ),
+                        PaywallTrigger(
+                          onUnlocked: _loadCardsAndStats,
+                          child: _buildGridPracticeCard(
+                            icon: PhosphorIcons.waveformBold,
+                            title: 'Sadece Dinleme',
+                            desc: 'Yazıyı görmeden dinle, anlamını seç.',
+                            reward: 'PREMIUM',
+                            accentColor: const Color(0xFF10B981),
+                            onTap: _startListeningExercise,
+                          ),
+                        ),
+                        PaywallTrigger(
+                          onUnlocked: _loadCardsAndStats,
+                          child: _buildGridPracticeCard(
+                            icon: PhosphorIcons.timerBold,
+                            title: 'Hız Turu',
+                            desc: '60 saniyede süreye karşı maksimum doğru.',
+                            reward: 'PREMIUM',
+                            accentColor: const Color(0xFFF59E0B),
+                            onTap: _startSpeedRound,
+                          ),
                         ),
                       ],
                     ),
