@@ -17,6 +17,7 @@ import 'celebration_dialog.dart';
 import 'coach_messages.dart';
 import 'database_helper.dart';
 import 'core/design_system/primitives.dart';
+import 'core/coach/ignis_moments_engine.dart';
 
 class QuizExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -286,7 +287,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
     }
   }
 
-  void _finishQuiz() {
+  Future<void> _finishQuiz() async {
     if (!mounted) return;
 
     final feedback = CoachMessages.getFeedback(
@@ -295,12 +296,17 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
       total: _questions.length,
     );
 
+    final ignisMoment = await IgnisMomentsEngine.instance.getSessionEndMoment();
+    if (!mounted) return;
+
     CelebrationDialog.show(
       context,
       emoji: feedback.emoji,
       title: feedback.title,
       subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
+      ignisMomentTitle: ignisMoment?.title,
+      ignisMomentMessage: ignisMoment?.message,
       actionLabel: feedback.actionLabel,
       onAction: () {
         if (!mounted) return;

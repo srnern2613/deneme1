@@ -70,6 +70,7 @@ Yapıldı (diskte doğrulandı): `pubspec.yaml` (`name: ignis` + açıklama) · 
 
 - [ ] **Liderlik tablosundaki ırkçı test isimlerini temizle. (ACİL)** `lib/leaderboard_screen.dart` satır ~99-108'de rakip adı olarak **"Zenci"** ve **"Çinli"** geçiyor. "Zenci" Türkçede ırkçı bir hakarettir. 2 dakikalık iş, bekletme.
 - [ ] **Alışkanlıklar kalıcı değil.** `lib/habit_tracker_screen.dart` içinde `_habits` sadece bellekte; kullanıcının eklediği hedefler uygulama kapanınca kayboluyor.
+- [x] **"Kelimeler" sekmesi yeni eklenen kelimeyi/kilit açılışını göstermiyordu** ✅ 17.09.2026 — `main.dart`'taki bottom nav `IndexedStack` kullandığı için `FlashcardsScreen` sekmeye her dönüşte yeniden yüklenmiyordu (Ana Sayfa sekmesi için bu zaten düzeltilmişti, Kelimeler için unutulmuştu). `flashcards_screen.dart`'a `refreshCardsAndStats()` eklendi, `main.dart` her "Kelimeler" sekmesine geçişte çağırıyor. Kullanıcı testinde doğrulandı — yeni kullanıcı kitaptan kelime avlayıp hemen pratiğe geçebiliyor artık.
 - [ ] `pubspec.yaml` placeholder'ları: `name: deneme1`, `description: "A new Flutter project."`
 
 ---
@@ -120,14 +121,15 @@ Kullanıcının Google hesabı yoksa veya cihaz ayarlarından yedeklemeyi kapatt
 
 ### Yapılacaklar
 
-- [ ] **İLK ADIM: `lib/core/branding/app_branding.dart`.** Karakter adı, poz görsellerinin yol ön eki ve vurgu renkleri tek dosyada toplansın. Maskot sistemi baştan bunun üzerine kurulursa, ileride 2. karakterli uygulama bir yapılandırma değişikliği olur; kurulmazsa mesaj bankasında kelime avı olur. (Bkz. "Marka yapısı" bölümü.)
-- [ ] **Yerel istatistik motoru** (`lib/core/coach/`) — Aşama 0'daki tabloyu okur:
-  - Bugün / bu hafta öğrenilen ve tekrar edilen kelime sayısı
-  - **Projeksiyon:** "bu hızla 1 haftada ~X kelime" (son 7 günlük ortalamadan)
-  - Geçen haftaya karşı trend
-  - Havuz durumu: toplam / öğreniliyor / kalıcı hafızada
-  - Yarın kaç kelimenin tekrar vakti geliyor (FSRS `fsrs_due_at` hazır — bedava veri)
-  - En çok zorlanılan 5 kelime · ihmal edilen mod
+- [x] **İLK ADIM: `lib/core/branding/app_branding.dart`.** ✅ 17.09.2026 — karakter adı, poz görsel yolu (`poseAsset()`), vurgu rengi tek dosyada. Pozlar üretilene kadar mevcut rozet görseline düşüyor (bkz. Poz seti maddesi).
+- [x] **Yerel istatistik/tetikleyici motoru** ✅ 17.09.2026 — `lib/core/coach/ignis_moments_engine.dart`. Aşama 0'daki `daily_stats`/`flashcards` tablolarını okuyor:
+  - Bugün öğrenilen/tekrar edilen kelime sayısı ve **projeksiyon** ("bu hızla haftada ~X kelime", son 7 gün ortalaması) — **yapıldı**
+  - Seri kilometre taşı (7/30/100 gün) — **yapıldı**, `StreakFreezeService` üzerinden
+  - Yarın tekrar vakti gelen kelime sayısı (`getDueTomorrowCount`) — **yapıldı**
+  - Geçen haftaya karşı trend, en çok zorlanılan 5 kelime, ihmal edilen mod — **henüz yok**, sonraki geçişte eklenecek
+  - ✅ 17.09.2026 — dört egzersiz tipinin tamamına bağlandı: `flashcards_exercise_screen.dart` (`_finishSrs`), `quiz_exercise_screen.dart` (`_finishQuiz`), `spelling_exercise_screen.dart` (`_finishSpelling`), `match_exercise_screen.dart` (`_finishGame`)
+  - Sıklık kuralı ("ölçülü": günde en fazla 1 önemli an) `SharedPreferences` ile uygulanıyor
+- [x] **Mevcut modal zenginleştirildi** ✅ 17.09.2026 — `celebration_dialog.dart`'a opsiyonel `ignisMomentTitle`/`ignisMomentMessage` alanı eklendi (null verilirse eski davranış aynen korunur, ayrı popup açılmadı — karar buydu).
 - [ ] **Poz seti (üretilecek görseller):** kutlama (kollar havada) · bilgili/öğretmen (istatistik gösterirken) · endişeli (seri tehlikede) · üzgün (seri kırıldı) · selamlama (uzun aradan sonra dönüş) · düşünen (içgörü verirken). Altı poz yeter.
 - [ ] **GÖRSEL OPTİMİZASYONU (önemli):** Mevcut görseller çok ağır — `ignis_avatar_badge.png` **2 MB**, `ignis_avatar.png` 1.1 MB. Bunlar 24-34 piksel boyutunda gösteriliyor; her karede 2 MB'lık görsel açılıp 26 piksele sıkıştırılıyor (bellek + hız kaybı). Altı pozu bu boyutta eklemek APK'ya ~12 MB bindirir.
   - Pozları ekranda görünecek boyutun 2-3 katında üret (popup için 400-600 piksel yeter), **WebP**'ye çevir, tanesi **<100 KB** olsun. Gözle fark edilmez.

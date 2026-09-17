@@ -17,6 +17,7 @@ import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'coach_messages.dart';
 import 'core/design_system/primitives.dart';
+import 'core/coach/ignis_moments_engine.dart';
 
 class LetterBlock {
   final int id;
@@ -287,7 +288,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
     });
   }
 
-  void _finishSpelling() {
+  Future<void> _finishSpelling() async {
     if (!mounted) return;
 
     final feedback = CoachMessages.getFeedback(
@@ -296,12 +297,17 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       total: _questions.length,
     );
 
+    final ignisMoment = await IgnisMomentsEngine.instance.getSessionEndMoment();
+    if (!mounted) return;
+
     CelebrationDialog.show(
       context,
       emoji: feedback.emoji,
       title: feedback.title,
       subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
+      ignisMomentTitle: ignisMoment?.title,
+      ignisMomentMessage: ignisMoment?.message,
       actionLabel: feedback.actionLabel,
       onAction: () {
         if (!mounted) return;

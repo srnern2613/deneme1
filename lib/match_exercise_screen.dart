@@ -18,6 +18,7 @@ import 'celebration_dialog.dart';
 import 'coach_messages.dart';
 import 'tts_service.dart';
 import 'core/design_system/primitives.dart';
+import 'core/coach/ignis_moments_engine.dart';
 
 class MatchItem {
   final String id;
@@ -267,7 +268,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
     }
   }
 
-  void _finishGame() {
+  Future<void> _finishGame() async {
     if (!mounted) return;
     _timer?.cancel();
     final totalExpected = max(6, widget.cards.length * 2);
@@ -277,12 +278,17 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       total: totalExpected,
     );
 
+    final ignisMoment = await IgnisMomentsEngine.instance.getSessionEndMoment();
+    if (!mounted) return;
+
     CelebrationDialog.show(
       context,
       emoji: feedback.emoji,
       title: feedback.title,
       subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
+      ignisMomentTitle: ignisMoment?.title,
+      ignisMomentMessage: ignisMoment?.message,
       actionLabel: feedback.actionLabel,
       onAction: () {
         if (!mounted) return;
