@@ -28,8 +28,20 @@ import 'coach_messages.dart';
 import 'core/fsrs/fsrs_repository.dart';
 import 'core/fsrs/fsrs_models.dart';
 import 'core/design_system/primitives.dart';
+import 'core/entitlement/entitlement_repository.dart';
+import 'core/coach/ignis_moments_engine.dart';
 
-enum _MixedMode { quiz, match, spelling }
+// AŞAMA 3 — Karma Mod'a yeni pratik tipleri eklendi. `cloze` (Cümlede
+// Boşluk Doldurma) her karta uygulanabilir değil — sadece geçerli
+// `context_sentence`'ı olan kartlarda seçilebilir havuza girer (bkz.
+// _eligibleModesFor). `reverseQuiz` (Ters Test) ve `listening` (Sadece
+// Dinleme) PREMIUM'dur — sadece EntitlementRepository.instance.isPremium
+// true ise (satın alınmış VEYA Geliştirici Test Modu açık) havuza girer;
+// free kullanıcının karşısına asla çıkmaz. `speedRound` (Hız Turu) BİLEREK
+// buraya eklenmedi — o, tek bir 60sn oturum sayacına dayanan yapısal olarak
+// farklı bir mod, kart-bazlı rastgele seçime uymuyor; kendi ayrı Arena
+// kartında kalıyor.
+enum _MixedMode { quiz, match, spelling, cloze, reverseQuiz, listening }
 
 class MixedDungeonSessionScreen extends StatefulWidget {
   /// Bu oturumda işlenecek kartlar — çağıran taraf (flashcards_screen.dart)
@@ -80,10 +92,25 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
   bool _isLoading = true;
   String? _cheerToast;
 
-  // Quiz & Match paylaşımlı state
+  // Quiz & Match & Cloze & Ters Test & Sadece Dinleme paylaşımlı state
   List<String> _currentOptions = [];
   String? _selectedOption;
   bool _answered = false;
+  String _blankedSentence = ''; // Cloze modu için
+  bool _wordRevealed = false; // Sadece Dinleme modu için (cevaptan önce gizli)
+
+  static const List<String> _fallbackWordDistractors = [
+    'garden',
+    'window',
+    'journey',
+    'silence',
+    'shadow',
+    'harbor',
+    'stranger',
+    'promise',
+    'candle',
+    'mountain',
+  ];
 
   // Spelling state
   List<_LetterTile> _letterTiles = [];
@@ -98,6 +125,27 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
     _initSession();
   }
 
+  RegExp _wordPattern(String word) => RegExp(r'\b' + RegExp.escape(word.trim()) + r'\b', caseSensitive: false);
+
+  /// Bir kart için hangi modların havuza girebileceğini belirler:
+  /// - Hızlı Test / Eşleştirme / Dinle & Yaz: her zaman
+  /// - Cümlede Boşluk Doldurma: sadece geçerli `context_sentence` varsa
+  /// - Ters Test / Sadece Dinleme: sadece Premium ise (satın alınmış veya
+  ///   Geliştirici Test Modu açık — bkz. EntitlementRepository.isPremium)
+  List<_MixedMode> _eligibleModesFor(Map<String, dynamic> card, bool isPremium) {
+    final word = (card['word'] ?? '').toString().trim();
+    final sentence = (card['context_sentence'] ?? '').toString().trim();
+    final hasValidSentence = word.isNotEmpty && sentence.isNotEmpty && _wordPattern(word).hasMatch(sentence);
+
+    final modes = <_MixedMode>[_MixedMode.quiz, _MixedMode.match, _MixedMode.spelling];
+    if (hasValidSentence) modes.add(_MixedMode.cloze);
+    if (isPremium) {
+      modes.add(_MixedMode.reverseQuiz);
+      modes.add(_MixedMode.listening);
+    }
+    return modes;
+  }
+
   void _initSession() {
     final filtered = widget.cards.where((c) {
       final w = (c['word'] ?? '').toString().trim();
@@ -105,12 +153,16 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
       return w.isNotEmpty && m.isNotEmpty;
     }).toList();
 
+    final isPremium = EntitlementRepository.instance.isPremium;
+
     // Ardışık aynı modun tekrarlanma ihtimalini azaltmak için basit bir
-    // "son modu tekrar seçme" kuralıyla rastgele dizi üretiyoruz.
+    // "son modu tekrar seçme" kuralıyla rastgele dizi üretiyoruz — ama
+    // sadece o kart için GEÇERLİ olan modlar arasından.
     _MixedMode? lastMode;
     final sequence = <_MixedMode>[];
-    for (var i = 0; i < filtered.length; i++) {
-      final pool = _MixedMode.values.where((m) => m != lastMode).toList();
+    for (final card in filtered) {
+      final eligible = _eligibleModesFor(card, isPremium);
+      final pool = eligible.length > 1 ? eligible.where((m) => m != lastMode).toList() : eligible;
       final mode = pool[_rand.nextInt(pool.length)];
       sequence.add(mode);
       lastMode = mode;
@@ -186,6 +238,41 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
     return distinctOptions;
   }
 
+  /// Cloze ve Ters Test için: seçenekler Türkçe anlam değil, İngilizce
+  /// kelimelerdir (bkz. cloze_exercise_screen.dart / reverse_quiz_screen.dart
+  /// — aynı çeldirici mantığı burada tekrar uygulanıyor).
+  Future<List<String>> _buildWordOptions(int optionCount) async {
+    final card = _questions[_currentIndex];
+    final correctWord = (card['word'] ?? '').toString().trim();
+
+    final List<String> distinctOptions = [correctWord];
+
+    final otherWords = _distractorPool
+        .map((c) => (c['word'] ?? '').toString().trim())
+        .where((w) => w.isNotEmpty && w.toLowerCase() != correctWord.toLowerCase())
+        .toSet()
+        .toList()
+      ..shuffle();
+    for (var w in otherWords) {
+      if (distinctOptions.length >= optionCount) break;
+      if (!distinctOptions.any((opt) => opt.toLowerCase() == w.toLowerCase())) distinctOptions.add(w);
+    }
+
+    if (distinctOptions.length < optionCount) {
+      final availableFallbacks = _fallbackWordDistractors
+          .where((f) => !distinctOptions.any((opt) => opt.toLowerCase() == f.toLowerCase()))
+          .toList()
+        ..shuffle();
+      for (var f in availableFallbacks) {
+        if (distinctOptions.length >= optionCount) break;
+        distinctOptions.add(f);
+      }
+    }
+
+    distinctOptions.shuffle();
+    return distinctOptions;
+  }
+
   Future<void> _loadCurrentQuestion() async {
     if (!mounted || _currentIndex >= _questions.length) return;
     final mode = _modeSequence[_currentIndex];
@@ -198,20 +285,54 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
       _placedTiles = [];
       _letterTiles = [];
       _currentOptions = [];
+      _blankedSentence = '';
+      _wordRevealed = false;
     });
 
     final card = _questions[_currentIndex];
     final word = (card['word'] ?? '').toString();
 
-    if (mode == _MixedMode.spelling) {
-      _setupSpelling(word);
-    } else {
-      final options = await _buildOptions(4);
-      if (!mounted) return;
-      setState(() => _currentOptions = options);
+    switch (mode) {
+      case _MixedMode.spelling:
+        {
+          _setupSpelling(word);
+          TtsService.instance.speakWord(word);
+          break;
+        }
+      case _MixedMode.quiz:
+      case _MixedMode.match:
+      case _MixedMode.listening:
+        {
+          // Sadece Dinleme'nin özü de otomatik telaffuz — kelime hâlâ
+          // görsel olarak gizli tutulur (bkz. _buildPromptCard).
+          final options = await _buildOptions(4);
+          if (!mounted) return;
+          setState(() => _currentOptions = options);
+          TtsService.instance.speakWord(word);
+          break;
+        }
+      case _MixedMode.cloze:
+        {
+          final sentence = (card['context_sentence'] ?? '').toString().trim();
+          final blanked = sentence.replaceFirst(_wordPattern(word), '_____');
+          final options = await _buildWordOptions(4);
+          if (!mounted) return;
+          setState(() {
+            _blankedSentence = blanked;
+            _currentOptions = options;
+          });
+          // TTS bilerek çalınmıyor — kelimenin telaffuzu cevabı ele verir.
+          break;
+        }
+      case _MixedMode.reverseQuiz:
+        {
+          final options = await _buildWordOptions(4);
+          if (!mounted) return;
+          setState(() => _currentOptions = options);
+          // TTS bilerek çalınmıyor — cevaptan önce kelimeyi söylemek hile olur.
+          break;
+        }
     }
-
-    TtsService.instance.speakWord(word);
   }
 
   void _setupSpelling(String rawWord) {
@@ -252,15 +373,32 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
   void _handleOptionSelected(String option) async {
     if (_answered) return;
     final card = _questions[_currentIndex];
-    final correctAnswer = (card['meaning'] ?? '').toString().trim();
-    final isCorrect = option == correctAnswer;
     final mode = _modeSequence[_currentIndex];
-    final subMode = mode == _MixedMode.quiz ? 'quiz' : 'match';
+    final bool compareByWord = (mode == _MixedMode.cloze || mode == _MixedMode.reverseQuiz);
+    final correctAnswer = compareByWord
+        ? (card['word'] ?? '').toString().trim()
+        : (card['meaning'] ?? '').toString().trim();
+    final isCorrect = compareByWord ? option.toLowerCase() == correctAnswer.toLowerCase() : option == correctAnswer;
+    final subMode = switch (mode) {
+      _MixedMode.quiz => 'quiz',
+      _MixedMode.match => 'match',
+      _MixedMode.cloze => 'cloze',
+      _MixedMode.reverseQuiz => 'reverse_quiz',
+      _MixedMode.listening => 'listening',
+      _MixedMode.spelling => 'spelling', // bu koda asla düşmez, exhaustive switch için
+    };
 
     setState(() {
       _selectedOption = option;
       _answered = true;
+      if (mode == _MixedMode.listening) _wordRevealed = true;
     });
+
+    if (mode == _MixedMode.reverseQuiz) {
+      // Doğru cevap görününce telaffuzu duyulsun — seçim zaten yapıldığı
+      // için artık hile riski yok (reverse_quiz_screen.dart ile aynı desen).
+      TtsService.instance.speakWord(correctAnswer);
+    }
 
     await _recordAnswer(isCorrect: isCorrect, subMode: subMode);
     if (!mounted) return;
@@ -345,19 +483,31 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
     }
   }
 
-  void _finishSession() {
+  Future<void> _finishSession() async {
     if (!mounted) return;
     final feedback = CoachMessages.getFeedback(
       exerciseType: 'mixed',
       score: _score,
       total: _questions.length,
     );
+
+    // BUG DÜZELTMESİ: "Zindana Gir" (Hafıza Zindanı / Karma Mod) seans
+    // sonu daha önce Ignis Anı'na hiç bağlanmamıştı — diğer 4 egzersiz
+    // ekranı (quiz/spelling/match/srs) bağlıyken bu ekran unutulmuştu.
+    // Kullanıcı bunu "SRS'de Ignis çıkmadı" olarak bildirdi çünkü Arena'daki
+    // "Hafıza Zindanı (SRS)" ana butonu asıl olarak BU ekranı açıyor.
+    final ignisMoment = await IgnisMomentsEngine.instance.getSessionEndMoment();
+    if (!mounted) return;
+
     CelebrationDialog.show(
       context,
       emoji: feedback.emoji,
       title: feedback.title,
       subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
+      ignisMomentTitle: ignisMoment?.title,
+      ignisMomentMessage: ignisMoment?.message,
+      ignisMomentPose: ignisMoment?.pose,
       actionLabel: feedback.actionLabel,
       onAction: () {
         if (!mounted) return;
@@ -445,7 +595,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _buildWordCard(word),
+                  _buildPromptCard(mode, card, word),
                   const SizedBox(height: 20),
                   Expanded(child: _buildModeBody(mode)),
                 ],
@@ -476,6 +626,9 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
       _MixedMode.quiz => (icon: PhosphorIcons.crosshairBold, label: 'Hızlı Test', color: const Color(0xFF38BDF8)),
       _MixedMode.match => (icon: PhosphorIcons.puzzlePieceBold, label: 'Eşleştirme', color: const Color(0xFF6366F1)),
       _MixedMode.spelling => (icon: PhosphorIcons.waveformBold, label: 'Dinle & Yaz', color: const Color(0xFF10B981)),
+      _MixedMode.cloze => (icon: PhosphorIcons.pencilSimpleBold, label: 'Boşluk Doldurma', color: const Color(0xFF34D399)),
+      _MixedMode.reverseQuiz => (icon: PhosphorIcons.magnifyingGlassBold, label: 'Ters Test', color: const Color(0xFFA855F7)),
+      _MixedMode.listening => (icon: PhosphorIcons.waveformBold, label: 'Sadece Dinleme', color: const Color(0xFF06B6D4)),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -520,14 +673,125 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
     );
   }
 
+  // AŞAMA 3 — mod bazlı üst kart: her yeni pratik tipinin kendine özgü
+  // sunumu var (cloze: cümle+boşluk, reverseQuiz: Türkçe anlam, listening:
+  // kelime gizli). quiz/match/spelling eski _buildWordCard'ı AYNEN kullanır.
+  Widget _buildPromptCard(_MixedMode mode, Map<String, dynamic> card, String word) {
+    switch (mode) {
+      case _MixedMode.reverseQuiz:
+        final meaning = (card['meaning'] ?? '').toString().trim();
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF111827),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+          ),
+          child: Column(
+            children: [
+              const Icon(PhosphorIcons.magnifyingGlassBold, color: Color(0xFFA855F7), size: 22),
+              const SizedBox(height: 10),
+              Text(meaning, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+            ],
+          ),
+        );
+      case _MixedMode.cloze:
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF111827),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+          ),
+          child: Column(
+            children: [
+              const Icon(PhosphorIcons.pencilSimpleBold, color: Color(0xFF34D399), size: 20),
+              const SizedBox(height: 10),
+              Text(_blankedSentence, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, height: 1.4, color: Colors.white)),
+            ],
+          ),
+        );
+      case _MixedMode.listening:
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF111827),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+          ),
+          child: Column(
+            children: [
+              IconButton.filled(
+                style: IconButton.styleFrom(backgroundColor: const Color(0xFF06B6D4), padding: const EdgeInsets.all(16)),
+                icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 26),
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  TtsService.instance.speakWord(word);
+                },
+              ),
+              const SizedBox(height: 10),
+              Text(
+                _wordRevealed ? word : 'Dinle ve anlamını seç',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: _wordRevealed ? 22 : 13,
+                  fontWeight: _wordRevealed ? FontWeight.w900 : FontWeight.w600,
+                  color: _wordRevealed ? Colors.white : const Color(0xFF94A3B8),
+                ),
+              ),
+            ],
+          ),
+        );
+      case _MixedMode.spelling:
+        // BUG DÜZELTMESİ: burada kelimenin yazısı gösteriliyordu — kullanıcı
+        // sadece gördüğünü harf harf kopyalıyordu, "Dinle & Yaz"ın amacı
+        // (duyduğunu yazmak) tamamen boşa çıkıyordu. spelling_exercise_screen.dart
+        // ile aynı desen: anlam gösterilir, kelime SADECE sesle verilir.
+        final meaning = (card['meaning'] ?? '').toString().trim();
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF111827),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+          ),
+          child: Column(
+            children: [
+              IconButton.filled(
+                style: IconButton.styleFrom(backgroundColor: const Color(0xFF10B981), padding: const EdgeInsets.all(14)),
+                icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 26),
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  TtsService.instance.speakWord(word);
+                },
+              ),
+              const SizedBox(height: 10),
+              Text(
+                meaning.isNotEmpty ? '"$meaning"' : 'Dinle ve kelimeyi hecele',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+              ),
+            ],
+          ),
+        );
+      case _MixedMode.quiz:
+      case _MixedMode.match:
+        return _buildWordCard(word);
+    }
+  }
+
   Widget _buildModeBody(_MixedMode mode) {
     switch (mode) {
       case _MixedMode.quiz:
+      case _MixedMode.listening:
         return _buildOptionList(isGrid: false);
       case _MixedMode.match:
         return _buildOptionList(isGrid: true);
       case _MixedMode.spelling:
         return _buildSpellingBody();
+      case _MixedMode.cloze:
+      case _MixedMode.reverseQuiz:
+        return _buildOptionList(isGrid: false);
     }
   }
 
@@ -535,12 +799,17 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
     if (_currentOptions.isEmpty) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)));
     }
-    final correctAnswer = (_questions[_currentIndex]['meaning'] ?? '').toString().trim();
+    final mode = _modeSequence[_currentIndex];
+    final bool compareByWord = (mode == _MixedMode.cloze || mode == _MixedMode.reverseQuiz);
+    final card = _questions[_currentIndex];
+    final correctAnswer = compareByWord
+        ? (card['word'] ?? '').toString().trim()
+        : (card['meaning'] ?? '').toString().trim();
 
     Widget tile(int index) {
       final option = _currentOptions[index];
       final isSelected = _selectedOption == option;
-      final isCorrect = option == correctAnswer;
+      final isCorrect = compareByWord ? option.toLowerCase() == correctAnswer.toLowerCase() : option == correctAnswer;
 
       Color borderColor = const Color(0xFF1F2937);
       Color bgColor = const Color(0xFF111827);

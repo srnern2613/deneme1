@@ -241,6 +241,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       masteredWordsCount: _masteredCountInSession,
       ignisMomentTitle: ignisMoment?.title,
       ignisMomentMessage: ignisMoment?.message,
+      ignisMomentPose: ignisMoment?.pose,
       actionLabel: feedback.actionLabel,
       onAction: () {
         if (!mounted) return;

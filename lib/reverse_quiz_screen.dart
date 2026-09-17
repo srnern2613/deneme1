@@ -303,6 +303,7 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
       earnedXp: _totalEarnedXp,
       ignisMomentTitle: ignisMoment?.title,
       ignisMomentMessage: ignisMoment?.message,
+      ignisMomentPose: ignisMoment?.pose,
       actionLabel: feedback.actionLabel,
       onAction: () {
         if (!mounted) return;

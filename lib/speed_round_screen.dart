@@ -286,6 +286,7 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
       earnedXp: _totalEarnedXp,
       ignisMomentTitle: ignisMoment?.title,
       ignisMomentMessage: ignisMoment?.message,
+      ignisMomentPose: ignisMoment?.pose,
       actionLabel: 'Tekrar Dene ⚡',
       onAction: () {
         if (!mounted) return;

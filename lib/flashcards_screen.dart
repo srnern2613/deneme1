@@ -28,6 +28,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/fsrs/fsrs_repository.dart';
 import 'core/entitlement/paywall_trigger.dart';
+import 'core/entitlement/entitlement_repository.dart';
 import 'mixed_dungeon_session_screen.dart';
 
 class FlashcardsScreen extends StatefulWidget {
@@ -117,6 +118,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
         _learningStateFilter = prefs.getString('arena_state_filter') ?? 'ALL';
         _isTestModeActive = prefs.getBool('dev_test_mode') ?? false;
       });
+      // Geliştirici Test Modu artık Premium kilitlerini de açar (bkz.
+      // EntitlementRepository.devTestOverrideNotifier) — ekran her yeniden
+      // yüklendiğinde (initState/resume) senkron kalsın.
+      EntitlementRepository.instance.setDevTestOverride(_isTestModeActive);
 
       await _loadCardsAndStats();
     } catch (_) {
@@ -248,7 +253,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('Geliştirici Test Modu', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                                Text('Tüm kilitleri anında açar', style: GoogleFonts.inter(color: const Color(0xFFFCA5A5), fontSize: 10)),
+                                Text('Tüm kilitleri (Premium dahil) anında açar', style: GoogleFonts.inter(color: const Color(0xFFFCA5A5), fontSize: 10)),
                               ],
                             ),
                           ],
@@ -260,6 +265,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                             HapticFeedback.heavyImpact();
                             final prefs = await SharedPreferences.getInstance();
                             await prefs.setBool('dev_test_mode', val);
+                            // Premium (PaywallTrigger) kilitlerini de kapsasın —
+                            // switch kapatılınca otomatik geri kilitlenir.
+                            EntitlementRepository.instance.setDevTestOverride(val);
                             setModalState(() => _isTestModeActive = val);
                             setState(() => _isTestModeActive = val); 
                           },
@@ -611,6 +619,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         ),
                         PaywallTrigger(
                           onUnlocked: _loadCardsAndStats,
+                          featureName: 'Ters Test',
                           child: _buildGridPracticeCard(
                             icon: PhosphorIcons.magnifyingGlassBold,
                             title: 'Ters Test',
@@ -622,6 +631,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         ),
                         PaywallTrigger(
                           onUnlocked: _loadCardsAndStats,
+                          featureName: 'Sadece Dinleme',
                           child: _buildGridPracticeCard(
                             icon: PhosphorIcons.waveformBold,
                             title: 'Sadece Dinleme',
@@ -633,6 +643,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         ),
                         PaywallTrigger(
                           onUnlocked: _loadCardsAndStats,
+                          featureName: 'Hız Turu',
                           child: _buildGridPracticeCard(
                             icon: PhosphorIcons.timerBold,
                             title: 'Hız Turu',

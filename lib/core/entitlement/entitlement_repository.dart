@@ -28,7 +28,18 @@ class EntitlementRepository {
   /// "premium mi" kontrolü yapmamalı.
   final ValueNotifier<bool> isPremiumNotifier = ValueNotifier<bool>(false);
 
-  bool get isPremium => isPremiumNotifier.value;
+  /// Geliştirici Test Modu (flashcards_screen.dart → Arena Ayarları) açıkken
+  /// TÜM Premium özellikleri yerel olarak açar — RevenueCat'e hiçbir şey
+  /// yazılmaz, sadece [isPremium] bunu da hesaba katar. Mod kapatılınca
+  /// otomatik olarak tekrar kilitlenir. `PaywallTrigger` bu notifier'ı da
+  /// dinler.
+  final ValueNotifier<bool> devTestOverrideNotifier = ValueNotifier<bool>(false);
+
+  void setDevTestOverride(bool value) {
+    devTestOverrideNotifier.value = value;
+  }
+
+  bool get isPremium => isPremiumNotifier.value || devTestOverrideNotifier.value;
 
   bool _isInitialized = false;
 

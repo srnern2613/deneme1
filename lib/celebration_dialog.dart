@@ -8,6 +8,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'core/branding/app_branding.dart';
+
 class CelebrationDialog extends StatefulWidget {
   final String emoji;
   final String title;
@@ -27,6 +29,7 @@ class CelebrationDialog extends StatefulWidget {
   // null bırakılırsa hiçbir şey değişmez (eski davranış aynen korunur).
   final String? ignisMomentTitle;
   final String? ignisMomentMessage;
+  final String? ignisMomentPose; // AppBranding.poseAsset() anahtarı
 
   const CelebrationDialog({
     super.key,
@@ -46,6 +49,7 @@ class CelebrationDialog extends StatefulWidget {
     this.onSecondaryAction,
     this.ignisMomentTitle,
     this.ignisMomentMessage,
+    this.ignisMomentPose,
   });
 
   static Future<void> show(
@@ -66,6 +70,7 @@ class CelebrationDialog extends StatefulWidget {
     VoidCallback? onSecondaryAction,
     String? ignisMomentTitle,
     String? ignisMomentMessage,
+    String? ignisMomentPose,
   }) {
     HapticFeedback.heavyImpact();
     return showGeneralDialog(
@@ -91,6 +96,7 @@ class CelebrationDialog extends StatefulWidget {
         onSecondaryAction: onSecondaryAction,
         ignisMomentTitle: ignisMomentTitle,
         ignisMomentMessage: ignisMomentMessage,
+        ignisMomentPose: ignisMomentPose,
       ),
       transitionBuilder: (ctx, anim, _, child) {
         return Transform.scale(
@@ -341,42 +347,85 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
                   ],
 
                   // AŞAMA 2 — Ignis Anı: karakterin veriye dayalı mesajı.
-                  // Ayrı bir popup DEĞİL, bu modalın bir uzantısı.
+                  // Ayrı bir popup DEĞİL, bu modalın bir uzantısı. Karakterin
+                  // görseli + konuşma balonu birlikte gösterilir — sadece
+                  // düz metin kutusu DEĞİL (kullanıcı geri bildirimi: "Ignis
+                  // çıkıp tebrik etmeliydi").
                   if (widget.ignisMomentMessage != null && widget.ignisMomentMessage!.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: themeColor.withValues(alpha: isDark ? 0.14 : 0.08),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: themeColor.withValues(alpha: 0.3)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (widget.ignisMomentTitle != null && widget.ignisMomentTitle!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                widget.ignisMomentTitle!,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                                ),
-                              ),
-                            ),
-                          Text(
-                            widget.ignisMomentMessage!,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              height: 1.4,
-                              color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.asset(
+                            AppBranding.poseAsset(widget.ignisMomentPose ?? 'celebrating'),
+                            width: 46,
+                            height: 46,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(color: themeColor.withValues(alpha: 0.15), shape: BoxShape.circle),
+                              child: Icon(Icons.auto_awesome, color: themeColor, size: 22),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: themeColor.withValues(alpha: isDark ? 0.14 : 0.08),
+                              // Sol üst köşe küçültülmüş — konuşma balonunun
+                              // karaktere "bağlı" görünmesi için basit bir hile.
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(4),
+                                topRight: Radius.circular(16),
+                                bottomLeft: Radius.circular(16),
+                                bottomRight: Radius.circular(16),
+                              ),
+                              border: Border.all(color: themeColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppBranding.characterName,
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.4,
+                                    color: themeColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                if (widget.ignisMomentTitle != null && widget.ignisMomentTitle!.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      widget.ignisMomentTitle!,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ),
+                                Text(
+                                  widget.ignisMomentMessage!,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    height: 1.4,
+                                    color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
 
