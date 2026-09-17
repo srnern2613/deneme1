@@ -1,6 +1,7 @@
 // ============================================================================
 // DOSYA ADI: lib/main.dart
-// AÇIKLAMA: Draconic Lingua - Boşluğu Alınmış Büyük Logo ve Kontrastlı İlerleme Barları (Tam Kod)
+// AÇIKLAMA: Ignis (Draconic Lingua markası) - Boşluğu Alınmış Büyük Logo ve
+// Kontrastlı İlerleme Barları (Tam Kod)
 // ============================================================================
 
 import 'dart:async';
@@ -65,7 +66,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Draconic Lingua',
+      title: 'Ignis',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -357,7 +358,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 fit: BoxFit.contain,
                                 alignment: Alignment.centerLeft,
                                 errorBuilder: (context, error, stackTrace) => Text(
-                                  'Draconic Lingua', 
+                                  'Ignis',
                                   style: GoogleFonts.lora(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)
                                 ),
                               ),

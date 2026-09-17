@@ -46,3 +46,12 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Google Drive senkronizasyon artıkları (proje Drive dışına taşınınca kalmayacak)
+.tmp.driveupload/
+.tmp.drivedownload/
+
+# İmzalama sırları — ASLA commit edilmemeli (keystore oluşturulduğunda geçerli olacak)
+key.properties
+*.jks
+*.keystore
