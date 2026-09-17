@@ -13,6 +13,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import 'core/theme/draconic_theme.dart';
 import 'core/entitlement/entitlement_repository.dart';
+import 'core/storage/book_storage_service.dart';
 import 'book_model.dart';
 import 'default_books.dart';
 import 'library_screen.dart';
@@ -217,16 +218,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await XpShopService.instance.getGemsBalance();
       await XpShopService.instance.getTotalXp();
 
-      List<Book> parsedBooks = [];
-      final bookDataList = prefs.getStringList('saved_books');
-      if (bookDataList != null && bookDataList.isNotEmpty) {
-        parsedBooks = bookDataList.map((str) => Book.fromJson(str)).toList();
-        parsedBooks.sort((a, b) {
-          final dateA = a.lastReadDate ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final dateB = b.lastReadDate ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return dateB.compareTo(dateA);
-        });
-      }
+      // AŞAMA 1: kitap sayfa metni artık book_content.db'de (Android Auto
+      // Backup kotası dışında); BookStorageService bunu şeffaf birleştirir.
+      List<Book> parsedBooks = await BookStorageService.loadBooks();
+      parsedBooks.sort((a, b) {
+        final dateA = a.lastReadDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final dateB = b.lastReadDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return dateB.compareTo(dateA);
+      });
 
       if (!mounted) return;
       setState(() {

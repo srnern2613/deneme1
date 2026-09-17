@@ -14,6 +14,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import 'book_model.dart';
+import 'core/storage/book_storage_service.dart';
 import 'default_books.dart';
 import 'reader_screen.dart';
 import 'book_journey_screen.dart';
@@ -76,10 +77,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _hasFreezeShield = streakResult['hasFreezeShield'] ?? false;
     });
 
-    final bookDataList = prefs.getStringList('saved_books');
-    if (bookDataList != null && bookDataList.isNotEmpty) {
+    // AŞAMA 1: kitap sayfa metni artık book_content.db'de (Android Auto
+    // Backup kotası dışında); BookStorageService bunu şeffaf birleştirir.
+    final loadedBooks = await BookStorageService.loadBooks();
+    if (loadedBooks.isNotEmpty) {
       setState(() {
-        _books = bookDataList.map((str) => Book.fromJson(str)).toList();
+        _books = loadedBooks;
       });
     }
 
@@ -103,9 +106,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _saveBooksToStorage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final List<String> bookDataList = _books.map((b) => b.toJson()).toList();
-    await prefs.setStringList('saved_books', bookDataList);
+    // AŞAMA 1: sayfa metni book_content.db'ye, hafif künye SharedPreferences'a.
+    await BookStorageService.saveBooks(_books);
   }
 
   Future<void> _saveStatsToStorage() async {

@@ -83,7 +83,7 @@ Yapıldı (diskte doğrulandı): `pubspec.yaml` (`name: ignis` + açıklama) · 
 - [x] **Yeni tablo: günlük istatistik (`daily_stats`)** ✅ 17.09.2026 — tarih + mod kırılımlı (yeni kelime, tekrar, doğru, yanlış). Yazma noktaları: `recordMultiModalResult` (her doğru/yanlış cevap) ve yeni kelime ekleme akışı (`addFlashcard`, `promoteToLearning`). Okuma tarafı için `getDailyStatsRange`, `getTodayStatsSummary`, `getDueTomorrowCount` hazır — Aşama 2'nin istatistik motoru doğrudan bunları kullanabilir.
   - Not: Okuma verisi zaten tarihe göre tutuluyor (`daily_pages_<tarih>`, `daily_minutes_<tarih>`), ama kelime verisi **yalnızca kümülatif**. Günlük kırılım olmadan "bugün şu kadar öğrendin" ve trend hesaplanamaz. Bu sorun artık çözüldü.
   - Teknik not: `_touchDailyStat` bilerek `db.transaction()` bloğunun **dışında** çağrılıyor (`addFlashcard` içinde) — aynı bağlantı üzerinden transaction içindeyken txn dışı bir sorgu çağırmak sqflite'ı kilitleyebilir.
-- [ ] **Migrasyon testi (kritik, HENÜZ YAPILMADI):** Eski sürümü gerçek cihaza kur → üstüne yeni sürümü yükle → veri kaybı var mı kontrol et. Emülatörde temiz kurulum bu hatayı **yakalamaz**.
+- [x] **Migrasyon testi** ✅ 17.09.2026 — v16 şemasıyla kurulup 4 test kelimesi eklendi (`seldom, pride, bending, finish`), sonra **kaldırmadan** üstüne v17 kuruldu: uygulama çökmedi, 4 kelime de korundu. Test emülatörde yapıldı (`sdk gphone64 x86 64`) — gerçek cihazda **henüz** tekrarlanmadı, Aşama 5'e (yayın hazırlığı) geçmeden önce gerçek cihazda bir kez daha doğrulanmalı.
 
 ---
 

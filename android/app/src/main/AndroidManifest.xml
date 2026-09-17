@@ -17,11 +17,22 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
 
+    <!-- AŞAMA 1: Android Auto Backup — kullanıcı hesabı/bulut altyapısı
+         kurmadan, ücretsiz olarak flashcards/XP/seri verisini kullanıcının
+         kendi Google hesabına yedekler ve yeni cihaz/yeniden kurulumda
+         otomatik geri yükler. allowBackup açıkça yazıldı (varsayılanı
+         beklemek yerine); kitap metni (book_content.db) 25 MB kotayı
+         doldurmasın diye iki kural dosyasıyla hariç tutuluyor — bkz.
+         res/xml/backup_rules.xml (API 23-30) ve
+         res/xml/data_extraction_rules.xml (API 31+). -->
     <application
         android:label="Ignis"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         
         <activity
             android:name=".MainActivity"

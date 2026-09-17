@@ -6,6 +6,7 @@
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'book_model.dart';
+import 'core/storage/book_storage_service.dart';
 
 class DefaultBooksManager {
   static const String _seededKey = 'is_gutenberg_books_seeded_v11';
@@ -58,7 +59,9 @@ class DefaultBooksManager {
     final bool isSeeded = prefs.getBool(_seededKey) ?? false;
 
     if (!isSeeded) {
-      List<String> existingBookList = prefs.getStringList('saved_books') ?? [];
+      // AŞAMA 1: sayfa metni artık book_content.db'de — BookStorageService
+      // eski/yeni formatı şeffaf birleştirip tam Book listesi döner.
+      List<Book> existingBooks = await BookStorageService.loadBooks();
 
       for (var config in _bookConfigs) {
         try {
@@ -112,19 +115,14 @@ class DefaultBooksManager {
             pages: pages,
           );
 
-          existingBookList.removeWhere((str) {
-            try {
-              return Book.fromJson(str).id == book.id;
-            } catch (_) {
-              return false;
-            }
-          });
-
-          existingBookList.add(book.toJson());
+          existingBooks.removeWhere((b) => b.id == book.id);
+          existingBooks.add(book);
         } catch (_) {}
       }
 
-      await prefs.setStringList('saved_books', existingBookList);
+      // AŞAMA 1: sayfa metni book_content.db'ye, hafif künye
+      // SharedPreferences'a — 5 tam roman metni artık yedek kotasına girmiyor.
+      await BookStorageService.saveBooks(existingBooks);
       await prefs.setBool(_seededKey, true);
     }
   }
