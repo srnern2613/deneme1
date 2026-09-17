@@ -77,12 +77,13 @@ Yapıldı (diskte doğrulandı): `pubspec.yaml` (`name: ignis` + açıklama) · 
 
 > **Neden tek migrasyon:** Aşama 2'nin (Ignis Anları) istatistik tablosuna ihtiyacı var; `uuid`/`updated_at` ise ileride hesap sistemine geçilirse zorunlu. Ayrı ayrı yapılırsa v17, v18, v19 diye üç migrasyon olur — ve migrasyon bu uygulamanın **en riskli işlemi** (Faz 8 de v15→v16'yı en yüksek risk olarak işaretliyor). Tek seferde geçmek test yükünü üçte bire indirir.
 
-- [ ] **`flashcards` tablosuna ekle:**
-  - `uuid` — cihazdan bağımsız kalıcı kimlik. **Bugün eklemek bedava, sonra eklemek acılı.** Hesap sistemi ertelendi ama kapı açık kalsın.
-  - `updated_at` — son değişiklik zamanı.
-- [ ] **Yeni tablo: günlük istatistik** (tarih, yeni kelime, tekrar sayısı, doğru/yanlış, mod). **Aşama 2'nin yakıtı budur.** Yazma noktaları: `recordMultiModalResult` ve yeni kelime ekleme akışı.
-  - Not: Okuma verisi zaten tarihe göre tutuluyor (`daily_pages_<tarih>`, `daily_minutes_<tarih>`), ama kelime verisi **yalnızca kümülatif**. Günlük kırılım olmadan "bugün şu kadar öğrendin" ve trend hesaplanamaz.
-- [ ] **Migrasyon testi (kritik):** Eski sürümü gerçek cihaza kur → üstüne yeni sürümü yükle → veri kaybı var mı kontrol et. Emülatörde temiz kurulum bu hatayı **yakalamaz**.
+- [x] **`flashcards` tablosuna ekle:** ✅ 17.09.2026 — `database_helper.dart` v17
+  - `uuid` — cihazdan bağımsız kalıcı kimlik. Yeni kartlarda otomatik atanıyor; mevcut kartlara upgrade sırasında geriye dönük dolduruluyor.
+  - `updated_at` — son değişiklik zamanı. Ana yazma noktalarında (`addFlashcard`, `discoverWord`, `promoteToLearning`, `demoteToDiscovered`, `recordMultiModalResult`, `updateFlashcardSrsProgress`) set ediliyor.
+- [x] **Yeni tablo: günlük istatistik (`daily_stats`)** ✅ 17.09.2026 — tarih + mod kırılımlı (yeni kelime, tekrar, doğru, yanlış). Yazma noktaları: `recordMultiModalResult` (her doğru/yanlış cevap) ve yeni kelime ekleme akışı (`addFlashcard`, `promoteToLearning`). Okuma tarafı için `getDailyStatsRange`, `getTodayStatsSummary`, `getDueTomorrowCount` hazır — Aşama 2'nin istatistik motoru doğrudan bunları kullanabilir.
+  - Not: Okuma verisi zaten tarihe göre tutuluyor (`daily_pages_<tarih>`, `daily_minutes_<tarih>`), ama kelime verisi **yalnızca kümülatif**. Günlük kırılım olmadan "bugün şu kadar öğrendin" ve trend hesaplanamaz. Bu sorun artık çözüldü.
+  - Teknik not: `_touchDailyStat` bilerek `db.transaction()` bloğunun **dışında** çağrılıyor (`addFlashcard` içinde) — aynı bağlantı üzerinden transaction içindeyken txn dışı bir sorgu çağırmak sqflite'ı kilitleyebilir.
+- [ ] **Migrasyon testi (kritik, HENÜZ YAPILMADI):** Eski sürümü gerçek cihaza kur → üstüne yeni sürümü yükle → veri kaybı var mı kontrol et. Emülatörde temiz kurulum bu hatayı **yakalamaz**.
 
 ---
 
@@ -224,7 +225,15 @@ Bunlar iptal değil, **beklemede**. Gerekçeleri burada duruyor ki ileride sıf�
 
 ---
 
-## Ortam riski — proje klasörünün yeri
+## Ortam riski — proje klasörünün yeri ✅ ÇÖZÜLDÜ (17.09.2026)
+
+> **Durum:** Proje `C:\dev\projects\flutter\deneme1` → **`C:\src\ignis`** adresine taşındı, Drive senkronizasyonundan çıkarıldı. Yedekleme artık GitHub'da (`github.com/srnern2613/deneme1`). Çöp klasörler (`build/`, `.dart_tool/`, `.widget_preview/`, `.tmp.driveupload/`) temizlendi, `.tmp.driveupload` dosyaları repodan da çıkarıldı.
+>
+> Süreç boyunca teşhis doğrulandı: git'in kendisi bile `.git/objects` içindeki bir klasörü silemedi ("Deletion of directory failed"), ve `Move-Item` dosyaları kopyalayabildi ama kaynağı silemedi. İkisi de dosya kilidi kanıtıydı.
+>
+> Aşağıdaki kayıt, sorunun ne olduğunun geçmişe dönük dokümantasyonu olarak duruyor.
+
+### Eski durum (arşiv)
 
 Proje kökünde `.tmp.driveupload` var; klasör Google Drive ile senkronize. İki risk:
 

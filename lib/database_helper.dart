@@ -1,8 +1,11 @@
 // ============================================================================
 // DOSYA ADI: lib/database_helper.dart
-// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Mükerrer Kayıt Korumalı Flashcards v15)
+// AÇIKLAMA: SQLite Veritabanı Yöneticisi (Mükerrer Kayıt Korumalı Flashcards v17)
+// AŞAMA 0: flashcards.uuid/updated_at + daily_stats tablosu (Ignis Anları'nın
+// yakıtı). Hesap sistemi ertelendi ama uuid/updated_at kapıyı açık tutuyor.
 // ============================================================================
 
+import 'dart:math';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -24,10 +27,69 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 16,
+      version: 17,
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
     );
+  }
+
+  /// RFC 4122 benzeri v4 UUID üretir. Harici paket eklemeden (uuid
+  /// bağımlılığı yerine dart:math ile) — cihazdan bağımsız kalıcı kimlik.
+  String _generateUuidV4() {
+    final rnd = Random.secure();
+    final bytes = List<int>.generate(16, (_) => rnd.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    String hex(int start, int end) =>
+        bytes.sublist(start, end).map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex(0, 4)}-${hex(4, 6)}-${hex(6, 8)}-${hex(8, 10)}-${hex(10, 16)}';
+  }
+
+  /// AŞAMA 0 / AŞAMA 2: günlük istatistik satırını artımlı olarak günceller
+  /// (yoksa oluşturur). Ignis Anları ve "bugün X kelime öğrendin" gibi
+  /// projeksiyonların tek veri kaynağı burasıdır.
+  Future<void> _touchDailyStat({
+    required String mode,
+    int newWords = 0,
+    int reviews = 0,
+    int correct = 0,
+    int wrong = 0,
+  }) async {
+    final db = await database;
+    final now = DateTime.now();
+    final dateStr =
+        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+    final existing = await db.query(
+      'daily_stats',
+      where: 'stat_date = ? AND mode = ?',
+      whereArgs: [dateStr, mode],
+      limit: 1,
+    );
+
+    if (existing.isEmpty) {
+      await db.insert('daily_stats', {
+        'stat_date': dateStr,
+        'mode': mode,
+        'new_words_count': newWords,
+        'review_count': reviews,
+        'correct_count': correct,
+        'wrong_count': wrong,
+      });
+    } else {
+      final row = existing.first;
+      await db.update(
+        'daily_stats',
+        {
+          'new_words_count': (row['new_words_count'] as int? ?? 0) + newWords,
+          'review_count': (row['review_count'] as int? ?? 0) + reviews,
+          'correct_count': (row['correct_count'] as int? ?? 0) + correct,
+          'wrong_count': (row['wrong_count'] as int? ?? 0) + wrong,
+        },
+        where: 'id = ?',
+        whereArgs: [row['id']],
+      );
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -71,7 +133,9 @@ class DatabaseHelper {
         fsrs_state INTEGER DEFAULT 0,
         fsrs_reps INTEGER DEFAULT 0,
         fsrs_lapses INTEGER DEFAULT 0,
-        fsrs_last_reviewed_at TEXT
+        fsrs_last_reviewed_at TEXT,
+        uuid TEXT,
+        updated_at TEXT
       )
     ''');
 
@@ -121,6 +185,23 @@ class DatabaseHelper {
       )
     ''');
 
+    // AŞAMA 0: günlük istatistik — Ignis Anları'nın yakıtı. Kelime verisi
+    // eskiden yalnızca kümülatifti; bu tablo tarihe göre kırılım sağlıyor.
+    await db.execute('''
+      CREATE TABLE daily_stats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        stat_date TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        new_words_count INTEGER DEFAULT 0,
+        review_count INTEGER DEFAULT 0,
+        correct_count INTEGER DEFAULT 0,
+        wrong_count INTEGER DEFAULT 0,
+        UNIQUE(stat_date, mode)
+      )
+    ''');
+
+    await db.execute('CREATE INDEX idx_daily_stats_date ON daily_stats(stat_date)');
+
     await _insertInitialWords(db);
   }
 
@@ -157,6 +238,58 @@ class DatabaseHelper {
         } catch (_) {
           // Kolon zaten varsa (ör. tekrar eden upgrade denemesi) sessizce geç.
         }
+      }
+    }
+    if (oldVersion < 17) {
+      // AŞAMA 0 — Veri modeli temeli (tek migrasyon, bkz.
+      // docs/yayin_oncesi_kontrol_listesi.md). uuid/updated_at ileride hesap
+      // sistemi gelirse zorunlu; daily_stats Ignis Anları'nın veri kaynağı.
+      for (final stmt in [
+        "ALTER TABLE flashcards ADD COLUMN uuid TEXT",
+        "ALTER TABLE flashcards ADD COLUMN updated_at TEXT",
+      ]) {
+        try {
+          await db.execute(stmt);
+        } catch (_) {
+          // Kolon zaten varsa sessizce geç.
+        }
+      }
+
+      // Mevcut kartlara geriye dönük uuid/updated_at ata. Tek seferlik
+      // maliyet — kullanıcı tabanı küçük, kart sayısı da öyle.
+      try {
+        final existingRows = await db.query('flashcards', columns: ['id']);
+        final nowIso = DateTime.now().toIso8601String();
+        for (final row in existingRows) {
+          final id = row['id'] as int;
+          await db.update(
+            'flashcards',
+            {'uuid': _generateUuidV4(), 'updated_at': nowIso},
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+        }
+      } catch (_) {
+        // Geriye dönük doldurma başarısız olsa bile uygulama çalışmaya devam
+        // etmeli; uuid null kalan satırlar bir sonraki yazmada doldurulur.
+      }
+
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS daily_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stat_date TEXT NOT NULL,
+            mode TEXT NOT NULL,
+            new_words_count INTEGER DEFAULT 0,
+            review_count INTEGER DEFAULT 0,
+            correct_count INTEGER DEFAULT 0,
+            wrong_count INTEGER DEFAULT 0,
+            UNIQUE(stat_date, mode)
+          )
+        ''');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_daily_stats_date ON daily_stats(stat_date)');
+      } catch (_) {
+        // Tablo zaten varsa (ör. tekrar eden upgrade denemesi) sessizce geç.
       }
     }
   }
@@ -340,13 +473,16 @@ class DatabaseHelper {
   }) async {
     final db = await database;
     final clean = word.trim();
+    bool insertedNewActiveWord = false;
 
-    return await db.transaction((txn) async {
+    final resultId = await db.transaction((txn) async {
       final existing = await txn.query(
         'flashcards',
         where: 'word = ? COLLATE NOCASE',
         whereArgs: [clean],
       );
+
+      final nowIso = DateTime.now().toIso8601String();
 
       if (existing.isNotEmpty) {
         final firstId = existing.first['id'] as int;
@@ -366,6 +502,7 @@ class DatabaseHelper {
             if (contextSentence != null && contextSentence.trim().isNotEmpty) 'context_sentence': contextSentence.trim(),
             if (bookTitle != null && bookTitle.trim().isNotEmpty) 'book_title': bookTitle.trim(),
             if (chapterInfo != null && chapterInfo.trim().isNotEmpty) 'chapter_info': chapterInfo.trim(),
+            'updated_at': nowIso,
           },
           where: 'id = ?',
           whereArgs: [firstId],
@@ -373,7 +510,7 @@ class DatabaseHelper {
         return firstId;
       }
 
-      return await txn.insert(
+      final newId = await txn.insert(
         'flashcards',
         {
           'word': clean,
@@ -390,10 +527,29 @@ class DatabaseHelper {
           'context_sentence': contextSentence?.trim(),
           'book_title': bookTitle?.trim(),
           'chapter_info': chapterInfo?.trim(),
+          'uuid': _generateUuidV4(),
+          'updated_at': nowIso,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
+
+      // AŞAMA 0/2: yeni bir kart pratik havuzuna gerçekten girdiğinde
+      // (DISCOVERED değil) günlük istatistiğe "yeni kelime" olarak işlensin.
+      // NOT: _touchDailyStat burada DEĞİL, transaction bittikten SONRA
+      // çağrılır — aynı bağlantı üzerinden txn içindeyken txn dışı bir
+      // db.query/update çağırmak sqflite'ı kilitler (deadlock riski).
+      if (learningState != 'DISCOVERED') {
+        insertedNewActiveWord = true;
+      }
+
+      return newId;
     });
+
+    if (insertedNewActiveWord) {
+      await _touchDailyStat(mode: 'new_word', newWords: 1);
+    }
+
+    return resultId;
   }
 
   Future<int> discoverWord({
@@ -433,6 +589,8 @@ class DatabaseHelper {
           'distinct_days_count': 0,
           'context_sentence': contextSentence?.trim(),
           'book_title': bookTitle?.trim(),
+          'uuid': _generateUuidV4(),
+          'updated_at': DateTime.now().toIso8601String(),
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
@@ -441,12 +599,17 @@ class DatabaseHelper {
 
   Future<void> promoteToLearning(String word) async {
     final db = await database;
-    await db.update(
+    final rowsAffected = await db.update(
       'flashcards',
-      {'learning_state': 'LEARNING'},
+      {'learning_state': 'LEARNING', 'updated_at': DateTime.now().toIso8601String()},
       where: "word = ? COLLATE NOCASE AND learning_state = 'DISCOVERED'",
       whereArgs: [word.trim()],
     );
+    // AŞAMA 0/2: DISCOVERED → LEARNING geçişi gerçek anlamda "kelime
+    // öğrenmeye başladı" anı — günlük istatistiğe yeni kelime olarak yazılır.
+    if (rowsAffected > 0) {
+      await _touchDailyStat(mode: 'new_word', newWords: 1);
+    }
   }
 
   Future<int> demoteToDiscovered(String word) async {
@@ -456,6 +619,7 @@ class DatabaseHelper {
       {
         'learning_state': 'DISCOVERED',
         'is_mastered': 0,
+        'updated_at': DateTime.now().toIso8601String(),
       },
       where: 'word = ? COLLATE NOCASE',
       whereArgs: [word.trim()],
@@ -755,10 +919,12 @@ class DatabaseHelper {
           'distinct_days_count': distinctDays,
           'last_reviewed_at': now.toIso8601String(),
           'cooldown_until': null,
+          'updated_at': now.toIso8601String(),
         },
         where: 'id = ?',
         whereArgs: [cardId],
       );
+      await _touchDailyStat(mode: mode, reviews: 1, correct: 1);
     } else {
       wrongCount += 1;
       currentStreak = 0;
@@ -793,10 +959,12 @@ class DatabaseHelper {
           'learning_state': nextState,
           'is_mastered': 0,
           'last_reviewed_at': now.toIso8601String(),
+          'updated_at': now.toIso8601String(),
         },
         where: 'id = ?',
         whereArgs: [cardId],
       );
+      await _touchDailyStat(mode: mode, reviews: 1, wrong: 1);
     }
   }
 
@@ -836,9 +1004,77 @@ class DatabaseHelper {
         'interval': interval,
         'is_mastered': isMastered ? 1 : 0,
         'learning_state': state,
+        'updated_at': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
       whereArgs: [cardId],
     );
+  }
+
+  // ========================================================================
+  // AŞAMA 2 — IGNIS ANLARI: yerel istatistik motorunun okuyacağı sorgular
+  // ========================================================================
+
+  /// Son [days] günün (bugün dahil) daily_stats toplamlarını tarihe göre
+  /// gruplu döner. Boş günler listede yer almaz — çağıran taraf 0 varsayar.
+  Future<List<Map<String, dynamic>>> getDailyStatsRange(int days) async {
+    final db = await database;
+    final since = DateTime.now().subtract(Duration(days: days - 1));
+    final sinceStr =
+        "${since.year}-${since.month.toString().padLeft(2, '0')}-${since.day.toString().padLeft(2, '0')}";
+
+    return await db.rawQuery('''
+      SELECT
+        stat_date,
+        SUM(new_words_count) AS new_words_count,
+        SUM(review_count) AS review_count,
+        SUM(correct_count) AS correct_count,
+        SUM(wrong_count) AS wrong_count
+      FROM daily_stats
+      WHERE stat_date >= ?
+      GROUP BY stat_date
+      ORDER BY stat_date ASC
+    ''', [sinceStr]);
+  }
+
+  /// Bugünün toplamı — tek satırda özet (Ana Sayfa "Günlük Durum" kartı ve
+  /// seans-sonu Ignis Anı için).
+  Future<Map<String, int>> getTodayStatsSummary() async {
+    final db = await database;
+    final now = DateTime.now();
+    final todayStr =
+        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+    final result = await db.rawQuery('''
+      SELECT
+        COALESCE(SUM(new_words_count), 0) AS new_words_count,
+        COALESCE(SUM(review_count), 0) AS review_count,
+        COALESCE(SUM(correct_count), 0) AS correct_count,
+        COALESCE(SUM(wrong_count), 0) AS wrong_count
+      FROM daily_stats
+      WHERE stat_date = ?
+    ''', [todayStr]);
+
+    final row = result.isNotEmpty ? result.first : <String, Object?>{};
+    return {
+      'new_words_count': row['new_words_count'] as int? ?? 0,
+      'review_count': row['review_count'] as int? ?? 0,
+      'correct_count': row['correct_count'] as int? ?? 0,
+      'wrong_count': row['wrong_count'] as int? ?? 0,
+    };
+  }
+
+  /// Yarın FSRS'e göre tekrar vakti gelecek kart sayısı — bedava veri,
+  /// Ignis Anları'nın "yarın seni bekleyen X kelime var" mesajı için.
+  Future<int> getDueTomorrowCount() async {
+    final db = await database;
+    final now = DateTime.now();
+    final startOfTomorrow = DateTime(now.year, now.month, now.day + 1);
+    final startOfDayAfter = DateTime(now.year, now.month, now.day + 2);
+    final result = await db.rawQuery('''
+      SELECT COUNT(*) as cnt FROM flashcards
+      WHERE fsrs_due_at IS NOT NULL AND fsrs_due_at >= ? AND fsrs_due_at < ?
+    ''', [startOfTomorrow.toIso8601String(), startOfDayAfter.toIso8601String()]);
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 }
