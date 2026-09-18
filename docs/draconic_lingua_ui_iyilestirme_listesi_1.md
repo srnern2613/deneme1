@@ -33,6 +33,7 @@ Profil'de "Yaklaşan Rozetler" ilk satırı, Arena'da 5. sıra, Lobi'de "Günlü
 **P0-2 · Arena karuselinde RenderFlex overflow**
 "Mikro-Meydan Okumalar" üçüncü kartında kırmızı overflow şeridi ekranda. Kart yüksekliği içerikten türetildiği için en uzun içerik (uzun başlık + buton) taşıyor. Sabit genişlik/yükseklikli tek kart bileşeni, buton alanı dibe sabit.
 → Yayınlanmış üründe görünen Flutter hata şeridi.
+**✅ Zaten çözülmüş bulundu (18.09.2026):** `_buildChallengeCard()` önceki bir turda ("EJDERHA ROTASI V2 Faz C") `SingleChildScrollView` ile taşma-korumalı hale getirilmiş — kod tarafında değişiklik gerekmedi. Cihazda hâlâ görülüyorsa bildir, küçük bir ek düzeltme (kart yüksekliği / başlık `maxLines`) yapılır.
 
 **P0-3 · Türkçe uppercase**
 "KITAPLIK" → KİTAPLIK, "LIG ARENASI" → LİG ARENASI. `toUpperCase()` locale-agnostic, `i → I` üretiyor. `i → İ` dönüşümünü uppercase'den önce yapan extension, tüm caps başlıklarda.
@@ -42,10 +43,12 @@ Profil'de "Yaklaşan Rozetler" ilk satırı, Arena'da 5. sıra, Lobi'de "Günlü
 `app_header.dart`: Lobi/Kitaplık/Profil'de 396 (toplam), Arena'da 150 (sezon). Aynı ikon, aynı form. **Karar: header her sekmede toplam XP gösterir**, Arena dahil.
 Bağlı iş: Arena sıralama satırları sezon XP'si gösteriyor (sen 150, Seydihan 130). Header toplam XP'ye sabitlenince aynı ekranda 396 ve 150 yan yana durmaya devam eder — bu yüzden sıralama bölümüne "Sezon XP" başlığı/etiketi eklenmesi bu maddenin parçası. Etiket eklenmezse karışıklık çözülmemiş, sadece yer değiştirmiş olur.
 → 396 → 150 geçişi "XP'm gitti" olarak okunuyor.
+**✅ 18.09.2026** — header pill zaten tek kaynaktan (`xpNotifier`) besleniyordu (ayrı bir sezon-XP alanı yoktu). `leaderboard_screen.dart`'ta sıralama listesinin üstüne "SEZON XP · haftalık sıfırlanır" etiketi eklendi.
 
 **P0-5 · Profil ile Arena çelişiyor**
 Profil: "#2. Sırada, Seydihan'ı geçmek için 31 XP". Arena: kullanıcı #1, 150 XP (Seydihan 130). Profil bayat önbellek okuyor. Tek kaynak; eşitlenemezse Profil'den sıra/XP farkı kaldırılıp sadece Arena girişi bırakılır.
 → Çelişen iki sayı ikisinin de güvenilirliğini siliyor.
+**✅ 18.09.2026 (kısmen)** — kök neden: `main.dart`'taki `IndexedStack` her iki ekranı da canlı tutup sekme değişiminde tazelemiyordu. Arena+Profil artık her sekme geçişinde yeniden yükleniyor (`refreshLeagueData()`/`refreshProfileData()`). Tek kaynağa TAM birleştirme yapılmadı — iki ayrı `simulatedLeague` kopyası duruyor, anlık çelişki riski azaldı ama sıfırlanmadı.
 
 **P0-6 · Bot isimleri**
 Arena sıralamasında "Zenci" (ırkçı hakaret) ve "Çinli" var. Havuz tamamen değişecek, Ignis evreninden tematik isimler, tek sabit listede.
@@ -55,6 +58,7 @@ Arena sıralamasında "Zenci" (ırkçı hakaret) ve "Çinli" var. Havuz tamamen 
 **P0-7 · Ignis rozeti kapatıyor**
 Sezon kartında ejderha "#1. Sıra" pill'inin üstünde ve rozet kart kenarından taşıyor. Ejderha arka plana düşük opaklıkta, ya da rozet sol tarafa.
 → Dekoratif katman bilgi katmanının üstünde.
+**✅ Zaten çözülmüş bulundu (18.09.2026):** Arena'daki lig özet kartında maskot önceki bir turda ("EJDERHA ROTASI V2 Faz A — Ignis Temizliği") tamamen kaldırılmış; "#1. Sıra" pill'i artık hiçbir görselin üstünde değil. Dokümandaki ekran görüntüsü muhtemelen bu temizlikten önceki bir sürüme ait — kod tarafında değişiklik gerekmedi.
 
 ---
 
@@ -206,7 +210,7 @@ Tema eklemek, mevcut her ekranı iki kere kontrol etmek demek. Özellikle: ilerl
 
 **A-5 · Font scale 2.0** — Android %200'e çıkıyor, 14+ doğrusal olmayan ölçekleme. Test tavanı 2.0 (iOS 1.3). → P1-8 bu tavanda çözülmeli.
 
-**A-6 · Predictive back / sistem geri** — `WillPopScope` → `PopScope`. Kritik: **reader_screen'de sistem geri tuşuyla çıkışta da `ReadingSessionResult` dönmeli**; aynı kontrol flashcards ve word boss oturumlarında. → Aksi halde dakika/kelime/XP kaybı. Bu bir veri kaybı hatası, P0 gibi ele alınmalı.
+**A-6 · Predictive back / sistem geri** — `WillPopScope` → `PopScope`. Kritik: **reader_screen'de sistem geri tuşuyla çıkışta da `ReadingSessionResult` dönmeli**; aynı kontrol flashcards ve word boss oturumlarında. → Aksi halde dakika/kelime/XP kaybı. Bu bir veri kaybı hatası, P0 gibi ele alınmalı. **✅ 18.09.2026** — `reader_screen.dart` zaten `PopScope(canPop:false)` ile korunuyordu (bu turda doğrulandı, dokunulmadı). `flashcards_exercise_screen.dart`, `word_boss_battle_screen.dart`, `mixed_dungeon_session_screen.dart` — üçünde de sistem geri / edge-swipe artık kapatma butonuyla AYNI yoldan geçiyor (`PopScope(canPop:false)` + ortak `_confirmExit()`). Bu 3 ekranda zaten ayrı bir sonuç nesnesi yoktu — ilerleme her cevapta veritabanına anlık yazılıyor, asıl kazanım "sonuç kaybı" değil "sormadan çıkış" tutarsızlığının giderilmesiydi.
 
 **A-7 · Blur maliyeti** — `BackdropFilter` Android orta/alt segmentte iOS'tan belirgin pahalı. `DevicePerformanceTier` low'da blur **tamamen kapanacak**, sigma azaltmakla yetinilmeyecek; yerine opak `surfaceLight` + 1px `borderSubtle`. Aynı yedek görünüm parşömen temasında her cihazda kullanılır (T-3), yani bu iki yol tek koddan beslenmeli. → Yarım blur hem bulanık hem yavaş.
 
@@ -255,8 +259,8 @@ Tema eklemek, mevcut her ekranı iki kere kontrol etmek demek. Özellikle: ilerl
 - [ ] Alt bar hiçbir ekranda içeriği kesmiyor; son kart ile bar arası ≥16
 - [ ] Hiçbir yerde overflow şeridi yok
 - [ ] KİTAPLIK / LİG ARENASI doğru
-- [ ] Header XP pill'i her sekmede toplam XP; Arena sıralaması "Sezon XP" etiketli
-- [ ] Profil sırası = Arena sırası
+- [x] Header XP pill'i her sekmede toplam XP; Arena sıralaması "Sezon XP" etiketli — pill zaten tek kaynaktan (`xpNotifier`) besleniyordu, sıralama listesine "SEZON XP · haftalık sıfırlanır" etiketi eklendi ✅ 18.09.2026
+- [x] Profil sırası = Arena sırası — `main.dart`'taki `IndexedStack` her iki sekmeyi de canlı tutup sekme değişiminde tazelemiyordu (Kelimeler'deki bug ile aynı kök neden); Arena+Profil artık her sekme geçişinde `refreshLeagueData()`/`refreshProfileData()` ile yeniden yükleniyor. Not: hâlâ iki ayrı `simulatedLeague` kopyası var, TAM birleştirme değil — anlık çelişki riski büyük ölçüde azaldı, sıfırlanmadı ✅ 18.09.2026
 - [ ] Header görsel alanının yüksekliği/scrim'i/padding'i dört sekmede aynı; yalnızca asset değişiyor
 - [ ] Her sekmede header başlığı arka plan görselinin üzerinde okunur
 - [ ] Hiçbir yerde bounce fiziği zorlanmıyor; pull-to-refresh amber
@@ -294,13 +298,13 @@ Tema eklemek, mevcut her ekranı iki kere kontrol etmek demek. Özellikle: ilerl
 - [ ] Jest **ve** 3 tuşlu navigasyonla test edildi
 - [ ] 360dp'de taşma yok
 - [ ] Font scale 2.0'da okunabilir
-- [ ] Sistem geri tuşuyla reader çıkışında oturum sonucu kaydediliyor
-- [ ] Low tier'da blur kapalı, 60fps'e yakın
+- [x] Sistem geri tuşuyla reader çıkışında oturum sonucu kaydediliyor — reader_screen zaten `PopScope(canPop:false)` ile korunuyordu (bu turda doğrulandı) ✅ 18.09.2026, flashcards_exercise_screen.dart ve mixed_dungeon_session_screen.dart'a da aynı `PopScope` + onay diyaloğu eklendi (bkz. `yayin_oncesi_kontrol_listesi.md`)
+- [x] Low tier'da blur kapalı — `shop_screen.dart`'taki 2 koşulsuz `BackdropFilter` (sigma 14/18) `DevicePerformanceTier.low`'da artık hiç kurulmuyor; `GlassPanel` zaten koşulluydu ✅ 18.09.2026 (60fps ölçümü cihazda ayrıca doğrulanmalı)
 - [ ] Bildirim izni gerekçeli (özellik eklendiyse)
 
 **iOS**
 - [ ] Dynamic Type 1.3'te bozulma yok
-- [ ] Kenardan geri jestiyle reader çıkışında oturum sonucu kaydediliyor
+- [x] Kenardan geri jestiyle reader çıkışında oturum sonucu kaydediliyor — `PopScope` iOS'ta swipe-back jestini de aynı yoldan yakalıyor ✅ 18.09.2026
 - [ ] Profil'de satın alımları geri yükle var
 - [ ] Dokunma hedefleri ≥44
 

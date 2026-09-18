@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
-import 'core/theme/draconic_theme.dart';
+import 'core/theme/theme_controller.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/storage/book_storage_service.dart';
 import 'book_model.dart';
@@ -26,6 +26,7 @@ import 'xp_shop_service.dart';
 import 'streak_freeze_service.dart';
 import 'ai_coach_screen.dart';
 import 'core/coach/ignis_moments_engine.dart';
+import 'core/design_system/platform_tokens.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,17 +38,25 @@ void main() async {
     // her açılışta bunu önce kurmalı ki PaywallTrigger'lar doğru premium
     // durumuyla render edilsin.
     await EntitlementRepository.instance.init();
+    // UI/UX Düzeltme Listesi — T-6: tema tercihi runApp'ten ÖNCE yüklenmeli
+    // ki ilk kare doğru temayla çizilsin (açılışta karanlık→aydınlık
+    // sıçraması olmasın).
+    await ThemeController.instance.init();
   } catch (e) {
     debugPrint('Servis başlatma hatası: $e');
   }
 
+  // NOT: Sistem çubuğu ikon parlaklığı burada sabit "light" — T-6/A-1/I-7
+  // gereği bu, ThemeController'ın aktif temasına göre güncellenmeli
+  // (karanlıkta açık ikon, parşömende koyu ikon). Bu madde Sıra 2.
+  // adımdaki (PlatformTokens/A-1) işin parçası olarak ele alınacak.
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
     ),
   );
-  
+
   runApp(const MyApp());
 }
 
@@ -59,27 +68,38 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final ThemeMode _themeMode = ThemeMode.dark;
-
+  // UI/UX Düzeltme Listesi — T-6: tema artık ThemeController'dan (Karanlık/
+  // Zindan ↔ Aydınlık/Parşömen, kullanıcı elle geçer, sistem teması takip
+  // edilmez) besleniyor. _toggleTheme, ThemeController.instance.toggle()'ı
+  // çağırıp AnimatedBuilder ile tüm MaterialApp'i yeniden çiziyor — ekranlar
+  // hâlâ kendi ham hex'lerini kullandığı için bu turda GÖRÜNÜR bir değişiklik
+  // yaratmaz (bkz. Sıra 1'in notu), ama anahtarın kendisi artık gerçek.
   void _toggleTheme() {
     HapticFeedback.lightImpact();
+    ThemeController.instance.toggle();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Ignis',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF070B14),
-        extensions: <ThemeExtension<dynamic>>[
-          DraconicTheme.highEnd(),
-        ],
-      ),
-      themeMode: _themeMode,
-      home: RootScreen(onToggleTheme: _toggleTheme),
+    return AnimatedBuilder(
+      animation: ThemeController.instance,
+      builder: (context, _) {
+        final draconicTheme = ThemeController.instance.current;
+        return MaterialApp(
+          title: 'Ignis',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            brightness: draconicTheme.isDark ? Brightness.dark : Brightness.light,
+            scaffoldBackgroundColor: draconicTheme.background,
+            extensions: <ThemeExtension<dynamic>>[
+              draconicTheme,
+            ],
+          ),
+          themeMode: draconicTheme.isDark ? ThemeMode.dark : ThemeMode.light,
+          home: RootScreen(onToggleTheme: _toggleTheme),
+        );
+      },
     );
   }
 }
@@ -101,6 +121,14 @@ class _RootScreenState extends State<RootScreen> {
   // verilemiyor; State<FlashcardsScreen> ile tutup çağrıda dynamic cast
   // kullanıyoruz (aynı _dashboardKey deseninin bu sınırlama içindeki hâli).
   final GlobalKey<State<FlashcardsScreen>> _flashcardsKey = GlobalKey<State<FlashcardsScreen>>();
+  // P0-5: Arena ve Profil de IndexedStack ile canlı tutuluyordu, aynı
+  // "sekmeye dönünce tazelenmiyor" bug'ı bu ikisinde de vardı — Profil'in
+  // kendi lig/rank hesaplaması Arena'nınkiyle aynı anda güncellenmediği için
+  // birbirinden bayat kalabiliyordu (P0-5). LeaderboardScreenState private
+  // olduğu için flashcards ile aynı desen (State<T> + dynamic cast); Profil
+  // için public ProfileScreenState kullanılabiliyor.
+  final GlobalKey<State<LeaderboardScreen>> _leaderboardKey = GlobalKey<State<LeaderboardScreen>>();
+  final GlobalKey<ProfileScreenState> _profileKey = GlobalKey<ProfileScreenState>();
   late final List<Widget> _screens;
 
   @override
@@ -122,8 +150,8 @@ class _RootScreenState extends State<RootScreen> {
         onNavigateToLibrary: () => _onTabTapped(1),
         onNavigateToShop: () => _onTabTapped(4),
       ),
-      const LeaderboardScreen(),
-      const ProfileScreen(),
+      LeaderboardScreen(key: _leaderboardKey),
+      ProfileScreen(key: _profileKey),
     ];
   }
 
@@ -140,6 +168,15 @@ class _RootScreenState extends State<RootScreen> {
       // eklenen kelimeler/kilit sayaçları tazelenmiyordu (bkz.
       // flashcards_screen.dart refreshCardsAndStats yorumu).
       (_flashcardsKey.currentState as dynamic)?.refreshCardsAndStats();
+    } else if (index == 3) {
+      // P0-5: Arena'ya her dönüşte lig/XP verisi tazelensin.
+      (_leaderboardKey.currentState as dynamic)?.refreshLeagueData();
+    } else if (index == 4) {
+      // P0-5: Profil'e her dönüşte rank/XP farkı tazelensin — Arena'yla
+      // aynı anda güncel kalmaları garanti değil (ayrı simulatedLeague
+      // kopyaları hâlâ var) ama en azından ikisi de "son ziyaret" kadar
+      // taze olur, tab arası geçişte gözle görülür çelişki azalır.
+      _profileKey.currentState?.refreshProfileData();
     }
   }
 
@@ -204,7 +241,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   List<Book> _userBooks = [];
   Book? _activeBook;
-  // AŞAMA 4 — Ana Sayfa. "Günlük Durum" kartı: Ignis Anları'nın kalıcı, sessiz
+  // AŞAMA 4 — Ana Sayfa "Günlük Durum" kartı: Ignis Anları'nın kalıcı, sessiz
   // versiyonu. Popup beklemeden her zaman güncel istatistik gösterir.
   IgnisDailyStatus? _dailyStatus;
 
@@ -452,7 +489,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 100.0),
+              // UI/UX Düzeltme Listesi — P0-1: sabit 100 yerine gerçek bar
+              // yüksekliği + viewPadding.bottom + 16'dan okunuyor.
+              padding: EdgeInsets.fromLTRB(20.0, 16.0, 20.0, PlatformTokens.scrollBottomPadding(context)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -89,6 +89,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     return '$days Gün $hours Saat';
   }
 
+  // P0-5: main.dart'taki IndexedStack bu sekmeyi canlı tuttuğu için Arena'ya
+  // her dönüşte veri tazelenmiyordu (Profil'in aynı sınıftaki simulatedLeague
+  // kopyasıyla aynı bug) — main.dart artık her sekme geçişinde bunu çağırıyor.
+  Future<void> refreshLeagueData() => _loadLeagueData();
+
   /// Kullanıcı XP'sini çeker ve sıralamayı oluşturur
   Future<void> _loadLeagueData() async {
     try {
@@ -258,7 +263,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 6),
+                    // P0-4: header'daki XP pill'i her sekmede TOPLAM XP gösteriyor
+                    // (bkz. XpShopService.instance.xpNotifier); bu listedeki sayılar
+                    // ise sezonluk/lig XP'si — aynı ekranda iki farklı XP sayısı yan
+                    // yana durunca "XP'm gitti" izlenimi veriyordu. Karar: header
+                    // toplam XP'de sabit kalıyor, burası açıkça "Sezon XP" etiketleniyor.
+                    Text(
+                      'SEZON XP · haftalık sıfırlanır',
+                      style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontWeight: FontWeight.w700, fontSize: 10.5, letterSpacing: 0.3),
+                    ),
+                    const SizedBox(height: 8),
                     _buildLeaderboardList(),
                   ],
                 ),

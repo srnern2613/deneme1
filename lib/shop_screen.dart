@@ -17,6 +17,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'xp_shop_service.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
+import 'core/theme/draconic_theme.dart'; // A-7: DevicePerformanceTier.low'da blur denetimi
 
 class ShopScreen extends StatefulWidget {
   final VoidCallback? onNavigateToExplore;
@@ -250,9 +251,12 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       barrierColor: Colors.black.withValues(alpha: 0.88),
       transitionDuration: const Duration(milliseconds: 250),
       pageBuilder: (ctx, anim1, anim2) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Scaffold(
+        // A-7: düşük performans katmanında blur tamamen kapatılıyor (sigma
+        // azaltmak yetmiyor, GlassPanel'deki desenle aynı: BackdropFilter'ı
+        // hiç kurmuyoruz). barrierColor zaten neredeyse opak (%88) olduğu
+        // için blur'suz hâlde de arkaplan yeterince gizleniyor.
+        final lowTier = Theme.of(ctx).extension<DraconicTheme>()?.performanceTier == DevicePerformanceTier.low;
+        final dialogContent = Scaffold(
             backgroundColor: Colors.transparent,
             body: Center(
               child: Container(
@@ -300,8 +304,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
-          ),
-        );
+          );
+        return lowTier
+            ? dialogContent
+            : BackdropFilter(filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14), child: dialogContent);
       },
     );
   }
@@ -316,27 +322,29 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       barrierColor: Colors.black.withValues(alpha: 0.96),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, anim1, anim2) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: _ChestOpeningDialog(
-            earnedGems: earnedGems,
-            earnedXp: earnedXp,
-            onCollect: (screenCenter) async {
-              final currentContext = context;
-              Navigator.pop(currentContext);
+        // A-7: aynı düşük-tier blur kapatma deseni (bkz. _showInsufficientGemsDialog).
+        final lowTier = Theme.of(context).extension<DraconicTheme>()?.performanceTier == DevicePerformanceTier.low;
+        final chestDialog = _ChestOpeningDialog(
+          earnedGems: earnedGems,
+          earnedXp: earnedXp,
+          onCollect: (screenCenter) async {
+            final currentContext = context;
+            Navigator.pop(currentContext);
 
-              final prefs = await SharedPreferences.getInstance();
-              final currentChests = prefs.getInt('chests_opened_today') ?? 0;
-              await prefs.setInt('chests_opened_today', currentChests + 1);
+            final prefs = await SharedPreferences.getInstance();
+            final currentChests = prefs.getInt('chests_opened_today') ?? 0;
+            await prefs.setInt('chests_opened_today', currentChests + 1);
 
-              await XpShopService.instance.addGems(earnedGems);
-              await XpShopService.instance.addXp(earnedXp);
+            await XpShopService.instance.addGems(earnedGems);
+            await XpShopService.instance.addXp(earnedXp);
 
-              if (!currentContext.mounted) return;
-              _triggerDualFlyToHudEffect(currentContext, startPosition: screenCenter, addedGems: earnedGems, addedXp: earnedXp);
-            },
-          ),
+            if (!currentContext.mounted) return;
+            _triggerDualFlyToHudEffect(currentContext, startPosition: screenCenter, addedGems: earnedGems, addedXp: earnedXp);
+          },
         );
+        return lowTier
+            ? chestDialog
+            : BackdropFilter(filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18), child: chestDialog);
       },
     );
   }
