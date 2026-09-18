@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/draconic_theme.dart';
+import 'tr_case.dart';
 
 // 1. Performans Duyarlı Cam Panel (GlassPanel)
 class GlassPanel extends StatelessWidget {
@@ -229,7 +230,9 @@ class RuneTitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          title.toUpperCase(),
+          // UI/UX Düzeltme Listesi — P0-3: Dart'ın toUpperCase()'i yerine
+          // Türkçe kurallarına göre büyüten toUpperCaseTr() (i → İ).
+          title.toUpperCaseTr(),
           style: GoogleFonts.lora(color: Colors.white, fontSize: fontSize, fontWeight: FontWeight.w700, letterSpacing: 1.6),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

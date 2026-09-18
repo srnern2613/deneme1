@@ -99,8 +99,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         {'name': 'Seydihan Akıl.', 'xp': userCurrentXp + 30, 'avatar': '👑', 'isUser': false},
         {'name': 'Eren (Sen)', 'xp': userCurrentXp, 'avatar': '🛡️', 'isUser': true},
         {'name': 'Sezer', 'xp': (userCurrentXp - 10).clamp(0, 999999), 'avatar': '⚡', 'isUser': false},
-        {'name': 'Zenci', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'avatar': '🦊', 'isUser': false},
-        {'name': 'Çinli', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'avatar': '🎯', 'isUser': false},
+        // UI/UX Düzeltme Listesi — P0-6: eski isimler ("Zenci", "Çinli")
+        // ırkçı/etnik hakaretti — App Store + Play ret riski, TestFlight/
+        // internal test dahil hiçbir build'de görünmemeli. Ignis evreninden
+        // tematik isimlerle değiştirildi.
+        {'name': 'Alevkanat', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'avatar': '🦊', 'isUser': false},
+        {'name': 'Gölgeavcı', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'avatar': '🎯', 'isUser': false},
         {'name': 'Gece.', 'xp': (userCurrentXp - 130).clamp(0, 999999), 'avatar': '🌸', 'isUser': false},
         {'name': 'Deniz Acar', 'xp': (userCurrentXp - 180).clamp(0, 999999), 'avatar': '🚀', 'isUser': false},
         {'name': 'Selin Öztürk', 'xp': (userCurrentXp - 230).clamp(0, 999999), 'avatar': '⭐', 'isUser': false},

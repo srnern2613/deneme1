@@ -394,16 +394,49 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
     );
   }
 
+  // A-6: sistem geri tuşu/kenar kaydırma artık kapatma butonuyla aynı onay
+  // akışından geçiyor — daha önce geri jesti hiç uyarmadan savaşı terk
+  // ediyordu, oysa kapatma butonu da zaten sonucu (true/false) döndürmeden
+  // sessizce pop ediyordu. Devam eden bir savaştan kazara çıkışı önlemek
+  // için burada tek, ortak bir onay diyaloğu kullanılıyor.
+  Future<void> _confirmExit() async {
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Savaştan çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Bossu yenmeden çıkarsan bu turdaki ilerleme kaybolur.',
+          style: TextStyle(color: Color(0xFF94A3B8)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Devam Et')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Çık')),
+        ],
+      ),
+    );
+    if (shouldExit == true && mounted) {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExit();
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFF070B14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF070B14),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close_rounded, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _confirmExit,
         ),
         title: Column(
           children: [
@@ -489,6 +522,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
                       ],
                     ),
                   ),
+      ),
       ),
     );
   }

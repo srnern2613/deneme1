@@ -28,6 +28,7 @@ import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/fsrs/fsrs_repository.dart';
 import 'core/entitlement/paywall_trigger.dart';
 import 'core/entitlement/entitlement_repository.dart';
+import 'core/design_system/platform_tokens.dart';
 import 'mixed_dungeon_session_screen.dart';
 
 class FlashcardsScreen extends StatefulWidget {
@@ -542,7 +543,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
             ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
             : SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+                // UI/UX Düzeltme Listesi — P0-1: sabit 110 yerine gerçek bar
+                // yüksekliği + viewPadding.bottom + 16'dan okunuyor.
+                padding: EdgeInsets.fromLTRB(20, 16, 20, PlatformTokens.scrollBottomPadding(context)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

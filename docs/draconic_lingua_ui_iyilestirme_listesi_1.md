@@ -260,7 +260,7 @@ Tema eklemek, mevcut her ekranı iki kere kontrol etmek demek. Özellikle: ilerl
 - [ ] Header görsel alanının yüksekliği/scrim'i/padding'i dört sekmede aynı; yalnızca asset değişiyor
 - [ ] Her sekmede header başlığı arka plan görselinin üzerinde okunur
 - [ ] Hiçbir yerde bounce fiziği zorlanmıyor; pull-to-refresh amber
-- [ ] Bot isimleri arasında etnik/kimlik temelli isim yok
+- [x] Bot isimleri arasında etnik/kimlik temelli isim yok — ✅ 18.09.2026, `leaderboard_screen.dart` + `profile_screen.dart` (bkz. `yayin_oncesi_kontrol_listesi.md`)
 - [ ] Dekoratif görsel hiçbir bilgi öğesini kapatmıyor
 - [ ] Amber tek ana aksiyonda
 - [ ] Emoji yok; tüm ikonlar phosphor

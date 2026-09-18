@@ -12,7 +12,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import 'core/theme/draconic_theme.dart';
-import 'core/theme/theme_controller.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/storage/book_storage_service.dart';
 import 'book_model.dart';
@@ -38,25 +37,17 @@ void main() async {
     // her açılışta bunu önce kurmalı ki PaywallTrigger'lar doğru premium
     // durumuyla render edilsin.
     await EntitlementRepository.instance.init();
-    // UI/UX Düzeltme Listesi — T-6: tema tercihi runApp'ten ÖNCE yüklenmeli
-    // ki ilk kare doğru temayla çizilsin (açılışta karanlık→aydınlık
-    // sıçraması olmasın).
-    await ThemeController.instance.init();
   } catch (e) {
     debugPrint('Servis başlatma hatası: $e');
   }
 
-  // NOT: Sistem çubuğu ikon parlaklığı burada sabit "light" — T-6/A-1/I-7
-  // gereği bu, ThemeController'ın aktif temasına göre güncellenmeli
-  // (karanlıkta açık ikon, parşömende koyu ikon). Bu madde Sıra 2.
-  // adımdaki (PlatformTokens/A-1) işin parçası olarak ele alınacak.
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
     ),
   );
-
+  
   runApp(const MyApp());
 }
 
@@ -68,38 +59,27 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  // UI/UX Düzeltme Listesi — T-6: tema artık ThemeController'dan (Karanlık/
-  // Zindan ↔ Aydınlık/Parşömen, kullanıcı elle geçer, sistem teması takip
-  // edilmez) besleniyor. _toggleTheme, ThemeController.instance.toggle()'ı
-  // çağırıp AnimatedBuilder ile tüm MaterialApp'i yeniden çiziyor — ekranlar
-  // hâlâ kendi ham hex'lerini kullandığı için bu turda GÖRÜNÜR bir değişiklik
-  // yaratmaz (bkz. Sıra 1'in notu), ama anahtarın kendisi artık gerçek.
+  final ThemeMode _themeMode = ThemeMode.dark;
+
   void _toggleTheme() {
     HapticFeedback.lightImpact();
-    ThemeController.instance.toggle();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: ThemeController.instance,
-      builder: (context, _) {
-        final draconicTheme = ThemeController.instance.current;
-        return MaterialApp(
-          title: 'Ignis',
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            useMaterial3: true,
-            brightness: draconicTheme.isDark ? Brightness.dark : Brightness.light,
-            scaffoldBackgroundColor: draconicTheme.background,
-            extensions: <ThemeExtension<dynamic>>[
-              draconicTheme,
-            ],
-          ),
-          themeMode: draconicTheme.isDark ? ThemeMode.dark : ThemeMode.light,
-          home: RootScreen(onToggleTheme: _toggleTheme),
-        );
-      },
+    return MaterialApp(
+      title: 'Ignis',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF070B14),
+        extensions: <ThemeExtension<dynamic>>[
+          DraconicTheme.highEnd(),
+        ],
+      ),
+      themeMode: _themeMode,
+      home: RootScreen(onToggleTheme: _toggleTheme),
     );
   }
 }
@@ -224,7 +204,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   List<Book> _userBooks = [];
   Book? _activeBook;
-  // AŞAMA 4 — Ana Sayfa "Günlük Durum" kartı: Ignis Anları'nın kalıcı, sessiz
+  // AŞAMA 4 — Ana Sayfa. "Günlük Durum" kartı: Ignis Anları'nın kalıcı, sessiz
   // versiyonu. Popup beklemeden her zaman güncel istatistik gösterir.
   IgnisDailyStatus? _dailyStatus;
 

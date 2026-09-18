@@ -10,6 +10,7 @@ import 'tts_service.dart';
 import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'coach_messages.dart';
+import 'core/design_system/tr_case.dart';
 import 'database_helper.dart';
 import 'dictionary_service.dart';
 import 'core/fsrs/fsrs_repository.dart';
@@ -69,7 +70,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
   String _formatTurkishPos(String? pos) {
     if (pos == null || pos.trim().isEmpty) return '';
     final clean = pos.trim().toLowerCase();
-    return _posTranslations[clean] ?? pos.toUpperCase();
+    return _posTranslations[clean] ?? pos.toUpperCaseTr();
   }
 
   @override
@@ -326,9 +327,48 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     );
   }
 
+  // A-6: sistem geri tuşu/kenar kaydırma (predictive back) artık kapatma
+  // butonuyla AYNI onay akışından geçiyor — önceden geri jesti hiçbir
+  // uyarı göstermeden ekranı direkt kapatıyordu, kapatma butonu ise zaten
+  // aynı şeyi yapıyordu; burada asıl kazanım tutarlılık + kaza ile devam
+  // eden bir egzersizden çıkışı önceden sormak (ilerleme her cevapta zaten
+  // veritabanına anlık yazıldığı için veri kaybı riski düşük, ama kullanıcı
+  // hâlâ kartları bitirmeden yarıda bırakabilir).
+  Future<void> _confirmExit() async {
+    if (_remainingCards.isEmpty) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Egzersizden çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Kalan kartları tamamlamadan çıkıyorsun. Bu ana kadarki cevapların zaten kaydedildi.',
+          style: TextStyle(color: Color(0xFF94A3B8)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Devam Et')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Çık')),
+        ],
+      ),
+    );
+    if (shouldExit == true && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExit();
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFF070B14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF070B14),
@@ -365,7 +405,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.close_rounded, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _confirmExit,
         ),
       ),
       body: SafeArea(
@@ -414,6 +454,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -18,6 +18,7 @@ import 'database_helper.dart';
 import 'dictionary_service.dart';
 import 'tts_service.dart';
 import 'coach_messages.dart';
+import 'core/design_system/tr_case.dart';
 import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'default_books.dart';
@@ -104,7 +105,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   String _getTurkishPos(String? pos) {
     if (pos == null || pos.trim().isEmpty) return '';
     final clean = pos.trim().toLowerCase();
-    return _posTranslations[clean] ?? pos.toUpperCase();
+    return _posTranslations[clean] ?? pos.toUpperCaseTr();
   }
 
   String _cleanWordText(String raw) {
@@ -777,7 +778,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ] else ...[
                             if (result?.partOfSpeech != null && result!.partOfSpeech!.isNotEmpty) ...[
                               Text(
-                                _getTurkishPos(result.partOfSpeech).toUpperCase(),
+                                _getTurkishPos(result.partOfSpeech).toUpperCaseTr(),
                                 style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.bold,

@@ -17,30 +17,31 @@ Bu doküman `faz8_test_rollout_izleme.md`'yi **tamamlar, tekrar etmez**. Faz 8 "
 
 ---
 
-## Marka yapısı ve çok-uygulamalı strateji
+## Marka yapısı ve çok dilli TEK uygulama stratejisi (GÜNCEL — 18.09.2026)
 
-**Karar:** Tek bir çok-dilli uygulama yerine, her dil çifti için ayrı uygulama. Her biri aynı evrenden farklı bir karakterin adını ve tasarımını taşır, ama **aynı motoru** kullanır.
+**Karar değişti — eski "ayrı uygulama" planı yürürlükten kalktı.** Proje sahibi marka algısı/büyüme tek yerde toplansın istiyor: TEK uygulama, TEK kod tabanı, TEK Play/App Store kaydı. Hem **arayüz dili** hem **öğrenilen dil çifti** kullanıcı tarafından uygulama içinden seçilebilir olacak. Aklındaki diller: İngilizce, İspanyolca, Portekizce (Türkçe zaten var) — teorik olarak bunlar arasında herhangi bir kaynak↔hedef kombinasyonu (örn. arayüz İspanyolca iken Portekizce öğrenmek).
 
-- **Draconic Lingua** — marka / yayıncı adı (Play Console "Developer name"). Tüm uygulamalar bunun altında çıkar.
-- **Ignis** — Türkçe ↔ İngilizce uygulaması (bugün elimizdeki)
-- *(gelecek)* — İspanyolca ↔ İngilizce için ayrı karakter, ayrı isim, ayrı uygulama
+**İki bağımsız eksen olduğu netleşti, bunları ayrı ayrı çözmek gerekiyor:**
+1. **Arayüz dili (chrome)** — buton/başlık/dialog metinleri. Şu an TAMAMEN Türkçe sabit string, `intl`/ARB çeviri altyapısı yok. Kullanıcı: arayüz de çok dilli olsun istedi (İspanyolca konuşan biri kendi dilinde gezinip başka bir dil öğrenebilsin) — bu, en büyük kalem.
+2. **İçerik dil çifti (source/target)** — hangi dilden hangi dile öğreniliyor. Sözlük servisi, TTS sesi, kitap kütüphanesi, kelime türü etiketleri buna bağlı; bugün hepsi örtük olarak "bilinen: Türkçe, öğrenilen: İngilizce" varsayıyor.
 
-**Neden mantıklı:** Çok-dilli tek uygulama, çalışma zamanı dil değiştirme altyapısı (dil seçici, kalıcılık, Intl/ARB araçları) gerektiriyordu. Ayrı uygulama modelinde bunların hiçbiri yok. Daha önemlisi: **bugünkü uygulama yarının planı için bedel ödemiyor** — Ignis Türkçe metinlerle yayına çıkar, doğrulanır, ve çeviri işi ancak 2. uygulamayı yaptığında gündeme gelir.
-
-**Ayrıca:** İspanyolca mağaza vitrininde İspanyolca bir isimle çıkmak ASO açısından daha iyi sıralanır, ve bir uygulama tutmazsa diğerini etkilemez.
-
-### ⚠️ Bu stratejinin tek kritik şartı: TEK kod tabanı
-
-Proje klasörünü kopyalayıp ikinci uygulamayı oradan yapmak, bu planın battığı yerdir. Üç ay sonra iki kod tabanı birbirinden ayrışır ve her hata iki kez, farklı satır numaralarında düzeltilir. Doğrusu **Flutter flavors**: aynı kod, derleme zamanında değişen uygulama adı, `applicationId`, karakter görselleri ve metin seti. Bir hatayı bir kez düzeltirsin, tüm uygulamalar düzelir.
-
-**Dürüst uyarı:** Ayrı uygulama modeli, metinleri koddan çıkarma işinden **kurtarmıyor** — sadece çalışma zamanı dil değiştirme makinesinden kurtarıyor (tahmini %30-40 tasarruf). Asıl kazanç, o işi **2. uygulamaya kadar ertelemek**.
+**Zamanlama kararı:** Mimari değişikliğe **şimdi başlanmıyor** — bu büyük bir iş, mevcut P0/A-6 iş listesini kesmeyecek. Burada bir **gelecek planı** olarak yazılıyor; amaç, bundan sonra eklenen kodun bu planı zorlaştırmaması.
 
 ### Bugün yapılacak ucuz hazırlık (sonra pahalıya patlar)
 
-- [ ] **Karakter adını ve görsellerini tek bir yerden yönet.** Aşama 2'de maskot sistemini yazarken karakterin adı ve poz dosya yolları koda dağılırsa, 2. karakter için mesaj bankasında kelime avına çıkmak gerekir. Bunun yerine `lib/core/branding/app_branding.dart` gibi tek bir dosyada tutulsun (karakter adı, görsel yolu ön eki, vurgu renkleri). Mesaj şablonlarında karakterin adı **düz metin olarak yazılmasın**, değişkenden gelsin.
-  - Bugünkü maliyeti ≈ sıfır (o kodu zaten yazacağız). Sonra eklemenin maliyeti yüksek. `uuid` maddesiyle aynı mantık.
-- [ ] **Paket adı marka yapısını yansıtsın:** `com.draconiclingua.ignis` → ileride `com.draconiclingua.<karakter2>`. (Aşama 5'te uygulanacak, ama isim kararı şimdi verilsin.)
-- [ ] **Tema sınıfını yeniden adlandırma.** `DraconicTheme` / `draconic_theme.dart` olduğu gibi kalsın — artık marka düzeyinde ortak tasarım sistemi anlamına geliyor, ki bu doğru. Kod yapısı marka yapısını yansıtıyor: Draconic Lingua = ortak motor + tasarım dili, Ignis = onun üstüne kurulu bir ürün.
+- [ ] **Yeni eklenen (düzenlenen değil) her UI string'i tek noktadan gelsin.** Tam `intl`/ARB kurulumuna henüz geçilmiyor (mevcut ~yüzlerce sabit Türkçe string'e dokunmak ayrı, planlı bir iş) — ama bundan sonra bir ekrana YENİ bir metin eklenirken düz literal yerine o dosyanın üstünde tek bir sabitler bloğunda toplanması, ileride mekanik ARB ayıklamasını ucuzlatır. Davranış aynı kalır, sadece arama-değiştirme tek noktadan olur.
+- [ ] **`database_helper.dart`'taki dokunulmaz tablolara dil çifti alanı DİREKT eklenmeyecek.** İçerik dil çifti (`content_language_pair` gibi) yeni, ek bir alan/tablo olarak gelecek, varsayılanı bugünkü "tr-en" olacak — geriye dönük veri bozulmaz. (Kısıtlar bölümündeki mevcut madde geçerliliğini koruyor.)
+- [ ] **`dictionary_service.dart` ve `tts_service.dart`'ın bugün örtük olarak İngilizce'ye özel olup olmadığı incelenmeli** (henüz bakılmadı) — ileride bir `LanguagePair` parametresi alacak şekilde imzaların nasıl genişleyeceği önceden düşünülsün, ama şimdi implement edilmiyor.
+- [ ] **Kelime türü etiketleri** (`_posTranslations` gibi haritalar — bugün `'noun': 'İSİM'` şeklinde tek dile sabit) çok arayüz-dilli plana göre her arayüz dili için ayrı harita gerektirecek; bu iş `intl` migrasyonuyla birlikte ele alınacak, şimdi dokunulmuyor.
+- [ ] **Paket adı / `applicationId` / bundle id TEK kalıyor** — eski "Flutter flavors, karakter başına ayrı build" planı iptal. `com.draconiclingua.ignis` tüm dil çiftleri için aynı kalacak.
+- [ ] **Tema sınıfı adı değişmiyor.** `DraconicTheme` / `draconic_theme.dart` olduğu gibi kalıyor — marka düzeyinde ortak tasarım sistemi olarak zaten doğru isimlendirilmiş.
+
+<details>
+<summary>Eski karar (17.09.2026, artık geçersiz — referans için saklanıyor)</summary>
+
+Önceki plan: her dil çifti için ayrı uygulama, aynı evrenden farklı karakter/isim, ortak `Draconic Lingua` markası altında, Flutter flavors ile tek kod tabanından derlenen ayrı build'ler. Gerekçe "bugünkü uygulama yarının planı için bedel ödemiyor" idi (çalışma zamanı dil değiştirme altyapısı kurulmasın diye). Proje sahibi bu kararı 18.09.2026'da tersine çevirdi: ayrı uygulamaların marka algısını ve büyümeyi böleceğini, tek uygulamayı yönetmenin daha az yorucu olacağını belirtti.
+
+</details>
 
 ### İsim değişikliği — durum
 
@@ -72,11 +73,15 @@ Ayrı, kapsamlı bir doküman: `docs/draconic_lingua_ui_iyilestirme_listesi_1.md
 
 - [x] **Sıra 1 (kısmen) — Tema + renk altyapısı.** ✅ 18.09.2026 — `draconic_theme.dart`'taki `DraconicTheme` (zaten bir `ThemeExtension` idi, sadece `primitives.dart`'ta kullanılıyordu) genişletildi: `isDark` alanı + `textPrimary/textSecondary/textMuted` metin tokenleri eklendi; **T-2 parşömen paleti** taslak değerleriyle `DraconicTheme.parchment()` factory'si olarak koda girdi (T-3 gereği blur/glow parşömende `lowEnd()` ile aynı opak-yüzey yolunu kullanıyor). Yeni `core/theme/theme_controller.dart` (`ThemeController`) eklendi: `shared_preferences`'ta kalıcı, `main()`'de `runApp`'ten önce yükleniyor (açılışta tema sıçraması yok), `.toggle()`/`.setDark()` ile değişiyor. `main.dart`'taki `MyApp` artık `ThemeController`'ı dinleyip `MaterialApp`'i buna göre yeniden çiziyor; eskiden ölü duran `_toggleTheme`/`onToggleTheme` artık gerçek.
   **Bilinçli olarak bu turda YAPILMADI:** (1) ~600 ham hex literal içeren 20+ ekran dosyasının `Theme.of(context).extension<DraconicTheme>()` üzerinden okumaya geçirilmesi (T-1'in geri kalanı) — bu, doğrulaması `flutter analyze`/görsel kontrol gerektiren büyük, çok-turlu bir iş; (2) Profil > Görünüm'deki segmented control anahtarı (T-6 UI'ı, Sıra 8'de planlı); (3) C-2 renk görevi ataması (mevcut ekranlar hâlâ eski ham renkleri kullanıyor). Karanlık temanın GÖRÜNÜMÜ bu adımda hiç değişmedi — doküman bunu açıkça istiyor ("Sıra 1" notu).
-  **Sıradaki karar noktası:** ekran-ekran migrasyonun nasıl paylaştırılacağı (kaç dosya/tur, hangi sırayla) proje sahibiyle netleştirilecek.
+  **Karar (17.09.2026):** ~600 ham hex'lik ekran migrasyonu **en sona saklandı** — proje sahibi "duruma göre bakarız" dedi. Bu iş beklemede, Sıra'nın geri kalanı ondan bağımsız ilerliyor.
+- [x] **Sıra 2 (kısmen) — P0-3 ve P0-1 çözüldü.** ✅ 18.09.2026
+  **P0-3 (Türkçe uppercase):** Yeni `core/design_system/tr_case.dart` → `String.toUpperCaseTr()` extension'ı (Dart'ın locale-agnostic `toUpperCase()`'i `i`'yi `I` yapıyor, doğrusu `İ`). Kök neden tek yerdeymiş: **hem "KITAPLIK" hem "LIG ARENASI" aynı paylaşılan `RuneTitle` widget'ından** (`core/design_system/primitives.dart`) geliyordu — tek satırlık değişiklik (`title.toUpperCase()` → `title.toUpperCaseTr()`) her iki hatayı ve `RuneTitle` kullanan tüm diğer ekran başlıklarını aynı anda düzeltti. Aynı bug'ın iki küçük yan örneği de (`reader_screen.dart` ve `flashcards_exercise_screen.dart`'taki Türkçe kelime türü fallback'leri) aynı extension'la düzeltildi.
+  **P0-1 (alt bar içeriği kesiyor):** Yeni `core/design_system/platform_tokens.dart` → `PlatformTokens.scrollBottomPadding(context)` TEK formülü (bar yüksekliği + `viewPadding.bottom` + 16). Profil, Arena (`flashcards_screen.dart`) ve Lobi (`main.dart`)'deki üç ana scroll view'ın sabit yazılmış alt padding'i (110/110/100) bu formülle değiştirildi.
+  **Bilinçli olarak bu turda YAPILMADI:** `Spacing` (8pt grid, P1-19), `ScreenScaffold` (P1-11 header birleştirmesi — kapsamı büyük, Sıra 2 notunda "bu turda kapsam dışı" deniyor), A-1/A-2/A-3 (edge-to-edge, Android inset, dokunma hedefi denetimi — cihazda görsel doğrulama gerektiriyor, kod tarafında `PlatformTokens.minTapTarget` sabiti hazır ama henüz hiçbir yerde kullanılmadı).
 
 ### Hemen yapılacak küçük işler (aşama beklemez)
 
-- [ ] **Liderlik tablosundaki ırkçı test isimlerini temizle. (ACİL)** `lib/leaderboard_screen.dart` satır ~99-108'de rakip adı olarak **"Zenci"** ve **"Çinli"** geçiyor. "Zenci" Türkçede ırkçı bir hakarettir. 2 dakikalık iş, bekletme.
+- [x] **Liderlik tablosundaki ırkçı test isimlerini temizle. (ACİL)** ✅ 18.09.2026 — `lib/leaderboard_screen.dart`'ta "Zenci"/"Çinli" → "Alevkanat"/"Gölgeavcı" (Ignis evreninden tematik isimler). Aynı sabit isim havuzunun **birebir kopyası** `profile_screen.dart`'ta da vardı (Lig sıralamasını Profil kartı için salt-okunur tekrar hesaplıyor) — orada da düzeltildi, iki dosya senkron kaldı.
 - [ ] **Alışkanlıklar kalıcı değil.** `lib/habit_tracker_screen.dart` içinde `_habits` sadece bellekte; kullanıcının eklediği hedefler uygulama kapanınca kayboluyor.
 - [x] **"Kelimeler" sekmesi yeni eklenen kelimeyi/kilit açılışını göstermiyordu** ✅ 17.09.2026 — `main.dart`'taki bottom nav `IndexedStack` kullandığı için `FlashcardsScreen` sekmeye her dönüşte yeniden yüklenmiyordu (Ana Sayfa sekmesi için bu zaten düzeltilmişti, Kelimeler için unutulmuştu). `flashcards_screen.dart`'a `refreshCardsAndStats()` eklendi, `main.dart` her "Kelimeler" sekmesine geçişte çağırıyor. Kullanıcı testinde doğrulandı — yeni kullanıcı kitaptan kelime avlayıp hemen pratiğe geçebiliyor artık.
 - [ ] `pubspec.yaml` placeholder'ları: `name: deneme1`, `description: "A new Flutter project."`

@@ -526,6 +526,33 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
     );
   }
 
+  // A-6: sistem geri tuşu/kenar kaydırma artık kapatma butonuyla aynı onay
+  // akışından geçiyor — önceden ikisi de sessizce, sormadan pop ediyordu.
+  // Zindan oturumu yarıda bırakıldığında ilerleme kaybolmaz (her cevap
+  // FSRS/V1 sistemine anlık yazılıyor) ama kullanıcıyı kazara çıkıştan
+  // korumak için tek, ortak bir onay diyaloğu kullanılıyor.
+  Future<void> _confirmExit() async {
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Zindandan çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Kalan kartları tamamlamadan çıkıyorsun. Bu ana kadarki cevapların zaten kaydedildi.',
+          style: TextStyle(color: Color(0xFF94A3B8)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Devam Et')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Çık')),
+        ],
+      ),
+    );
+    if (shouldExit == true && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -555,7 +582,13 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
     final word = (card['word'] ?? '').toString();
     final mode = _modeSequence[_currentIndex];
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExit();
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFF070B14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF070B14),
@@ -565,7 +598,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
         title: Text('Hafıza Zindanı · Karma Mod', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 15)),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _confirmExit,
         ),
       ),
       body: SafeArea(
@@ -617,6 +650,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

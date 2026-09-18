@@ -24,6 +24,7 @@ import 'achievement_service.dart';
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/entitlement/paywall_trigger.dart';
 import 'core/entitlement/entitlement_repository.dart';
+import 'core/design_system/platform_tokens.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -134,8 +135,10 @@ class ProfileScreenState extends State<ProfileScreen> {
         {'name': 'Seydihan Akıl.', 'xp': userCurrentXp + 30, 'isUser': false},
         {'name': 'Eren (Sen)', 'xp': userCurrentXp, 'isUser': true},
         {'name': 'Sezer', 'xp': (userCurrentXp - 10).clamp(0, 999999), 'isUser': false},
-        {'name': 'Zenci', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'isUser': false},
-        {'name': 'Çinli', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'isUser': false},
+        // UI/UX Düzeltme Listesi — P0-6: leaderboard_screen.dart ile aynı
+        // isim havuzu, oradaki düzeltmeyle senkron tutuldu (bkz. o dosyadaki not).
+        {'name': 'Alevkanat', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'isUser': false},
+        {'name': 'Gölgeavcı', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'isUser': false},
         {'name': 'Gece.', 'xp': (userCurrentXp - 130).clamp(0, 999999), 'isUser': false},
         {'name': 'Deniz Acar', 'xp': (userCurrentXp - 180).clamp(0, 999999), 'isUser': false},
         {'name': 'Selin Öztürk', 'xp': (userCurrentXp - 230).clamp(0, 999999), 'isUser': false},
@@ -480,7 +483,9 @@ class ProfileScreenState extends State<ProfileScreen> {
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+              // UI/UX Düzeltme Listesi — P0-1: sabit 110 yerine gerçek bar
+              // yüksekliği + viewPadding.bottom + 16'dan okunuyor.
+              padding: EdgeInsets.fromLTRB(20, 16, 20, PlatformTokens.scrollBottomPadding(context)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
