@@ -97,8 +97,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   /// Kullanıcı XP'sini çeker ve sıralamayı oluşturur
   Future<void> _loadLeagueData() async {
     try {
-      final xp = await XpShopService.instance.getTotalXp();
-      final userCurrentXp = xp > 0 ? xp : 4108;
+      // P0-C: liderlik artık toplam XP'yi değil, gerçekten haftalık sıfırlanan
+      // sezon sayacını okuyor — "SEZON XP · haftalık sıfırlanır" etiketi
+      // şimdi doğru veriye karşılık geliyor.
+      final xp = await XpShopService.instance.getSeasonXp();
+      final userCurrentXp = xp;
 
       final List<Map<String, dynamic>> simulatedLeague = [
         {'name': 'Seydihan Akıl.', 'xp': userCurrentXp + 30, 'avatar': '👑', 'isUser': false},
@@ -291,8 +294,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       children: [
         const ScreenHeaderBadge(icon: PhosphorIcons.trophyBold, color: Color(0xFFF59E0B)),
         const SizedBox(width: 12),
+        // N-5: alt bar sekmesi artık "Arena" (Karar #8) ve o sekmenin ekran
+        // başlığı da "Arena" — bu ekranın başlığında aynı kelime geçince
+        // ikisi aynı yer sanılıyordu. "Sıralama" olarak ayrıştırıldı.
         const Expanded(
-          child: RuneTitle(title: 'Lig Arenası', subtitle: 'Günlük Görevler & Sıralama'),
+          child: RuneTitle(title: 'Sıralama', subtitle: 'Günlük Görevler & Lig'),
         ),
         _buildHeaderStatPill(icon: PhosphorIcons.lightningBold, color: const Color(0xFF38BDF8), listenable: XpShopService.instance.xpNotifier),
       ],
@@ -607,13 +613,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: isUser 
-                ? const Color(0xFF4F46E5).withValues(alpha: 0.25) 
+            // C-2: indigo bu uygulamada hafıza/bilişsel alan rengi — "bu
+            // satır sensin" anlamı taşımıyor. "Sen" vurgusu amber'e (eylem/
+            // birincil vurgu rengi) taşındı.
+            color: isUser
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.18)
                 : const Color(0xFF111827).withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isUser 
-                  ? const Color(0xFF6366F1) 
+              color: isUser
+                  ? const Color(0xFFF59E0B)
                   : (rank <= 3 ? const Color(0xFF10B981).withValues(alpha: 0.3) : const Color(0xFF1F2937)),
               width: isUser ? 1.8 : 1.2,
             ),

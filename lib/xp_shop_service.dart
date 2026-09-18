@@ -52,7 +52,7 @@ class XpShopService {
 
     final doubleXpExpiry = prefs.getInt('double_xp_expiry_time') ?? 0;
     final now = DateTime.now().millisecondsSinceEpoch;
-    
+
     int finalXp = amount;
     if (now < doubleXpExpiry) {
       finalXp *= 2;
@@ -61,7 +61,40 @@ class XpShopService {
     int updatedXp = currentXp + finalXp;
     await prefs.setInt('user_total_xp', updatedXp);
     xpNotifier.value = updatedXp;
+
+    // P0-C: liderlik tablosundaki "SEZON XP" etiketi artık gerçek bir veriye
+    // karşılık geliyor — toplam XP'den ayrı, haftalık (Pazar) sıfırlanan
+    // kendi sayacı. getSeasonXp() hafta değiştiyse burada otomatik sıfırlar.
+    final currentSeasonXp = await getSeasonXp();
+    await prefs.setInt('season_xp', currentSeasonXp + finalXp);
+
     return updatedXp;
+  }
+
+  /// Sezon (haftalık) hafta anahtarı — hafta başlangıcı en son geçmiş Pazar.
+  /// leaderboard_screen._getRemainingSeasonTime()'daki "Pazar gecesi sıfırlama"
+  /// ile aynı sınırı kullanır.
+  String _currentSeasonWeekKey() {
+    final now = DateTime.now();
+    final int daysSinceSunday = now.weekday % 7; // Pazartesi=1 … Pazar=7%7=0
+    final weekStart = DateTime(now.year, now.month, now.day).subtract(Duration(days: daysSinceSunday));
+    return '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
+  }
+
+  /// P0-C: Sezon XP — toplam XP'den bağımsız, haftalık sıfırlanan sayaç.
+  /// Hafta değiştiyse (son yazılan hafta anahtarı güncel haftadan farklıysa)
+  /// sayaç 0'a döner ve yeni hafta anahtarı kaydedilir; toplam XP'ye
+  /// dokunulmaz.
+  Future<int> getSeasonXp() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedWeek = prefs.getString('season_xp_week') ?? '';
+    final currentWeek = _currentSeasonWeekKey();
+    if (storedWeek != currentWeek) {
+      await prefs.setString('season_xp_week', currentWeek);
+      await prefs.setInt('season_xp', 0);
+      return 0;
+    }
+    return prefs.getInt('season_xp') ?? 0;
   }
 
   @Deprecated('Elmas ekonomisi kaldırıldı (Ejderha Rotası V2 — Faz 1). Yeni kod kullanmasın.')

@@ -208,7 +208,9 @@ class _RootScreenState extends State<RootScreen> {
           items: const [
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.compassBold)), label: 'Ana Sayfa'),
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.bookOpenBold)), label: 'Dersler'),
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.swordBold)), label: 'Kelimeler'),
+            // Karar #8: bu sekmenin ekran başlığı zaten "Arena" (flashcards_screen)
+            // — alt bar etiketi de eşleşsin.
+            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.swordBold)), label: 'Arena'),
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.chartBarBold)), label: 'İlerleme'),
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.userBold)), label: 'Profil'),
           ],
@@ -859,7 +861,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 14),
                   SizedBox(
-                    height: 115,
+                    // P0-A: başlık 2 satıra çıkınca (P1-8) sabit 115px'lik kart
+                    // 1px RenderFlex overflow veriyordu — ikinci satır için pay
+                    // eklendi ve aşağıdaki Spacer kaldırıldı.
+                    height: 132,
                     child: _userBooks.isEmpty
                         ? Center(child: Text('Henüz kitap eklenmedi.', style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12)))
                         : ListView.builder(
@@ -896,7 +901,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         BookCover(title: book.title),
-                                        const Spacer(),
+                                        const SizedBox(height: 8),
                                         // P1-8: dar kart genişliğinde tek satır uzun başlıkları
                                         // ("The Adventures of Tom Sawyer") ortadan kesiyordu — 2 satıra çıkarıldı.
                                         Text(book.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13, height: 1.15)),

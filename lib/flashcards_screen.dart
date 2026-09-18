@@ -360,16 +360,19 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            gradient: isSelected 
-                ? const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF0284C7)], begin: Alignment.topLeft, end: Alignment.bottomRight)
+            // N-9: aynı sheet'teki "Tümü" chip'i amber; bu chip cyan olunca
+            // aynı bileşen türü için iki seçim rengi oluşuyordu. Seçim durumu
+            // tek renge (amber) indirildi.
+            gradient: isSelected
+                ? const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)], begin: Alignment.topLeft, end: Alignment.bottomRight)
                 : null,
             color: isSelected ? null : const Color(0xFF1E293B),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.transparent, 
+              color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
               width: 1.5
             ),
-            boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF38BDF8).withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 1)] : [],
+            boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 1)] : [],
           ),
           alignment: Alignment.center,
           child: Text(
@@ -575,7 +578,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         desc: '4 seçenek arasından doğru anlamı yakala.',
                         reward: _dailyDoubleXpIndex == 0 ? '2X XP' : '+6 XP',
                         fomoLabel: _dailyDoubleXpIndex == 0 ? 'Son $_fomoTimeLeft' : null,
-                        accentColor: const Color(0xFF38BDF8),
+                        // N-4: bu ekrandaki tüm satırlar hafıza/pratik içeriği —
+                        // beş farklı sistem-dışı renk yerine indigo ailesinde
+                        // beş ton, ayrım tonla yapılıyor.
+                        accentColor: const Color(0xFFA5B4FC),
                         onTap: (_isTestModeActive || _totalValidPoolCount >= 4) ? _startQuizExercise : null,
                         isLocked: !_isTestModeActive && _totalValidPoolCount < 4,
                         lockMessage: '4 Kelime Gerekli',
@@ -586,7 +592,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         desc: 'Aralıklı tekrar algoritması ile hafızanı tazele.',
                         reward: _dailyDoubleXpIndex == 1 ? '2X XP' : '+5 XP',
                         fomoLabel: _dailyDoubleXpIndex == 1 ? 'Son $_fomoTimeLeft' : null,
-                        accentColor: const Color(0xFFA855F7),
+                        accentColor: const Color(0xFF818CF8),
                         onTap: (_isTestModeActive || _totalValidPoolCount >= 1) ? _startSrsExercise : null,
                         isLocked: !_isTestModeActive && _totalValidPoolCount < 1,
                         lockMessage: '1 Kelime Gerekli',
@@ -608,7 +614,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         desc: 'Telaffuzu dinle, kelimenin imlasını çöz.',
                         reward: _dailyDoubleXpIndex == 3 ? '2X XP' : '+15 XP',
                         fomoLabel: _dailyDoubleXpIndex == 3 ? 'Son $_fomoTimeLeft' : null,
-                        accentColor: const Color(0xFF10B981),
+                        accentColor: const Color(0xFF4F46E5),
                         onTap: _startSpellingExerciseWithPaywall,
                         isLocked: !_isTestModeActive && _totalValidPoolCount < 20,
                         lockMessage: '20 Kelime Gerekli',
@@ -617,8 +623,13 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         icon: PhosphorIcons.pencilSimpleBold,
                         title: 'Boşluk Doldurma',
                         desc: 'Kitabındaki gerçek cümlede eksik kelimeyi bul.',
-                        reward: 'ÜCRETSİZ',
-                        accentColor: const Color(0xFF34D399),
+                        // N-3: "ÜCRETSİZ" etiketi yalnızca bu satırdaydı — diğer
+                        // ücretsiz satırlar rozetsiz kalınca "bunlar ücretli"
+                        // yanılgısı doğuyordu. Artık kardeşleriyle aynı dilde
+                        // bir XP rozeti taşıyor; "ücretsiz" yalnızca PREMIUM
+                        // rozetinin YOKLUĞUYLA anlaşılıyor.
+                        reward: '+8 XP',
+                        accentColor: const Color(0xFF4338CA),
                         onTap: _startClozeExercise,
                       ),
                     ]),
@@ -634,7 +645,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                           title: 'Ters Test',
                           desc: 'Türkçe anlamı gör, İngilizce kelimeyi bul.',
                           reward: 'PREMIUM',
-                          accentColor: const Color(0xFFA855F7),
+                          // N-2: üç PREMIUM rozetinin üçü de aynı renkte —
+                          // aynı etiket üç farklı renkte üç farklı anlam
+                          // sanılıyordu.
+                          accentColor: const Color(0xFFF59E0B),
                           onTap: _startReverseQuizExercise,
                         ),
                       ),
@@ -646,7 +660,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                           title: 'Sadece Dinleme',
                           desc: 'Yazıyı görmeden dinle, anlamını seç.',
                           reward: 'PREMIUM',
-                          accentColor: const Color(0xFF10B981),
+                          accentColor: const Color(0xFFF59E0B),
                           onTap: _startListeningExercise,
                         ),
                       ),
