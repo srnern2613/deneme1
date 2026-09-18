@@ -66,6 +66,14 @@ Yapıldı (diskte doğrulandı): `pubspec.yaml` (`name: ignis` + açıklama) · 
 | **4** | Tasarım toparlama |
 | **5** | Yayın hazırlığı (ertelendi) |
 
+### Paralel: UI/UX Düzeltme Listesi (HIG + Material uyum turu)
+
+Ayrı, kapsamlı bir doküman: `docs/draconic_lingua_ui_iyilestirme_listesi_1.md` (18.09.2026'da eklendi). Ekran görüntüsü analizinden çıkan P0/P1 kırıklıkları, renk/buton sistemi (C), iki temalı tema mimarisi (T — Karanlık/Zindan + Aydınlık/Parşömen), Android/iOS platform uyumu (A/I) ve bunların hepsini tek yerden çözen paylaşılan altyapı bileşenlerini kapsıyor. Kendi "Sıra" (uygulama önceliği) sırası var, Aşama 0-5'ten bağımsız ilerliyor.
+
+- [x] **Sıra 1 (kısmen) — Tema + renk altyapısı.** ✅ 18.09.2026 — `draconic_theme.dart`'taki `DraconicTheme` (zaten bir `ThemeExtension` idi, sadece `primitives.dart`'ta kullanılıyordu) genişletildi: `isDark` alanı + `textPrimary/textSecondary/textMuted` metin tokenleri eklendi; **T-2 parşömen paleti** taslak değerleriyle `DraconicTheme.parchment()` factory'si olarak koda girdi (T-3 gereği blur/glow parşömende `lowEnd()` ile aynı opak-yüzey yolunu kullanıyor). Yeni `core/theme/theme_controller.dart` (`ThemeController`) eklendi: `shared_preferences`'ta kalıcı, `main()`'de `runApp`'ten önce yükleniyor (açılışta tema sıçraması yok), `.toggle()`/`.setDark()` ile değişiyor. `main.dart`'taki `MyApp` artık `ThemeController`'ı dinleyip `MaterialApp`'i buna göre yeniden çiziyor; eskiden ölü duran `_toggleTheme`/`onToggleTheme` artık gerçek.
+  **Bilinçli olarak bu turda YAPILMADI:** (1) ~600 ham hex literal içeren 20+ ekran dosyasının `Theme.of(context).extension<DraconicTheme>()` üzerinden okumaya geçirilmesi (T-1'in geri kalanı) — bu, doğrulaması `flutter analyze`/görsel kontrol gerektiren büyük, çok-turlu bir iş; (2) Profil > Görünüm'deki segmented control anahtarı (T-6 UI'ı, Sıra 8'de planlı); (3) C-2 renk görevi ataması (mevcut ekranlar hâlâ eski ham renkleri kullanıyor). Karanlık temanın GÖRÜNÜMÜ bu adımda hiç değişmedi — doküman bunu açıkça istiyor ("Sıra 1" notu).
+  **Sıradaki karar noktası:** ekran-ekran migrasyonun nasıl paylaştırılacağı (kaç dosya/tur, hangi sırayla) proje sahibiyle netleştirilecek.
+
 ### Hemen yapılacak küçük işler (aşama beklemez)
 
 - [ ] **Liderlik tablosundaki ırkçı test isimlerini temizle. (ACİL)** `lib/leaderboard_screen.dart` satır ~99-108'de rakip adı olarak **"Zenci"** ve **"Çinli"** geçiyor. "Zenci" Türkçede ırkçı bir hakarettir. 2 dakikalık iş, bekletme.
