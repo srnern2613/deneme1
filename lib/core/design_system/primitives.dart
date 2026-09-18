@@ -152,6 +152,136 @@ class NeonButton extends StatelessWidget {
   }
 }
 
+// 4. C-1: Buton Hiyerarşisi — vurgu dolgudan gelir, renkten değil.
+// Birincil: dolu amber + glow (enableHeavyGlow kapalıyken veya aydınlık
+// temada glow yerine gölge+çerçeve, C-4 gereği). İkincil: surfaceLight
+// dolgu + borderSubtle çerçeve. Üçüncül: sadece metin/ikon, dolgusuz.
+// Yıkıcı: kırmızı, yalnızca onay adımlarında kullanılmalı.
+// NOT: NeonButton (yukarıda) hiçbir yerde kullanılmıyordu (grep ile
+// doğrulandı) — AppButton onun yerini alıyor, NeonButton dokunulmadan
+// referans/geriye uyumluluk için duruyor.
+enum ButtonLevel { primary, secondary, tertiary, destructive }
+
+class AppButton extends StatelessWidget {
+  final String text;
+  final VoidCallback? onPressed;
+  final IconData? icon;
+  final IconData? trailingIcon;
+  final ButtonLevel level;
+  final bool expand;
+  final EdgeInsetsGeometry padding;
+
+  const AppButton({
+    super.key,
+    required this.text,
+    required this.onPressed,
+    this.icon,
+    this.trailingIcon,
+    this.level = ButtonLevel.secondary,
+    this.expand = false,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  });
+
+  /// Yalnızca ikon gösteren kompakt varyant (liste satırlarındaki aksiyon
+  /// butonları için) — varsayılan seviye üçüncül, gerekirse override edilir.
+  const AppButton.icon({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    this.level = ButtonLevel.tertiary,
+  })  : text = '',
+        trailingIcon = null,
+        expand = false,
+        padding = const EdgeInsets.all(8);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    final disabled = onPressed == null;
+
+    final content = Row(
+      mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 16),
+          if (text.isNotEmpty) const SizedBox(width: 8),
+        ],
+        if (text.isNotEmpty)
+          Text(text, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.2)),
+        if (trailingIcon != null) ...[
+          const SizedBox(width: 4),
+          Icon(trailingIcon, size: 16),
+        ],
+      ],
+    );
+
+    switch (level) {
+      case ButtonLevel.primary:
+        final glow = theme.enableHeavyGlow && theme.isDark;
+        final lightFallback = !theme.isDark;
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: glow
+                ? [BoxShadow(color: theme.primaryAmber.withValues(alpha: 0.3), blurRadius: 16, spreadRadius: 2, offset: const Offset(0, 4))]
+                : lightFallback
+                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 8, offset: const Offset(0, 3))]
+                    : null,
+          ),
+          child: FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.primaryAmber,
+              foregroundColor: theme.background,
+              disabledBackgroundColor: theme.primaryAmber.withValues(alpha: 0.35),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: lightFallback ? BorderSide(color: theme.borderSubtle) : BorderSide.none,
+              ),
+              padding: padding,
+            ),
+            onPressed: onPressed,
+            child: content,
+          ),
+        );
+      case ButtonLevel.secondary:
+        return OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            backgroundColor: theme.surfaceLight,
+            foregroundColor: theme.textPrimary,
+            disabledForegroundColor: theme.textMuted,
+            side: BorderSide(color: theme.borderSubtle),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: padding,
+          ),
+          onPressed: onPressed,
+          child: content,
+        );
+      case ButtonLevel.tertiary:
+        return TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: disabled ? theme.textMuted : theme.textSecondary,
+            padding: padding,
+          ),
+          onPressed: onPressed,
+          child: content,
+        );
+      case ButtonLevel.destructive:
+        return FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: theme.dangerRed,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: theme.dangerRed.withValues(alpha: 0.35),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: padding,
+          ),
+          onPressed: onPressed,
+          child: content,
+        );
+    }
+  }
+}
+
 // 4b. Ekran Başlığı Sol Rozeti — her sayfanın kendi kimlik rengini korur,
 // ama ince altın halka + hafif parıltı ile hepsini "aynı aileden" gösterir.
 // Dokunulabilir bir rozet ise (ör. Arena ayarları) sağ-altta küçük bir
@@ -354,6 +484,49 @@ class EmptyWordPoolState extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// 5. P1-3: Paylaşılan kitap kimliği — harf monogramı + kitaba deterministik
+// atanan palet rengi. Önceden Lobi (main.dart) harf monogramı, Kitaplık
+// (library_screen.dart) emoji kullanıyordu; aynı kitap iki ekranda farklı
+// görünüyordu. Renk paleti, main.dart'taki eski `_getBookBadgeColor`'dan
+// birebir taşındı (davranış aynı) — C-2/P1-4 (tema token'larına taşınma)
+// henüz yapılmadı, bu yüzden hâlâ ham hex; ayrı, planlı bir iş.
+class BookCover extends StatelessWidget {
+  final String title;
+  final double size;
+
+  const BookCover({super.key, required this.title, this.size = 28});
+
+  static const List<Color> _palette = [
+    Color(0xFF38BDF8),
+    Color(0xFF10B981),
+    Color(0xFFF59E0B),
+    Color(0xFFEC4899),
+    Color(0xFFA855F7),
+  ];
+
+  static Color colorFor(String title) => _palette[title.length % _palette.length];
+
+  @override
+  Widget build(BuildContext context) {
+    final color = colorFor(title);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(size * 0.21),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Center(
+        child: Text(
+          title.isNotEmpty ? title[0].toUpperCase() : 'B',
+          style: GoogleFonts.lora(color: color, fontWeight: FontWeight.bold, fontSize: size * 0.5),
         ),
       ),
     );

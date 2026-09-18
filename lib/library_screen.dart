@@ -45,6 +45,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   final Map<String, Map<String, dynamic>> _bookStatsCache = {};
 
+  // P1-1 (Amber enflasyonu): "aktif kitap" = kullanıcının en son etkileşime
+  // girdiği kitap. `Book.lastReadDate` zaten her sayfa değişiminde
+  // güncelleniyor (bkz. _openReader / main.dart _openReaderDirectly) — yeni
+  // bir alan/migrasyon gerekmedi, mevcut veriyi okumak yeterli.
+  Book? get _mostRecentlyOpenedBook {
+    Book? result;
+    for (final b in _books) {
+      if (b.lastReadDate == null) continue;
+      if (result == null || b.lastReadDate!.isAfter(result.lastReadDate!)) {
+        result = b;
+      }
+    }
+    return result;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -292,7 +307,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
             child: _buildStatTile(
               icon: _hasFreezeShield ? PhosphorIcons.shieldCheckBold : PhosphorIcons.fireBold,
               value: '$_streakDays',
-              label: 'Gün Serisi',
+              // P1-6: 2 satıra kırılan uzun etiket yerine tek kelime — tile
+              // yüksekliği artık 4 kutuda da eşit.
+              label: 'Seri',
               color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B),
             ),
           ),
@@ -302,7 +319,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           child: _buildStatTile(
             icon: PhosphorIcons.timerBold,
             value: '$_totalReadMinutes',
-            label: 'Dakika Okuma',
+            label: 'Dakika',
             color: const Color(0xFF38BDF8),
           ),
         ),
@@ -311,7 +328,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           child: _buildStatTile(
             icon: PhosphorIcons.magnifyingGlassBold,
             value: '$_totalWordsExamined',
-            label: 'Keşfedilen Kelime',
+            label: 'Kelime',
             color: const Color(0xFF10B981),
           ),
         ),
@@ -320,7 +337,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           child: _buildStatTile(
             icon: PhosphorIcons.cardsBold,
             value: '$_totalWordsSaved',
-            label: 'Kaydedilen Kart',
+            label: 'Kart',
             color: const Color(0xFF818CF8),
           ),
         ),
@@ -360,7 +377,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
           Text(
             label,
             style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8), height: 1.2),
-            maxLines: 2,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -511,6 +529,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   itemBuilder: (context, index) {
                     final book = _books[index];
                     final stats = _bookStatsCache[book.title];
+                    final bool isActive = book.id == _mostRecentlyOpenedBook?.id;
 
                     final int totalPages = book.pages.isEmpty ? 1 : book.pages.length;
                     final int currentPage = book.currentPage.clamp(0, totalPages);
@@ -542,7 +561,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             child: Row(
                               children: [
-                                Text(book.icon, style: const TextStyle(fontSize: 22)),
+                                // P1-3: emoji yerine Lobi'yle aynı BookCover
+                                // (harf monogramı + deterministik renk) —
+                                // aynı kitap artık iki ekranda da aynı görünüyor.
+                                BookCover(title: book.title, size: 34),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
@@ -556,9 +578,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
+                                        // P1-9: "Mark Twain · %0 · 🧠4 ⭐0" gibi
+                                        // şifreli emoji-meta yerine düz metin.
                                         isUntouched
-                                            ? '${book.author} · Keşfedilmeyi bekliyor ✨'
-                                            : '${book.author} · %$readingPercentage · 🧠$discoveredWords ⭐$masteredWords',
+                                            ? 'Keşfedilmeyi bekliyor ✨'
+                                            : '%$readingPercentage okundu · $discoveredWords kart',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8)),
@@ -579,17 +603,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                IconButton.filled(
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: const Color(0xFFF59E0B),
-                                    foregroundColor: const Color(0xFF070B14),
-                                    padding: const EdgeInsets.all(8),
-                                  ),
+                                // C-1/P1-1: yalnızca en son açılan kitap birincil
+                                // (dolu amber) kalıyor; diğerleri üçüncül (chevron,
+                                // dolgusuz) — "ekran başına en fazla bir birincil
+                                // buton" kuralı artık kitap satırlarında da geçerli.
+                                AppButton.icon(
+                                  icon: isActive ? PhosphorIcons.playBold : PhosphorIcons.caretRightBold,
+                                  level: isActive ? ButtonLevel.primary : ButtonLevel.tertiary,
                                   onPressed: () {
                                     HapticFeedback.selectionClick();
                                     _openReader(book);
                                   },
-                                  icon: const Icon(PhosphorIcons.playBold, size: 15),
                                 ),
                               ],
                             ),

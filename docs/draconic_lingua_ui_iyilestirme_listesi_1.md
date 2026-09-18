@@ -65,10 +65,13 @@ Sezon kartında ejderha "#1. Sıra" pill'inin üstünde ve rozet kart kenarında
 ## P1 — Hiyerarşi ve tutarlılık
 
 **P1-1 · Amber enflasyonu** — Kitaplık'ta her kitap satırında parlak amber play butonu. Amber yalnızca aktif kitapta kalır (birincil), diğer satırlar üçüncül seviyeye iner (chevron). Kural C-1'de. → Ana CTA rengi dağıtılınca vurgu ölüyor.
+**✅ 18.09.2026** — "Aktif kitap" = en son etkileşime girilen (proje sahibinin kararı). `Book.lastReadDate` zaten vardı, `library_screen.dart`'a onu okuyan `_mostRecentlyOpenedBook` getter'ı eklendi. Kitap satırındaki buton yeni `AppButton.icon` (`core/design_system/primitives.dart`) ile birincil/üçüncül arasında geçiyor.
 
 **P1-2 · Emoji** — Kitap avatarları (🎨🍇🍸) ve Arena avatarları (🛡️👑⚡🦊🎯). Phosphor tabanlı monokrom mühür/rune avatarına geçilecek. → Kendi ikon kuralı + platformlar arası şekil farkı + estetik kırılma.
 
 **P1-3 · Kitap kimliği ikiye ayrılmış** — Lobi'de harf monogramı (T/P/T), Kitaplık'ta emoji. Tek `BookCover` (monogram + kitaba deterministik atanan palet rengi). → Aynı kitap iki ekranda tanınmıyor.
+
+**✅ 18.09.2026** — `core/design_system/primitives.dart`'a paylaşılan `BookCover` widget'ı eklendi (harf monogramı + deterministik palet rengi, `main.dart`'taki eski `_getBookBadgeColor`'dan birebir taşındı). Lobi (`main.dart`) ve Kitaplık (`library_screen.dart`) artık aynı `BookCover`'ı kullanıyor.
 
 **P1-4 · Palet kayması** — Lobi monogramlarında ve Profil ikon karolarında magenta var, sistemde yok. Magenta çıkıyor; renklerin sabit görevleri C-2'de tanımlı. → Sistem dışı renk anlamsız sinyal.
 
@@ -76,11 +79,15 @@ Sezon kartında ejderha "#1. Sıra" pill'inin üstünde ve rozet kart kenarında
 
 **P1-6 · Kitaplık istatistik şeridi** — 4 sütun × ~82pt; etiketler 2 satıra kırılıyor, kart yüksekliği eşitlenmemiş. 2×2 grid veya tek satır özet (`1 gün · 0 dk · 0 kelime · 0 kart`). → 360dp'de kesin taşıyor (A-4).
 
+**✅ 18.09.2026** — 4'lü ızgara yapısı korundu (yeniden düzenleme yapılmadı — daha büyük, riskli bir değişiklik olurdu). Etiketler tek kelimeye indirildi ("Gün Serisi"→"Seri", "Dakika Okuma"→"Dakika", "Keşfedilen Kelime"→"Kelime", "Kaydedilen Kart"→"Kart") ve `_buildStatTile`'daki etiket `Text`'i `maxLines: 1` + ellipsis yapıldı — artık hiçbir koşulda 2 satıra kırılmıyor, 4 kutu da eşit yükseklikte.
+
 **P1-7 · Sıfır duvarı** — Lobi'de 0/5 + 0 yeni + üç kitapta %0; Kitaplık'ta 4 istatistikten 3'ü 0; Profil'de %0. Değer 0 iken sayı yerine davet varyantı ("İlk kelimeni avla"). → İlk oturum, kalma kararının verildiği yer.
 
 **P1-8 · Kesilen metinler** — Varsayılan boyutta 4 kesilme: "The Adventures o…", "…sadece 31 XP k…", "Odaklı Ç… Seansı", "Devam ediyor" yarım. Başlıklara 2 satır, tek satıra sığmayan açıklamalar kart içine. Sonra ölçekleme testi (A-5 / I-2). → Bugün kesiliyorsa büyük yazıda dağılır.
 
 **P1-9 · Şifreli meta** — "Mark Twain · %0 · 🧠4 ⭐0" → "%0 okundu · 4 kart". → MVP testlerinde çıkan bilişsel yükün tipik örneği.
+
+**✅ 18.09.2026** — `library_screen.dart`'taki satır tam olarak dokümanın hedeflediği formata çevrildi: `'%$readingPercentage okundu · $discoveredWords kart'` (yazar adı ve ⭐ ustalık sayısı kaldırıldı).
 
 **P1-10 · Gutenberg banner'ı** — Kalıcı yer tutuyor; "Kitap Ekle" akışına veya ekran altı dipnota. → Her açılışta okunmayan metin listeyi aşağı itiyor.
 

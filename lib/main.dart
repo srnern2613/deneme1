@@ -27,6 +27,7 @@ import 'streak_freeze_service.dart';
 import 'ai_coach_screen.dart';
 import 'core/coach/ignis_moments_engine.dart';
 import 'core/design_system/platform_tokens.dart';
+import 'core/design_system/primitives.dart'; // BookCover (P1-3)
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -319,17 +320,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     refreshDashboardStats();
   }
 
-  Color _getBookBadgeColor(String title) {
-    final colors = [
-      const Color(0xFF38BDF8),
-      const Color(0xFF10B981),
-      const Color(0xFFF59E0B),
-      const Color(0xFFEC4899),
-      const Color(0xFFA855F7),
-    ];
-    return colors[title.length % colors.length];
-  }
-
+  // P1-3: kitap monogramı/rengi artık core/design_system/primitives.dart'taki
+  // paylaşılan BookCover widget'ından geliyor (Kitaplık'la aynı mantık).
   String _formatNumber(int number) {
     if (number >= 1000) {
       return '${(number / 1000).toStringAsFixed(1)}k';
@@ -841,7 +833,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               final progress = (book.currentPage / totalPages).clamp(0.0, 1.0);
                               final percent = (progress * 100).toInt();
                               final isSelected = index == 0;
-                              final badgeColor = _getBookBadgeColor(book.title);
 
                               return Padding(
                                 padding: const EdgeInsets.only(right: 12),
@@ -865,21 +856,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        Container(
-                                          width: 28,
-                                          height: 28,
-                                          decoration: BoxDecoration(
-                                            color: badgeColor.withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              book.title.isNotEmpty ? book.title[0].toUpperCase() : 'B',
-                                              style: GoogleFonts.lora(color: badgeColor, fontWeight: FontWeight.bold, fontSize: 14),
-                                            ),
-                                          ),
-                                        ),
+                                        BookCover(title: book.title),
                                         const Spacer(),
                                         Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
                                         const SizedBox(height: 2),
