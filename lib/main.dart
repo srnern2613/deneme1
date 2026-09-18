@@ -246,10 +246,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // versiyonu. Popup beklemeden her zaman güncel istatistik gösterir.
   IgnisDailyStatus? _dailyStatus;
 
+  // P1-13: "Derse Başla" hero kartı scroll'da görünürlükten çıkınca,
+  // tab bar üstüne oturan yarı saydam bir aksiyon çubuğu belirir
+  // (App Store "Get" davranışı) — böylece CTA başparmak menzili dışına
+  // düşse bile her zaman erişilebilir kalır.
+  final ScrollController _scrollController = ScrollController();
+  bool _showStickyCta = false;
+
   @override
   void initState() {
     super.initState();
     refreshDashboardStats();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final shouldShow = _scrollController.offset > 380;
+    if (shouldShow != _showStickyCta) {
+      setState(() => _showStickyCta = shouldShow);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onStartLessonTap() {
+    if (_activeBook != null) {
+      _openReaderDirectly(_activeBook!);
+    } else {
+      widget.onNavigateToFlashcards();
+    }
   }
 
   Future<void> refreshDashboardStats() async {
@@ -336,7 +365,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final status = _dailyStatus;
     final hasActivity = status?.hasActivityToday ?? false;
 
-    return Container(
+    // P1-15: kart artık pasif değil — dokununca zindan/pratik akışına götürüyor
+    // (hero CTA'nın kullandığı aynı callback).
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onNavigateToFlashcards,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -412,6 +448,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ],
       ),
+        ),
+      ),
     );
   }
 
@@ -480,6 +518,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // 2. KATMAN: LOBİ İÇERİĞİ[cite: 3]
           SafeArea(
             child: SingleChildScrollView(
+              controller: _scrollController,
               physics: const BouncingScrollPhysics(),
               // UI/UX Düzeltme Listesi — P0-1: sabit 100 yerine gerçek bar
               // yüksekliği + viewPadding.bottom + 16'dan okunuyor.
@@ -659,7 +698,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               ),
                               const SizedBox(height: 6),
-                              Text('Günlük Hedef • $_todayLearnedCards/$_dailyTargetCards Kelime', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12)),
+                              // P1-7: "0/5 Kelime" çıplak sıfırı, ilk oturumda davet mesajına dönüşür.
+                              Text(
+                                _todayLearnedCards == 0
+                                    ? 'Bugün henüz kelime öğrenmedin • Hedef: $_dailyTargetCards'
+                                    : 'Günlük Hedef • $_todayLearnedCards/$_dailyTargetCards Kelime',
+                                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12),
+                              ),
                               const SizedBox(height: 18),
                               Row(
                                 children: [
@@ -679,13 +724,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               const SizedBox(height: 16),
                               InkWell(
-                                onTap: () {
-                                  if (_activeBook != null) {
-                                    _openReaderDirectly(_activeBook!);
-                                  } else {
-                                    widget.onNavigateToFlashcards();
-                                  }
-                                },
+                                onTap: _onStartLessonTap,
                                 borderRadius: BorderRadius.circular(24),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
@@ -858,9 +897,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       children: [
                                         BookCover(title: book.title),
                                         const Spacer(),
-                                        Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                                        // P1-8: dar kart genişliğinde tek satır uzun başlıkları
+                                        // ("The Adventures of Tom Sawyer") ortadan kesiyordu — 2 satıra çıkarıldı.
+                                        Text(book.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13, height: 1.15)),
                                         const SizedBox(height: 2),
-                                        Text('%$percent okundu', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 10)),
+                                        // P1-7: "%0 okundu" yerine davet metni.
+                                        Text(
+                                          percent == 0 ? 'Yeni kitap ✨' : '%$percent okundu',
+                                          style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 10),
+                                        ),
                                         const SizedBox(height: 6),
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(4),
@@ -1000,6 +1045,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+
+          // 3. KATMAN — P1-13: "Derse Başla" hero kartı scroll'da görünürlükten
+          // çıkınca beliren, tab bar üstüne oturan yarı saydam aksiyon çubuğu.
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 16,
+            child: IgnorePointer(
+              ignoring: !_showStickyCta,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                offset: _showStickyCta ? Offset.zero : const Offset(0, 0.4),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 220),
+                  opacity: _showStickyCta ? 1.0 : 0.0,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _onStartLessonTap,
+                      borderRadius: BorderRadius.circular(24),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)]),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 6))],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(PhosphorIcons.playFill, size: 15, color: Color(0xFF070B14)),
+                            const SizedBox(width: 8),
+                            Text('Derse Başla', style: GoogleFonts.outfit(color: const Color(0xFF070B14), fontWeight: FontWeight.w900, fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

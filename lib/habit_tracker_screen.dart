@@ -529,11 +529,33 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                       ),
                       child: const Icon(PhosphorIcons.trashBold, color: Colors.white),
                     ),
+                    // P1-18: onay diyaloğu yerine anında sil + 4 sn "Geri Al"
+                    // bildirimi (HIG fault tolerance — kontrol vermek, her
+                    // adımda izin istemekten daha iyi).
                     onDismissed: (_) {
                       HapticFeedback.mediumImpact();
+                      final removedHabit = habit;
+                      final removedIndex = index;
                       setState(() {
                         _habits.removeAt(index);
                       });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          duration: const Duration(seconds: 4),
+                          backgroundColor: const Color(0xFF1F2937),
+                          content: Text('"${removedHabit['title']}" silindi.', style: GoogleFonts.inter(color: Colors.white)),
+                          action: SnackBarAction(
+                            label: 'Geri Al',
+                            textColor: const Color(0xFFF59E0B),
+                            onPressed: () {
+                              setState(() {
+                                final insertAt = removedIndex.clamp(0, _habits.length);
+                                _habits.insert(insertAt, removedHabit);
+                              });
+                            },
+                          ),
+                        ),
+                      );
                     },
     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

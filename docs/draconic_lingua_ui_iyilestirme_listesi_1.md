@@ -77,13 +77,19 @@ Sezon kartında ejderha "#1. Sıra" pill'inin üstünde ve rozet kart kenarında
 
 **P1-5 · Profil satır yüksekliği** — ~86pt. iOS gruplu liste 44–60, Material 56–72. Dikey padding düşecek. → 4 satır için scroll ediliyor.
 
+**✅ 18.09.2026** — `_buildSettingsRow`'daki dikey padding 13'ten 9'a indirildi, satır yüksekliği ~86pt'ten iOS gruplu liste aralığına düştü.
+
 **P1-6 · Kitaplık istatistik şeridi** — 4 sütun × ~82pt; etiketler 2 satıra kırılıyor, kart yüksekliği eşitlenmemiş. 2×2 grid veya tek satır özet (`1 gün · 0 dk · 0 kelime · 0 kart`). → 360dp'de kesin taşıyor (A-4).
 
 **✅ 18.09.2026** — 4'lü ızgara yapısı korundu (yeniden düzenleme yapılmadı — daha büyük, riskli bir değişiklik olurdu). Etiketler tek kelimeye indirildi ("Gün Serisi"→"Seri", "Dakika Okuma"→"Dakika", "Keşfedilen Kelime"→"Kelime", "Kaydedilen Kart"→"Kart") ve `_buildStatTile`'daki etiket `Text`'i `maxLines: 1` + ellipsis yapıldı — artık hiçbir koşulda 2 satıra kırılmıyor, 4 kutu da eşit yükseklikte.
 
 **P1-7 · Sıfır duvarı** — Lobi'de 0/5 + 0 yeni + üç kitapta %0; Kitaplık'ta 4 istatistikten 3'ü 0; Profil'de %0. Değer 0 iken sayı yerine davet varyantı ("İlk kelimeni avla"). → İlk oturum, kalma kararının verildiği yer.
 
+**✅ 18.09.2026** — Lobi'de "Günlük Hedef • 0/5 Kelime" → "Bugün henüz kelime öğrenmedin" davetine, kitap kartlarındaki "%0 okundu" → "Yeni kitap ✨"'e, Profil'deki "%0 Tamamlandı" → "Henüz başlamadın"'a çevrildi. Kitaplık'taki kitap satırı zaten (P1-9'da) düzeltilmişti. Kitaplık'ın 4'lü istatistik ızgarası (Seri/Dakika/Kelime/Kart) ve Lobi'nin "Günlük Durum" kartındaki alt-değerler (Yeni Kelime/Tekrar/Yarın Bekleyen) bilinçli olarak sayı olarak bırakıldı — Apple Sağlık tarzı istatistik kutucuklarında "0" başlı başına anlamlı bir değerdir, davet metnine çevirmek karmaşıklık katar.
+
 **P1-8 · Kesilen metinler** — Varsayılan boyutta 4 kesilme: "The Adventures o…", "…sadece 31 XP k…", "Odaklı Ç… Seansı", "Devam ediyor" yarım. Başlıklara 2 satır, tek satıra sığmayan açıklamalar kart içine. Sonra ölçekleme testi (A-5 / I-2). → Bugün kesiliyorsa büyük yazıda dağılır.
+
+**✅ 18.09.2026 (kısmen)** — 4 örnekten 2'si kod içinde bulunup düzeltildi: **(1)** Lobi'nin "Devam Eden Kitaplar" karuselindeki kitap başlığı ("The Adventures of Tom Sawyer") 110px'lik dar kartta tek satıra sığmıyordu — `maxLines: 1`→`2`. **(2)** Profil'deki lig rakibi metni ("...'i geçmek için sadece $gap XP kaldı!") `maxLines` hiç ayarlanmamıştı — yalnız `overflow: ellipsis` vardı ve tek başına hiçbir işe yaramıyordu (`Text` sınırsız satıra sarıyordu, gerçekte sözcük ortasından değil satır taşmasından kesiliyordu); `maxLines: 1` eklendi, artık gerçekten kontrollü kesiliyor. **Diğer 2 örnek koda bakılarak bulunamadı:** "Odaklı Ç… Seansı" tam eşleşmiyor (en yakını `leaderboard_screen.dart`'taki "Odaklı Okuma Seansı", zaten `maxLines: 2`) ve "Devam ediyor" ifadesi kod tabanında hiç yok — denetim yapıldığı tarihten bu yana metinler değişmiş ya da ekran görüntüsü farklı bir sürüme ait olabilir; tahminle "benzer" bir metni değiştirip yanlış yeri düzeltmek riskli olacağından dokunulmadı. A-5/I-2 (font ölçekleme testi) cihazda test gerektiriyor, bu turda yapılamadı.
 
 **P1-9 · Şifreli meta** — "Mark Twain · %0 · 🧠4 ⭐0" → "%0 okundu · 4 kart". → MVP testlerinde çıkan bilişsel yükün tipik örneği.
 
@@ -99,21 +105,35 @@ Kontrast: her görsel farklı parlaklık dağılımına sahip olduğu için scri
 
 **P1-12 · Lobi marka kilidi** — Logo + wordmark ≈150pt, ilk ekranın %11'i. Logo ≈40pt, wordmark başlık alanına, scroll'da küçülme. → Marka onboarding'in işi, ana ekranın işi bugünün görevi.
 
+**İncelendi, kod değişikliği yapılmadı (18.09.2026):** Ölçüldüğünde logo `SizedBox` yüksekliği zaten 72 (1.35x scale ile ~97pt), dokümanın tahmin ettiği ~150pt değil — ayrı, dev bir wordmark bloğu da yok, HUD sayaçlarıyla aynı satırda. Scroll'da küçülme animasyonu (dinamik header) ayrı, daha büyük ve sübjektif bir iş — P1-2 gibi ertelendi.
+
 **P1-13 · Ana CTA başparmak dışında** — "Derse Başla" üst %30'da. Kahraman kartı kalır; kart görüş alanından çıkınca tab bar üstüne oturan yarı saydam aksiyon çubuğu belirir. → App Store "Get" davranışı.
+
+**✅ 18.09.2026** — Tam olarak dokümanın tarif ettiği gibi: hero karttaki buton yerinde kalıyor, `ScrollController` ile scroll pozisyonu izleniyor, `offset > 380` olunca (hero kart görüş alanından çıkınca) ekranın altında `AnimatedSlide`+`AnimatedOpacity` ile beliren yarı saydam "Derse Başla" çubuğu ekleniyor. Aynı `_onStartLessonTap` (aktif kitap varsa okuyucuyu, yoksa kelime egzersizini açan) callback'i her iki CTA'da da kullanılıyor.
 
 **P1-14 · Etiketsiz kalkan** — Lobi HUD'unda değer/etiket yok. Durum eklenecek ("Seri koruma: 1") ya da Profil'e taşınacak. → İkon-only öğe bilmece kuruyor.
 
 **P1-15 · "Günlük Durum" pasif** — 25 bekleyen tekrar çekirdek döngü ama kart tıklanabilir görünmüyor. Kartın tamamı → Zindan oturumu, chevron eklenecek. → Aksiyona dönüşmeyen sayı gürültü.
 
+**✅ 18.09.2026** — Kart artık `Material`+`InkWell` ile tamamen tıklanabilir (dokunma dalgası efektiyle), `onTap` hero CTA ile aynı akışa (`_onStartLessonTap` → aktif kitap/kelime egzersizi) gidiyor. Ayrı bir chevron ikonu eklenmedi — kartın tamamı zaten tek bir dokunma hedefi.
+
 **P1-16 · Kod karışımı** — "Mastered Words Vitrini" → "Kalıcı Hafıza"; açıklama kısalacak ("4 kelimeden 0'ı kalıcı hafızada"). → Türkçe arayüz kararıyla çelişiyor.
+
+**✅ 18.09.2026** — Başlık dokümanın önerdiği "Kalıcı Hafıza"ya çevrildi. Açıklama satırı zaten tamamen Türkçeydi (yalnızca başlık karışıktı) — dokunulmadı.
 
 **P1-17 · Profil "Ayarlar" olmayı tamamlamamış** — İstatistikler üstte kompakt blok; altına Premium, Bildirimler, Uygulama dili, Verilerimi sıfırla, **Satın alımları geri yükle**, Gizlilik/Şartlar, Sürüm. → Master Plan'daki iOS Ayarlar hedefi; geri yükleme App Store zorunluluğu.
 
+**✅ 18.09.2026 (kısmen)** — Yeni bir "Ayarlar" bölümü eklendi (`_buildAyarlarSection`), iki gerçekten çalışan satırla: **Satın Alımları Geri Yükle** (I-5, aşağıda detay) ve **Sürüm** (pubspec'ten elle `1.0.0` — `package_info_plus` bağımlılığı eklenmediği için sabit, sürüm değiştikçe elle güncellenmeli). **Bilinçli olarak EKLENMEDİ:** Premium (zaten kozmetik çerçeve seçiminde dolaylı bir paywall tetikleyicisi var, ayrı bir satır eklemek kafa karıştırıcı olurdu — ayrı bir karar gerektirir), Bildirimler (A-10'daki bildirim izni altyapısı henüz kurulmadı, arkası boş bir anahtar olurdu), Uygulama dili (çok-dilli mimari planı henüz uygulanmadı), Verilerimi sıfırla (hangi tabloların silineceği ayrı bir kapsam kararı gerektiriyor — yanlış silme riski, aceleye getirilmedi), Gizlilik/Şartlar (gerçek bir URL yok, sahte link yanıltıcı olurdu).
+
 **P1-18 · Undo yok** — Kelime silme / kitap kaldırma / kart sıfırlama geri alınamıyor. Onay diyaloğu yerine aksiyon + 4-5 sn "Geri al" bildirimi (aksiyon çubuğunun üstünde); kalıcı silmede onay kalır. → HIG fault tolerance: kontrol vermek > her adımda izin istemek.
+
+**✅ 18.09.2026 (kısmen)** — İnceleme sonucu üç ayrı silme yolu bulundu: (1) `dictionary_screen.dart` kelime silme — zaten onay diyaloğu var, dokunulmadı; (2) `habit_tracker_screen.dart` alışkanlık silme (`Dismissible` ile kaydırarak) — onay YA DA undo yoktu, en net boşluk buydu; 4 saniyelik "Geri Al" `SnackBar`'ı eklendi (silinen öğe + index saklanıp `SnackBarAction`'da geri ekleniyor); (3) `library_screen.dart`'ta kitap kaldırma özelliği hiç yok — kapsam dışı, dokunacak bir şey bulunamadı. "Kart sıfırlama" (flashcard SRS reset) için ayrı bir aksiyon da koddan bulunamadı.
 
 **P1-19 · 8pt grid kayması** — Kart boşlukları 12/14/20 arasında geziniyor. Tek token seti (`4, 8, 12, 16, 24, 32`). → Tek tek fark edilmiyor, toplamda özensiz.
 
 **P1-20 · İç içe scroll** — Kitaplık'ta kitap listesi ayrı scroll alanı gibi: 4. kart tepeden yarım, altta büyük boşluk. Ekran tek sliver yapıya. → İçerik sonu yanlış gösteriliyor.
+
+**✅ Zaten çözülmüş bulundu (18.09.2026):** `library_screen.dart` incelendiğinde iç içe scroll yapısı yok — dış katman kaydırılmayan bir `Column`, kitap listesi (`ListView.separated`) `Expanded` içinde tek scroll alanı olarak kalan yüksekliği dolduruyor. Dokümandaki ekran görüntüsü muhtemelen bu düzenlemeden önceki bir sürüme aitti — kod tarafında değişiklik gerekmedi.
 
 ---
 
@@ -190,6 +210,9 @@ Yaklaşım: painter'ların iç mantığına dokunmadan yalnızca renk parametrel
 V2'de mağaza kalktığı için etki alanı küçük; ödül animasyonları başka yerde kullanılacaksa bu madde büyür.
 
 **T-6 · Tema anahtarının yeri ve davranışı**
+
+**✅ 18.09.2026 (düzeltme + tamamlama)** — Bu maddeyi önce "işlevsel bir Aydınlık tema yok, bloklu" diye yanlış işaretlemiştim; incelerken `main.dart`'ta zaten Sıra 1'den kalma tam bir `ThemeController`/`DraconicTheme` alt yapısının (parşömen paleti dahil, `shared_preferences`'a kayıt, `lerp` ile yumuşak geçiş) var olduğunu fark ettim — yalnızca hiçbir ekranda GERÇEK bir anahtar (segmented control) yoktu. `profile_screen.dart`'a Profil > Görünüm bölümü eklendi: "Zindan"/"Parşömen" iki butonlu bir seçici, `ThemeController.instance.setDark(true/false)` çağırıyor, `AnimatedBuilder` ile canlı güncelleniyor. **Önemli sınır:** ekranların büyük çoğunluğu hâlâ kendi ham hex renklerini kullanıyor (T-1'in geri kalanı — ~600 hex literalinin `DraconicTheme` token'larına taşınması — henüz yapılmadı), bu yüzden anahtar şu an gerçekten çalışıyor ve tercihi kalıcı saklıyor ama görünür etkisi sınırlı (yalnızca `MaterialApp`'in temel arka planı değişir, ekranların kendi `Scaffold`'ları kendi sabit rengini eziyor). T-1 ekran ekran ilerledikçe bu anahtarın etkisi büyüyecek.
+
 Profil > Görünüm altında iki seçenekli segmented control: **Zindan (Karanlık)** / **Parşömen (Aydınlık)**. Sistem seçeneği yok.
 Tercih `shared_preferences`'ta saklanır (yeni anahtar; mevcut anahtarlara dokunulmaz). Uygulama açılışında ilk kare doğru temayla çizilmeli — açılışta karanlıktan aydınlığa sıçrama olmamalı.
 Geçiş anında yumuşak renk animasyonu (~200ms) kullanılır, sert sıçrama değil.
@@ -200,8 +223,12 @@ Varsayılan: Karanlık.
 Gerekçe: parlak ortamda gözbebeği küçülür, koyu zemindeki ince metin bulanıklaşır — güneş altında koyu zeminde okumak fiziksel olarak zor. Kindle ve Apple Books bu yüzden ayrı okuma modu veriyor.
 Okuyucu zemini uygulama temasını takip edebilir ama kullanıcı ayrıca değiştirebilmeli; bu tercih de ayrı anahtarda saklanır.
 
+**✅ Zaten çözülmüş bulundu (18.09.2026):** `reader_screen.dart` incelendiğinde bunun zaten var olduğu görüldü — `ReaderTheme` enum'ı `light`/`sepia`/`dark` (ücretsiz varsayılan) + 6 mağaza kozmetiği (`neon`/`parchment`/`nordic`/`espresso`/`oled`/`sakura`) içeriyor; her biri kendi `_backgroundColor`/`_textColor` getter'ına sahip, uygulama temasından tamamen bağımsız. Kullanıcı "Aa" ayar panelinden (`_openSettingsBottomSheet`) 3×3 ızgaradan seçiyor, tercih `XpShopService.setActiveCosmetic('reading_theme', ...)` ile ayrı bir anahtarda saklanıyor. Dokümanın istediğinden daha kapsamlı bir sistem zaten mevcuttu — kod tarafında değişiklik gerekmedi.
+
 **T-8 · Her iki temada doğrulama**
 Tema eklemek, mevcut her ekranı iki kere kontrol etmek demek. Özellikle: ilerleme çubukları, devre dışı (disabled) buton durumları, placeholder/ikincil metinler, ayırıcı çizgiler, seçili liste satırı, snackbar/undo bildirimi. Bunlar tek temada tasarlandığında diğerinde tipik olarak kayboluyor.
+
+**T-8, A-5, I-2, I-7 bilinçli olarak bu turda YAPILMADI (18.09.2026):** Bu 4 madde iki ortak ön koşuldan birine bağlı — ya işlevsel bir Aydınlık tema (T-8, I-7 — bkz. T-6'daki blok notu; not: main.dart'ta bu oturum sırasında ayrıca bir `ThemeController`/`DraconicTheme` altyapısının ortaya çıktığı görüldü, muhtemelen proje sahibi paralel çalışıyor — T-1/T-6 zinciri ilerlerse bu 2 madde tekrar gözden geçirilmeli) ya da fiziksel bir cihazda çalıştırıp ölçmek (A-5: %200 font scale, I-2: 1.3x Dynamic Type) — bu oturumda cihaz erişimi yok, kod okuyarak güvenilir şekilde doğrulanamaz.
 
 ---
 
@@ -236,6 +263,7 @@ Tema eklemek, mevcut her ekranı iki kere kontrol etmek demek. Özellikle: ilerl
 **I-3** Kenardan geri jestiyle reader/flashcards çıkışında da `ReadingSessionResult` dönmeli (A-6'nın iOS karşılığı).
 **I-4** Home indicator `viewPadding.bottom`'dan; sabit 34 yazılmayacak.
 **I-5** "Satın alımları geri yükle" (P1-17 içinde) — App Store zorunluluğu.
+**✅ 18.09.2026** — `EntitlementRepository`'ye bağımsız bir `restorePurchases()` metodu eklendi (`Purchases.restorePurchases()` sarmalayıcısı, önceden bu yalnızca paywall UI'ı içinde dolaylıydı); Profil > Ayarlar'daki "Satın Alımları Geri Yükle" satırı bunu çağırıp sonucu bir `SnackBar` ile bildiriyor.
 **I-6** Seri kazanma / kelime ustalaşma / ders bitişinde hafif haptik; tek kod yolundan, Android'de de çalışır.
 **I-7** Status bar ikon rengi temaya bağlanacak (A-1'in iOS karşılığı): karanlık temada açık, parşömen temada koyu.
 

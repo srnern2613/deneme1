@@ -25,6 +25,7 @@ import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/entitlement/paywall_trigger.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/design_system/platform_tokens.dart';
+import 'core/theme/theme_controller.dart'; // T-6: Görünüm anahtarı
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -504,6 +505,16 @@ class ProfileScreenState extends State<ProfileScreen> {
                   _buildSettingsStyleStatsList(),
                   const SizedBox(height: 22),
                   _buildAchievementsGrid(),
+                  const SizedBox(height: 22),
+                  // T-6: Zindan/Parşömen görünüm anahtarı — alt yapı
+                  // (ThemeController/DraconicTheme) Sıra 1'de kurulmuştu ama
+                  // hiçbir ekranda gerçek bir kontrol yoktu, bu boşluğu kapatıyor.
+                  _buildAppearanceSection(),
+                  const SizedBox(height: 12),
+                  // P1-17: Profil'e gerçek bir "Ayarlar" bölümü — önceden
+                  // yalnızca istatistik kısayolları vardı, satın alma/sürüm
+                  // gibi Apple Ayarlar'ın beklediği temel satırlar yoktu.
+                  _buildAyarlarSection(),
                 ],
               ),
             ),
@@ -838,7 +849,9 @@ class ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     const Text('🟢', style: TextStyle(fontSize: 16)),
                     const SizedBox(width: 8),
-                    Text('Mastered Words Vitrini', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+                    // P1-16: İngilizce/Türkçe karışımı ("Mastered Words Vitrini")
+                    // tamamen Türkçe başlığa çevrildi.
+                    Text('Kalıcı Hafıza', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
                   ],
                 ),
                 Row(
@@ -847,7 +860,11 @@ class ProfileScreenState extends State<ProfileScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                       decoration: BoxDecoration(color: const Color(0xFF34D399).withValues(alpha: 0.16), borderRadius: BorderRadius.circular(10)),
-                      child: Text('%$percentInt Tamamlandı', style: GoogleFonts.outfit(color: const Color(0xFF6EE7B7), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                      // P1-7: "%0 Tamamlandı" yerine davet metni.
+                      child: Text(
+                        percentInt == 0 ? 'Henüz başlamadın' : '%$percentInt Tamamlandı',
+                        style: GoogleFonts.outfit(color: const Color(0xFF6EE7B7), fontWeight: FontWeight.bold, fontSize: 11.5),
+                      ),
                     ),
                     const SizedBox(width: 6),
                     const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 14),
@@ -908,11 +925,16 @@ class ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 3),
+                  // P1-8: maxLines eksikti, tek başına overflow:ellipsis hiçbir işe
+                  // yaramıyordu (Text sınırsız satıra sarıyordu) — metin gerçekte
+                  // sözcük ortasından ("...sadece 31 XP k...") kesiliyordu. Artık
+                  // gerçekten tek satırda kesiliyor.
                   Text(
                     _leagueRank <= 1
                         ? 'Zirvedesin! Kimse seni geçemiyor 👑'
                         : '$_leagueRivalName\'i geçmek için sadece $_leagueXpGap XP kaldı!',
                     style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -958,7 +980,8 @@ class ProfileScreenState extends State<ProfileScreen> {
     return InkWell(
       onTap: row.onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        // P1-5: satır yüksekliği ~86pt'ten iOS gruplu liste aralığına indirildi.
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         child: Row(
           children: [
             Container(
@@ -976,6 +999,149 @@ class ProfileScreenState extends State<ProfileScreen> {
             const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF475569), size: 14),
           ],
         ),
+      ),
+    );
+  }
+
+  // P1-17: Ayarlar bölümü — şimdilik yalnızca alt yapısı hazır iki satır
+  // (satın alma geri yükleme + sürüm). Bildirimler, Uygulama dili,
+  // Verilerimi sıfırla ve Gizlilik/Şartlar bilinçli olarak bu turda
+  // EKLENMEDİ: Bildirimler için A-10'daki bildirim izni altyapısı henüz
+  // kurulmadı; Uygulama dili çok-dilli mimari planı henüz uygulanmadı
+  // (bkz. yayin_oncesi_kontrol_listesi.md); Verilerimi sıfırla, hangi
+  // tabloların/anahtarların silineceğine dair ayrı bir kapsam kararı
+  // gerektiriyor (yanlış silme riski); Gizlilik/Şartlar için gerçek bir
+  // URL yok — sahte bir link koymak yanıltıcı olur. Sahte/pasif satırlar
+  // yerine gerçekten çalışan iki satır eklendi.
+  Widget _buildAyarlarSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: _handleRestorePurchases,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              child: Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(color: const Color(0xFF818CF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(9)),
+                    child: const Icon(PhosphorIcons.arrowClockwiseBold, color: Color(0xFF818CF8), size: 16),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text('Satın Alımları Geri Yükle', style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                  ),
+                  const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF475569), size: 14),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFF1F2937), indent: 56),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(color: const Color(0xFF64748B).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(9)),
+                  child: const Icon(PhosphorIcons.infoBold, color: Color(0xFF64748B), size: 16),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text('Sürüm', style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+                Text('1.0.0', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // T-6: Profil > Görünüm — Zindan (Karanlık) / Parşömen (Aydınlık) arasında
+  // iki seçenekli segmented control. NOT: ekranların büyük çoğunluğu hâlâ
+  // kendi ham hex renklerini kullanıyor (T-1'in geri kalanı tamamlanmadı),
+  // bu yüzden bu anahtarın şu an GÖRÜNÜR etkisi sınırlı — yalnızca
+  // MaterialApp'in `scaffoldBackgroundColor`'ı ve `DraconicTheme` extension'ı
+  // değişir. Ekranlar teker teker `Theme.of(context).extension<DraconicTheme>()`'e
+  // taşındıkça bu anahtarın etkisi büyüyecek.
+  Widget _buildAppearanceSection() {
+    return AnimatedBuilder(
+      animation: ThemeController.instance,
+      builder: (context, _) {
+        final isDark = ThemeController.instance.isDark;
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFF1F2937), width: 1),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text('Görünüm', style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+              ),
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(color: const Color(0xFF070B14), borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildAppearanceOption(label: 'Zindan', selected: isDark, onTap: () {
+                      HapticFeedback.selectionClick();
+                      ThemeController.instance.setDark(true);
+                    }),
+                    _buildAppearanceOption(label: 'Parşömen', selected: !isDark, onTap: () {
+                      HapticFeedback.selectionClick();
+                      ThemeController.instance.setDark(false);
+                    }),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAppearanceOption({required String label, required bool selected, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(9),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFF59E0B) : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700, color: selected ? const Color(0xFF070B14) : const Color(0xFF94A3B8)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleRestorePurchases() async {
+    HapticFeedback.selectionClick();
+    final restored = await EntitlementRepository.instance.restorePurchases();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(restored ? 'Satın alımların geri yüklendi.' : 'Geri yüklenecek bir satın alma bulunamadı.'),
+        backgroundColor: const Color(0xFF1F2937),
       ),
     );
   }

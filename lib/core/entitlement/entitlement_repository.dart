@@ -100,4 +100,20 @@ class EntitlementRepository {
       return false;
     }
   }
+
+  /// I-5 (App Store zorunluluğu): paywall açmadan, doğrudan "satın alımları
+  /// geri yükle". Önceden bu yalnızca presentPaywall() içinde dolaylı olarak
+  /// (RevenueCat'in kendi paywall UI'ı üzerinden) mümkündü — Profil'de ayrı
+  /// bir buton için bağımsız bir yol gerekiyordu. Başarı/başarısızlık,
+  /// isPremiumNotifier'ın son hâline bakılarak anlaşılır (true/false döner).
+  Future<bool> restorePurchases() async {
+    try {
+      final info = await Purchases.restorePurchases();
+      _onCustomerInfoUpdated(info);
+      return isPremium;
+    } catch (e) {
+      debugPrint('Satın alımlar geri yüklenemedi: $e');
+      return false;
+    }
+  }
 }
