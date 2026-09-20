@@ -20,6 +20,7 @@ enum IgnisMomentType {
   paceInsight,
   dailySummary,
   streakLost,
+  dailyGoalCompleted,
 }
 
 class IgnisMoment {
@@ -64,6 +65,10 @@ class IgnisMomentsEngine {
   // gösteriliyor — seans-sonu "önemli an" sıklık kuralıyla PAYLAŞMIYOR,
   // kendi günlük kilidini kullanıyor.
   static const _prefsLastStreakLossDateKey = 'ignis_last_streak_loss_moment_date';
+  // Faz F2: günlük hedef tamamlanınca gösterilen "loving" anı — kendi
+  // günlük kilidini kullanır, seri kaybı/önemli an sıklık kurallarıyla
+  // PAYLAŞMAZ (aynı desen: bkz. _prefsLastStreakLossDateKey).
+  static const _prefsLastDailyGoalDateKey = 'ignis_last_daily_goal_moment_date';
   static const List<int> _streakMilestones = [7, 30, 100];
 
   String _todayKey() {
@@ -167,6 +172,31 @@ class IgnisMomentsEngine {
       title: 'Serin Kırıldı...',
       message: 'Sorun değil, herkesin ara verdiği günler olur. Bugün yeniden başlayalım — '
           'bir sonraki serin daha güçlü olacak!',
+    );
+  }
+
+  /// Faz F2 — Uygulama açılışında (Ana Sayfa yüklenirken) çağrılır. Günlük
+  /// kelime hedefine o gün ilk kez erişildiğinde Ignis'in sevgi dolu/gurur
+  /// pozuyla (loving.webp) kutlanır — seri kilometre taşından (celebrating)
+  /// ve seri kaybından (sad) AYRI bir duygu: burada "bugünü başardın"
+  /// mesajı var, seri günü sayısıyla ilgisi yok. Günde en fazla 1 kez
+  /// gösterilir.
+  Future<IgnisMoment?> getDailyGoalCompletedMoment({
+    required int learnedToday,
+    required int target,
+  }) async {
+    if (target <= 0 || learnedToday < target) return null;
+
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyShownToday = prefs.getString(_prefsLastDailyGoalDateKey) == _todayKey();
+    if (alreadyShownToday) return null;
+
+    await prefs.setString(_prefsLastDailyGoalDateKey, _todayKey());
+    return IgnisMoment(
+      type: IgnisMomentType.dailyGoalCompleted,
+      pose: 'loving',
+      title: 'Günlük Hedefin Tamam!',
+      message: 'Bugünkü $target kelimelik hedefini tamamladın. Bu istikrar seni çok uzağa taşıyacak — seninle gurur duyuyorum!',
     );
   }
 

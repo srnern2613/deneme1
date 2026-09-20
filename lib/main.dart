@@ -306,6 +306,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final learnedToday = prefs.getInt('daily_learned_words_$todayKey') ?? 0;
       final target = prefs.getInt('active_daily_word_target') ?? 5;
       final readMins = prefs.getInt('stats_total_read_minutes') ?? 0;
+
+      // Faz F2: seri kaybı anıyla AYNI frame'de iki pop-up birden açılmasın
+      // diye — seri kaybı önceliklidir, o yoksa günlük hedef anına bakılır.
+      final IgnisMoment? dailyGoalMoment = streakLossMoment == null
+          ? await IgnisMomentsEngine.instance.getDailyGoalCompletedMoment(
+              learnedToday: learnedToday,
+              target: target,
+            )
+          : null;
       // Elmas/XP artık uygulamanın tek gerçek kaynağı olan XpShopService
       // üzerinden okunuyor (diğer 6 ekranla birebir aynı kaynak ve
       // ValueNotifier'lar) — eskiden burada kullanılan 'gems_balance' /
@@ -349,6 +358,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: streakLossMoment.title,
             message: streakLossMoment.message,
             primaryLabel: 'Yeniden Başla 💪',
+          );
+        });
+      } else if (dailyGoalMoment != null && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          IgnisMomentDialog.show(
+            context,
+            pose: dailyGoalMoment.pose,
+            title: dailyGoalMoment.title,
+            message: dailyGoalMoment.message,
+            primaryLabel: 'Harika, Devam! 🔥',
           );
         });
       }

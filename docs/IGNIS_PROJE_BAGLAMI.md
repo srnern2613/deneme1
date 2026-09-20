@@ -82,10 +82,34 @@ bir yol haritasına bölündü ve cihaz üzerinde teker teker doğrulandı:
   kart küçük kalıp altında/üstünde hâlâ çıplak Scaffold görünüyordu), sonra
   `SliverFillRemaining` + `SizedBox.expand` ile "OKUMA YOLCULUĞUN" kartı kalan
   alanın TAMAMINI kaplayacak şekilde düzeltildi; emülatörde doğrulandı. ✅ Tamam
-- **Faz F** — (henüz başlanmadı) Duolingo tarzı karakter pop-up'ı (streak kaybı /
-  kutlama durumları, blur backdrop, 24pt radius, thumb-zone CTA butonları) +
-  Profil ayarlarında "Dev/Test Araçları" bölümü (her pop-up'ı elle tetikleyen
-  test butonları).
+- **Faz F** — Duolingo tarzı karakter pop-up'ı (`IgnisMomentDialog` — streak
+  kaybı/kutlama durumları, blur backdrop, 24pt radius, thumb-zone CTA
+  butonları) + `CelebrationDialog`'a gömülü Ignis konuşma balonu + Profil
+  ayarlarında "Dev/Test Araçları" bölümü (pop-up'ları elle tetikleyen test
+  butonları) + duygu ifadeli poz görselleri (`AppBranding.poseAsset`):
+  `celebrating`→excited.webp, `teacher`→thinking.webp, `sad`→sad.webp,
+  `greeting`→happy.webp (paywall sheet'inde kullanılıyor). ✅ Tamam
+- **Faz F2** — Kalan duygu görselleri (angry/loving/worried-suspicious) için
+  yeni tetikleyici noktalar: (1) Ana Sayfa'da günlük kelime hedefi ilk kez
+  tamamlandığında `loving` pozuyla ayrı bir kutlama pop-up'ı (streak
+  kilometre taşından bağımsız, kendi günlük kilidi —
+  `IgnisMomentsEngine.getDailyGoalCompletedMoment`); (2) Word Boss
+  savaşında hiç maskot YOKTU — zafer diyaloğuna `celebrating`, yenilgi
+  diyaloğuna `angry` (kullanıcıya değil bosse kızgın/azimli ton), savaştan
+  çıkış onayına `worried` pozu eklendi. ✅ Tamam
+- **Kitaplık footer düzeltmesi (2. tur)** — Faz E'deki "OKUMA YOLCULUĞUN"
+  `SliverFillRemaining` kartı kullanıcı talebiyle tamamen kaldırıldı; kitap
+  listesi artık doğal boyutunda bitiyor. ✅ Tamam
+- **Alt sekme etiketi kontrastı** — parşömen (aydınlık) temada alt navigasyon
+  sekme isimleri `main.dart`'ta `selectedLabelStyle`/`unselectedLabelStyle`'a
+  açıkça `color:` verilerek düzeltildi (tema tokenları zaten doğruydu, sorun
+  stilin rengi devralmamasıydı). ✅ Tamam
+- **Uygulama ikonu/splash** — Android 12+ native splash API sınırlaması
+  (tam afiş yerine sabit ~240dp dairesel ikon) `flutter_native_splash`
+  `android_12.image`'ı ikon-uyumlu görsele yönlendirilerek; ikonun beyaz
+  daire içinde küçülmesi `flutter_launcher_icons`'a açık
+  `adaptive_icon_background`/`adaptive_icon_foreground` eklenerek çözüldü.
+  `app_icon.png` kullanıcının referans görseliyle güncellendi. ✅ Tamam
 - **T-1 tema-token migrasyonu** — tüm egzersiz/mini-oyun ekranları (quiz/match/
   spelling/cloze/reverse-quiz/listening/speed-round/mixed-dungeon/word-boss/
   flashcards-exercise) ve `design_lab_screen.dart` dahil, tüm dosyalarda
@@ -100,6 +124,10 @@ bir yol haritasına bölündü ve cihaz üzerinde teker teker doğrulandı:
 - `ayarlar.webp` görseli henüz kullanılmadı — karşılığı Profil ekranındaki
   "Ayarlar" bottom sheet'i, tam ekran arka plan deseni orada doğal
   görünmeyebilir; kullanıcıyla netleştirilmeli.
+- `achievement_service.dart`'taki `checkAndUnlockAchievements()` hiçbir
+  ekrandan ÇAĞRILMIYOR — rozet sistemi kodda var ama hiçbir yerde
+  tetiklenmiyor/gösterilmiyor gibi görünüyor; ayrı bir iş olarak ele alınmalı
+  (bu oturumun kapsamı dışında bırakıldı, riskli/büyük bir refactor gerektirir).
 - İleride: aydınlık temanın önceliklendirilmesi, RPG temasının biraz geri plana
   alınıp eğitim içeriğinin öne çekilmesi (kullanıcının notu, henüz uygulanmıyor),
   Firebase hesap sistemi + buna bağlı lig/liderlik tablosu.

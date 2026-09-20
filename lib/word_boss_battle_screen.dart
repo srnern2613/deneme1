@@ -12,6 +12,7 @@ import 'database_helper.dart';
 import 'tts_service.dart';
 import 'xp_shop_service.dart';
 import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
+import 'core/branding/app_branding.dart'; // Faz F2: boss savaşına Ignis duygu pozları
 
 class WordBossBattleScreen extends StatefulWidget {
   final Map<String, dynamic> bossCard;
@@ -263,8 +264,10 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
         ),
         title: Column(
           children: [
-            const Text('🏆', style: TextStyle(fontSize: 44)),
+            _buildIgnisPoseAvatar('celebrating'),
             const SizedBox(height: 8),
+            const Text('🏆', style: TextStyle(fontSize: 30)),
+            const SizedBox(height: 4),
             Text(
               'BOSS DEFEATED!',
               style: GoogleFonts.outfit(color: _theme.successEmerald, fontWeight: FontWeight.w900, fontSize: 20),
@@ -335,8 +338,12 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
         ),
         title: Column(
           children: [
-            const Text('👹', style: TextStyle(fontSize: 44)),
+            // Faz F2: Ignis burada KULLANICIYA değil, bossa kızgın — "hadi
+            // rövanşa çıkalım" tonu, hayal kırıklığı değil savaş azmi.
+            _buildIgnisPoseAvatar('angry'),
             const SizedBox(height: 8),
+            const Text('👹', style: TextStyle(fontSize: 30)),
+            const SizedBox(height: 4),
             Text(
               'Boss Hâlâ Ayakta!',
               style: GoogleFonts.outfit(color: _theme.textPrimary, fontWeight: FontWeight.w900, fontSize: 19),
@@ -389,6 +396,21 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
     );
   }
 
+  // Faz F2: boss savaşı diyaloglarına Ignis'in duygu pozunu ekleyen ufak
+  // yardımcı — savaş sonucuna göre (zafer/yenilgi/uyarı) doğru ifadeyi
+  // gösterir. Bu ekranda daha önce HİÇ mascot görseli yoktu.
+  Widget _buildIgnisPoseAvatar(String pose, {double size = 52}) {
+    return ClipOval(
+      child: Image.asset(
+        AppBranding.poseAsset(pose),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => SizedBox(width: size, height: size),
+      ),
+    );
+  }
+
   Widget _buildRewardRow(String label, String value, Color valueColor) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -410,7 +432,15 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Savaştan çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Row(
+          children: [
+            _buildIgnisPoseAvatar('worried', size: 34),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text('Savaştan çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
         content: const Text(
           'Bossu yenmeden çıkarsan bu turdaki ilerleme kaybolur.',
           style: TextStyle(color: Color(0xFF94A3B8)),
