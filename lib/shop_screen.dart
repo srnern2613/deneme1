@@ -396,6 +396,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTodayActiveInventoryBar() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final List<Widget> activePills = [];
 
     if (_hasFreezeShield) activePills.add(_buildActivePill(icon: PhosphorIcons.shieldCheckBold, label: 'Seri Kalkanı', color: const Color(0xFF38BDF8)));
@@ -412,9 +413,9 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: theme.surfaceDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF1F2937)),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -449,6 +450,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildActivePill({required IconData icon, required String label, required Color color}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
       decoration: BoxDecoration(
@@ -461,7 +463,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
         children: [
           Icon(icon, color: color, size: 13),
           const SizedBox(width: 5),
-          Text(label, style: GoogleFonts.outfit(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+          Text(label, style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 11, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -470,9 +472,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       // Lobi'deki gibi nefes alan, custom başlık alanı — standart AppBar
       // sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
       // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları
@@ -493,7 +496,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 pinned: true,
                 delegate: _StickyTabBarDelegate(
                   child: Container(
-                    color: const Color(0xFF070B14),
+                    color: theme.background,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: SizedBox(
                       height: 44,
@@ -659,12 +662,13 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildShopHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        color: theme.surfaceDark.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+        border: Border.all(color: theme.borderSubtle, width: 1),
       ),
       child: ValueListenableBuilder<int>(
         valueListenable: listenable,
@@ -673,7 +677,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
           children: [
             Icon(icon, size: 15, color: color),
             const SizedBox(width: 4),
-            Text('$value', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            Text('$value', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
           ],
         ),
       ),
@@ -681,6 +685,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTabChip(int index, String label, IconData icon) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final bool isSelected = _selectedTabIndex == index;
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -692,10 +697,10 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF0F172A).withValues(alpha: 0.88),
+          color: isSelected ? const Color(0xFF6366F1) : theme.surfaceDark.withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? const Color(0xFF818CF8) : const Color(0xFF1F2937),
+            color: isSelected ? const Color(0xFF818CF8) : theme.borderSubtle,
             width: isSelected ? 1.5 : 1.0,
           ),
           boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 1)] : [],
@@ -703,12 +708,12 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isSelected ? Colors.white : const Color(0xFF94A3B8), size: 15),
+            Icon(icon, color: isSelected ? Colors.white : theme.textSecondary, size: 15),
             const SizedBox(width: 6),
             Text(
               label,
               style: GoogleFonts.outfit(
-                color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                color: isSelected ? Colors.white : theme.textSecondary,
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
               ),
@@ -720,6 +725,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildShieldWarningBanner() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return ValueListenableBuilder<Duration>(
       valueListenable: _timeUntilMidnightNotifier,
       builder: (context, remainingTime, _) {
@@ -740,8 +746,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_hasFreezeShield ? 'Serin Güvende!' : 'Kalkanın Yok!', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13.5, color: Colors.white)),
-                    Text('Kalan Süre: $timerString', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8))),
+                    Text(_hasFreezeShield ? 'Serin Güvende!' : 'Kalkanın Yok!', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13.5, color: theme.textPrimary)),
+                    Text('Kalan Süre: $timerString', style: GoogleFonts.inter(fontSize: 11, color: theme.textSecondary)),
                   ],
                 ),
               ),
@@ -753,13 +759,14 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildWagerCard() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: theme.surfaceDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFF1F2937)),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: Row(
         children: [
@@ -771,8 +778,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('7 Günlük Seri Bahsi', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13.5, color: Colors.white)),
-                Text(_isWagerActive ? 'Bahis Aktif! ($_wagerProgressDays/7 Gün)' : '50 💎 yatır, 7 gün oku, 100 💎 kazan!', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8))),
+                Text('7 Günlük Seri Bahsi', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13.5, color: theme.textPrimary)),
+                Text(_isWagerActive ? 'Bahis Aktif! ($_wagerProgressDays/7 Gün)' : '50 💎 yatır, 7 gün oku, 100 💎 kazan!', style: GoogleFonts.inter(fontSize: 11, color: theme.textSecondary)),
               ],
             ),
           ),
@@ -860,10 +867,11 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildSectionHeader(String title, {String? badge}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white)),
+        Text(title, style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: theme.textPrimary)),
         if (badge != null)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -945,15 +953,16 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildCosmeticWardrobeCard({required String itemId, required String category, required IconData icon, required Color iconColor, required String title, required String desc, required int price}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final bool isOwned = _ownedItems[itemId] ?? false;
     bool isEquipped = category == 'frame' ? (_activeFrame == itemId) : (category == 'crown' ? _hasGoldenCrown : (_activeTheme == itemId));
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isEquipped ? const Color(0xFF1E1B4B).withValues(alpha: 0.7) : const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: isEquipped ? const Color(0xFF1E1B4B).withValues(alpha: 0.7) : theme.surfaceDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: isEquipped ? const Color(0xFF6366F1) : const Color(0xFF1F2937)),
+        border: Border.all(color: isEquipped ? const Color(0xFF6366F1) : theme.borderSubtle),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -982,7 +991,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     Expanded(
                       child: Text(
                         title,
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: Colors.white),
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: theme.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1000,7 +1009,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                 const SizedBox(height: 2),
                 Text(
                   desc,
-                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+                  style: GoogleFonts.inter(fontSize: 11, color: theme.textSecondary),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1042,12 +1051,13 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildConsumableCard({required IconData icon, required Color iconColor, required String title, required String desc, required int price, required bool isActive, required String activeLabel, required VoidCallback onBuy}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: theme.surfaceDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF1F2937)),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: Row(
         children: [
@@ -1061,8 +1071,8 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: Colors.white)),
-                Text(desc, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8))),
+                Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13.5, color: theme.textPrimary)),
+                Text(desc, style: GoogleFonts.inter(fontSize: 11, color: theme.textSecondary)),
               ],
             ),
           ),

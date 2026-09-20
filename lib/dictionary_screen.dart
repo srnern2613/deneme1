@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'core/theme/draconic_theme.dart';
 import 'database_helper.dart';
 
 class DictionaryScreen extends StatefulWidget {
@@ -260,15 +261,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: theme.textPrimary),
         title: Text(
           _activeBookFilter != null ? '📖 ${_activeBookFilter!}' : '📚 Kelime Defteri & Sözlük',
-          style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17),
+          style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w900, fontSize: 17),
         ),
         centerTitle: true,
       ),
@@ -281,18 +283,21 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
+                  color: theme.surfaceLight,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+                  border: Border.all(color: theme.borderSubtle, width: 1.5),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _buildStatItem('Öğreniliyor', '$_totalLearningCount', const Color(0xFF818CF8)),
-                    Container(height: 28, width: 1, color: const Color(0xFF1F2937)),
+                    Container(height: 28, width: 1, color: theme.borderSubtle),
                     _buildStatItem('Word Boss', '$_totalBossCount', const Color(0xFFEF4444)),
-                    Container(height: 28, width: 1, color: const Color(0xFF1F2937)),
-                    _buildStatItem('Mastered Words', '$_totalMasteredCount', const Color(0xFF10B981)),
+                    Container(height: 28, width: 1, color: theme.borderSubtle),
+                    // Diğer tüm etiketler Türkçe iken bu tek başına İngilizce
+                    // kalmıştı; Profil'deki aynı kavramla ("Kalıcı Hafıza")
+                    // aynı terimi kullanıyor.
+                    _buildStatItem('Kalıcı Hafıza', '$_totalMasteredCount', const Color(0xFF10B981)),
                   ],
                 ),
               ),
@@ -302,18 +307,18 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                    color: theme.cognitiveIndigo.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.35)),
+                    border: Border.all(color: theme.cognitiveIndigo.withValues(alpha: 0.35)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(PhosphorIcons.bookBookmarkBold, size: 16, color: Color(0xFF818CF8)),
+                      Icon(PhosphorIcons.bookBookmarkBold, size: 16, color: theme.cognitiveIndigo),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Filtre: "$_activeBookFilter"',
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold),
+                          style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 12.5, fontWeight: FontWeight.bold),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -323,9 +328,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF070B14),
+                            color: theme.background,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF1F2937)),
+                            border: Border.all(color: theme.borderSubtle),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -346,14 +351,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
               TextField(
                 controller: _searchController,
                 onChanged: (text) => _loadData(text),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: theme.textPrimary),
                 decoration: InputDecoration(
                   hintText: _activeBookFilter != null ? 'Bu kitapta ara...' : 'Koleksiyonunda ara...',
-                  hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B)),
-                  prefixIcon: const Icon(PhosphorIcons.magnifyingGlassBold, color: Color(0xFF64748B), size: 20),
+                  hintStyle: GoogleFonts.inter(color: theme.textMuted),
+                  prefixIcon: Icon(PhosphorIcons.magnifyingGlassBold, color: theme.textMuted, size: 20),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(PhosphorIcons.xBold, color: Color(0xFF64748B), size: 18),
+                          icon: Icon(PhosphorIcons.xBold, color: theme.textMuted, size: 18),
                           onPressed: () {
                             HapticFeedback.lightImpact();
                             _searchController.clear();
@@ -362,14 +367,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                         )
                       : null,
                   filled: true,
-                  fillColor: const Color(0xFF111827),
+                  fillColor: theme.surfaceLight,
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(18),
-                    borderSide: const BorderSide(color: Color(0xFF1F2937), width: 1.5),
+                    borderSide: BorderSide(color: theme.borderSubtle, width: 1.5),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(18),
-                    borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                    borderSide: BorderSide(color: theme.infoTeal, width: 1.5),
                   ),
                 ),
               ),
@@ -400,7 +405,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
               Expanded(
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+                    ? Center(child: CircularProgressIndicator(color: theme.infoTeal))
                     : _searchResults.isEmpty
                         ? Center(
                             child: Padding(
@@ -408,10 +413,10 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     PhosphorIcons.tray,
                                     size: 44,
-                                    color: Color(0xFF334155),
+                                    color: theme.borderSubtle,
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
@@ -419,7 +424,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                         ? 'Bu kitapta seçilen filtreye uygun kelime bulunamadı.'
                                         : 'Bu filtrede kayıtlı kelime bulunmuyor.',
                                     textAlign: TextAlign.center,
-                                    style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13.5),
+                                    style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 13.5),
                                   ),
                                 ],
                               ),
@@ -443,14 +448,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                               return Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF111827),
+                                  color: theme.surfaceLight,
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: bossLevel > 0 
-                                        ? const Color(0xFFEF4444).withValues(alpha: 0.4) 
-                                        : isMastered 
-                                            ? const Color(0xFF10B981).withValues(alpha: 0.4) 
-                                            : const Color(0xFF1F2937), 
+                                    color: bossLevel > 0
+                                        ? const Color(0xFFEF4444).withValues(alpha: 0.4)
+                                        : isMastered
+                                            ? const Color(0xFF10B981).withValues(alpha: 0.4)
+                                            : theme.borderSubtle,
                                     width: 1.5,
                                   ),
                                 ),
@@ -465,7 +470,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                             children: [
                                               Text(
                                                 word,
-                                                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 17, color: Colors.white),
+                                                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 17, color: theme.textPrimary),
                                               ),
                                               const SizedBox(width: 8),
                                               if (bookTitle != null && bookTitle.isNotEmpty)
@@ -473,12 +478,12 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                     decoration: BoxDecoration(
-                                                      color: Colors.white.withValues(alpha: 0.06),
+                                                      color: theme.textPrimary.withValues(alpha: 0.06),
                                                       borderRadius: BorderRadius.circular(6),
                                                     ),
                                                     child: Text(
                                                       bookTitle,
-                                                      style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8)),
+                                                      style: GoogleFonts.inter(fontSize: 10, color: theme.textSecondary),
                                                       maxLines: 1,
                                                       overflow: TextOverflow.ellipsis,
                                                     ),
@@ -490,7 +495,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                           Text(
                                             meaning,
                                             style: GoogleFonts.outfit(
-                                              color: const Color(0xFF38BDF8),
+                                              color: theme.infoTeal,
                                               fontWeight: FontWeight.w700,
                                               fontSize: 14.5,
                                             ),
@@ -500,7 +505,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                             Text(
                                               '"$contextSentence"',
                                               style: GoogleFonts.inter(
-                                                color: const Color(0xFF94A3B8),
+                                                color: theme.textSecondary,
                                                 fontSize: 11.5,
                                                 fontStyle: FontStyle.italic,
                                               ),
@@ -517,7 +522,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                   decoration: BoxDecoration(
-                                                    color: const Color(0xFF070B14),
+                                                    color: theme.background,
                                                     borderRadius: BorderRadius.circular(6),
                                                   ),
                                                   child: Text(
@@ -555,6 +560,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   }
 
   Widget _buildStatItem(String title, String count, Color color) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Column(
       children: [
         Text(
@@ -564,21 +570,22 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         const SizedBox(height: 2),
         Text(
           title,
-          style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w600),
+          style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600),
         ),
       ],
     );
   }
 
   Widget _buildFilterChip(int index, String label, IconData icon, {bool isBoss = false}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final bool isSelected = _selectedFilterIndex == index;
-    final Color activeColor = isBoss ? const Color(0xFFEF4444) : const Color(0xFF6366F1);
+    final Color activeColor = isBoss ? const Color(0xFFEF4444) : theme.cognitiveIndigo;
 
     return ChoiceChip(
       avatar: Icon(
         icon,
         size: 14,
-        color: isSelected ? Colors.white : (isBoss ? const Color(0xFFEF4444) : const Color(0xFF94A3B8)),
+        color: isSelected ? Colors.white : (isBoss ? const Color(0xFFEF4444) : theme.textSecondary),
       ),
       label: Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
       selected: isSelected,
@@ -590,12 +597,12 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         }
       },
       selectedColor: activeColor,
-      backgroundColor: const Color(0xFF111827),
-      labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF94A3B8)),
+      backgroundColor: theme.surfaceLight,
+      labelStyle: TextStyle(color: isSelected ? Colors.white : theme.textSecondary),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: isSelected ? activeColor : const Color(0xFF1F2937),
+          color: isSelected ? activeColor : theme.borderSubtle,
           width: 1.5,
         ),
       ),

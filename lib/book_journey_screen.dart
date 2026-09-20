@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import 'core/theme/draconic_theme.dart';
 import 'database_helper.dart';
 import 'dictionary_screen.dart';
 import 'tts_service.dart';
@@ -230,23 +231,24 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: theme.textPrimary),
         title: Text(
           'Kitap Yolculuğu',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 18),
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: theme.textPrimary, fontSize: 18),
         ),
         centerTitle: true,
       ),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+            ? Center(child: CircularProgressIndicator(color: theme.infoTeal))
             : _journeyData == null
-                ? const Center(child: Text('İlerleme verisi bulunamadı.', style: TextStyle(color: Colors.white)))
+                ? Center(child: Text('İlerleme verisi bulunamadı.', style: TextStyle(color: theme.textPrimary)))
                 : SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
@@ -280,7 +282,7 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
                           child: FilledButton.icon(
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFFF59E0B),
-                              foregroundColor: const Color(0xFF070B14),
+                              foregroundColor: theme.background,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               elevation: 4,
                             ),
@@ -304,14 +306,15 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
   }
 
   Widget _buildBookHeaderCard() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final author = widget.author ?? 'Bilinmeyen Yazar';
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: theme.surfaceLight,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+        border: Border.all(color: theme.borderSubtle, width: 1.5),
       ),
       child: Row(
         children: [
@@ -319,12 +322,12 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
             width: 58,
             height: 78,
             decoration: BoxDecoration(
-              color: const Color(0xFF070B14),
+              color: theme.background,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF334155)),
+              border: Border.all(color: theme.borderSubtle),
             ),
             alignment: Alignment.center,
-            child: const Icon(PhosphorIcons.bookBookmarkBold, color: Color(0xFF38BDF8), size: 28),
+            child: Icon(PhosphorIcons.bookBookmarkBold, color: theme.infoTeal, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -333,14 +336,14 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
               children: [
                 Text(
                   widget.bookTitle,
-                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17),
+                  style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w900, fontSize: 17),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   author,
-                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12.5),
+                  style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12.5),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -353,6 +356,7 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
   }
 
   Widget _buildReadingJourneySection(Map<String, dynamic> data) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final readingPercentage = data['reading_percentage'] as int? ?? 0;
     final readingRatio = data['reading_ratio'] as double? ?? 0.0;
     final lastChapter = data['last_chapter'] as String? ?? 'Bölüm 1';
@@ -361,9 +365,9 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: theme.surfaceLight,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+        border: Border.all(color: theme.borderSubtle, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -373,14 +377,14 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(PhosphorIcons.bookOpenBold, color: Color(0xFF38BDF8), size: 18),
+                  Icon(PhosphorIcons.bookOpenBold, color: theme.infoTeal, size: 18),
                   const SizedBox(width: 8),
-                  Text('Reading Journey', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+                  Text('Reading Journey', style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 15, fontWeight: FontWeight.w900)),
                 ],
               ),
               Text(
                 '%$readingPercentage Okundu',
-                style: GoogleFonts.outfit(color: const Color(0xFF38BDF8), fontSize: 13, fontWeight: FontWeight.bold),
+                style: GoogleFonts.outfit(color: theme.infoTeal, fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -390,8 +394,8 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
             child: LinearProgressIndicator(
               value: readingRatio,
               minHeight: 8,
-              backgroundColor: const Color(0xFF070B14),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+              backgroundColor: theme.background,
+              valueColor: AlwaysStoppedAnimation<Color>(theme.infoTeal),
             ),
           ),
           const SizedBox(height: 14),
@@ -408,6 +412,7 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
   }
 
   Widget _buildVocabularyJourneySection(Map<String, dynamic> data) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final total = data['total_words'] as int? ?? 0;
     final discovered = data['discovered_count'] as int? ?? 0;
     final learning = (data['learning_count'] as int? ?? 0) + (data['reviewing_count'] as int? ?? 0);
@@ -418,9 +423,9 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFF111827),
+          color: theme.surfaceLight,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+          border: Border.all(color: theme.borderSubtle, width: 1.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,15 +435,15 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(PhosphorIcons.brainBold, color: Color(0xFF818CF8), size: 18),
+                    Icon(PhosphorIcons.brainBold, color: theme.cognitiveIndigo, size: 18),
                     const SizedBox(width: 8),
-                    Text('Vocabulary Journey', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+                    Text('Vocabulary Journey', style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 15, fontWeight: FontWeight.w900)),
                   ],
                 ),
                 Row(
                   children: [
-                    Text('Detaylar', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11)),
-                    const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF94A3B8), size: 14),
+                    Text('Detaylar', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11)),
+                    Icon(PhosphorIcons.caretRightBold, color: theme.textSecondary, size: 14),
                   ],
                 ),
               ],
@@ -448,9 +453,9 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildVocabStatColumn('$discovered', 'Keşfedildi', const Color(0xFF38BDF8), '🟣'),
-                Container(height: 28, width: 1, color: const Color(0xFF1F2937)),
+                Container(height: 28, width: 1, color: theme.borderSubtle),
                 _buildVocabStatColumn('$learning', 'Öğreniliyor', const Color(0xFFF59E0B), '🟡'),
-                Container(height: 28, width: 1, color: const Color(0xFF1F2937)),
+                Container(height: 28, width: 1, color: theme.borderSubtle),
                 _buildVocabStatColumn('$mastered', 'Mastered', const Color(0xFF10B981), '🟢'),
               ],
             ),
@@ -459,12 +464,12 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF070B14),
+                  color: theme.background,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '📖 Bu kitaptan henüz kelime eklemedin. Okurken bilmediğin kelimelere dokunarak biriktir!',
-                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11),
+                  style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -476,6 +481,7 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
   }
 
   Widget _buildNextMilestoneCard(Map<String, dynamic> data) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final milestone = _calculateNextMilestone(data);
 
     return Container(
@@ -511,12 +517,12 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
           const SizedBox(height: 8),
           Text(
             milestone['title']!,
-            style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Text(
             milestone['desc']!,
-            style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, height: 1.35),
+            style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12, height: 1.35),
           ),
         ],
       ),
@@ -524,6 +530,7 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
   }
 
   Widget _buildSampleWordsSection(Map<String, dynamic> data) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final sampleWords = data['sample_words'] as List<Map<String, dynamic>>? ?? [];
     if (sampleWords.isEmpty) return const SizedBox.shrink();
 
@@ -532,7 +539,7 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
       children: [
         Text(
           'Bu Kitaptan Öğrendiklerin',
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
+          style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 14, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
         Wrap(
@@ -548,14 +555,14 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF111827),
+                color: theme.surfaceLight,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: chipColor.withValues(alpha: 0.35)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(word, style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text(word, style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 5),
                   CircleAvatar(radius: 3, backgroundColor: chipColor),
                 ],
@@ -568,12 +575,13 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
   }
 
   Widget _buildMiniInfoChip(IconData icon, String text, Color color) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF070B14),
+        color: theme.background,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF1F2937)),
+        border: Border.all(color: theme.borderSubtle),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -582,7 +590,7 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
           const SizedBox(width: 5),
           Text(
             text,
-            style: GoogleFonts.inter(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+            style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 11.5, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -590,6 +598,7 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
   }
 
   Widget _buildVocabStatColumn(String count, String label, Color color, String emoji) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Column(
       children: [
         Text(count, style: GoogleFonts.outfit(color: color, fontSize: 20, fontWeight: FontWeight.w900)),
@@ -598,7 +607,7 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
           children: [
             Text(emoji, style: const TextStyle(fontSize: 9)),
             const SizedBox(width: 3),
-            Text(label, style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w500)),
+            Text(label, style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w500)),
           ],
         ),
       ],

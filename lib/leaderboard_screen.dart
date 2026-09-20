@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import 'core/theme/draconic_theme.dart';
 import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
@@ -190,10 +191,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       rivalName = rival['name'] as String;
     }
 
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+          ? Center(child: CircularProgressIndicator(color: theme.infoTeal))
           : SafeArea(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -217,7 +219,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     // kısmı aşağıdaki liderlik tablosuna ayrılıyor.
                     Text(
                       'Mikro-Meydan Okumalar',
-                      style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
+                      style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: theme.textPrimary),
                     ),
                     const SizedBox(height: 12),
                     // EJDERHA ROTASI V2 — Faz C: Sabit yükseklikli SizedBox +
@@ -248,7 +250,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         Flexible(
                           child: Text(
                             '12. Arena Sıralaması',
-                            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
+                            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: theme.textPrimary),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -256,7 +258,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF34D399).withValues(alpha: 0.16),
+                            color: theme.successEmerald.withValues(alpha: 0.16),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -274,7 +276,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     // toplam XP'de sabit kalıyor, burası açıkça "Sezon XP" etiketleniyor.
                     Text(
                       'SEZON XP · haftalık sıfırlanır',
-                      style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontWeight: FontWeight.w700, fontSize: 10.5, letterSpacing: 0.3),
+                      style: GoogleFonts.outfit(color: theme.textMuted, fontWeight: FontWeight.w700, fontSize: 10.5, letterSpacing: 0.3),
                     ),
                     const SizedBox(height: 8),
                     _buildLeaderboardList(),
@@ -290,9 +292,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   // göstermiyor — tutarlılık), Lora serif başlık + sağda AYNI ikon/renk
   // eşleşmeli (Işık=XP mavi, Sketch-logo=Elmas yeşil) canlı rozetler.
   Widget _buildScreenHeaderRow() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Row(
       children: [
-        const ScreenHeaderBadge(icon: PhosphorIcons.trophyBold, color: Color(0xFFF59E0B)),
+        ScreenHeaderBadge(icon: PhosphorIcons.trophyBold, color: theme.primaryAmber),
         const SizedBox(width: 12),
         // N-5: alt bar sekmesi artık "Arena" (Karar #8) ve o sekmenin ekran
         // başlığı da "Arena" — bu ekranın başlığında aynı kelime geçince
@@ -300,18 +303,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         const Expanded(
           child: RuneTitle(title: 'Sıralama', subtitle: 'Günlük Görevler & Lig'),
         ),
-        _buildHeaderStatPill(icon: PhosphorIcons.lightningBold, color: const Color(0xFF38BDF8), listenable: XpShopService.instance.xpNotifier),
+        _buildHeaderStatPill(icon: PhosphorIcons.lightningBold, color: theme.infoTeal, listenable: XpShopService.instance.xpNotifier),
       ],
     );
   }
 
   Widget _buildHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        color: theme.surfaceDark.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+        border: Border.all(color: theme.borderSubtle, width: 1),
       ),
       child: ValueListenableBuilder<int>(
         valueListenable: listenable,
@@ -320,7 +324,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           children: [
             Icon(icon, size: 15, color: color),
             const SizedBox(width: 4),
-            Text('$value', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            Text('$value', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
           ],
         ),
       ),
@@ -431,6 +435,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final Color itemColor = challenge['color'] as Color;
     final double progress = (current / target).clamp(0.0, 1.0);
     final bool isProcessing = _claimingChallengeIds.contains(cId);
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
 
     // Kart artık sabit yüksekliğini DIŞ SizedBox'tan (148) alıyor; kendi
     // içinde `mainAxisSize: MainAxisSize.min` + `SingleChildScrollView` ile
@@ -444,12 +449,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       width: 148,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: theme.surfaceDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isCompleted && !isClaimed
               ? itemColor.withValues(alpha: 0.6)
-              : const Color(0xFF1F2937),
+              : theme.borderSubtle,
           width: isCompleted && !isClaimed ? 1.5 : 1,
         ),
       ),
@@ -501,7 +506,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             const SizedBox(height: 8),
             Text(
               challenge['title'] as String,
-              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 12),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -511,7 +516,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 5,
-                backgroundColor: const Color(0xFF1E293B),
+                backgroundColor: theme.borderSubtle,
                 valueColor: AlwaysStoppedAnimation<Color>(itemColor),
               ),
             ),
@@ -523,14 +528,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   ? ElevatedButton(
                       onPressed: isProcessing ? null : () => _claimReward(challenge),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: itemColor,
-                        foregroundColor: const Color(0xFF0F172A),
+                        // C-1: "AL" butonu her kartın kendi rengini (itemColor)
+                        // taşıyordu — yan yana 3 farklı dolu renk, 3 farklı
+                        // buton TÜRÜ sanılmasına yol açıyordu. Vurgu renkten
+                        // değil dolgudan geliyor: tüm birincil aksiyonlar tek
+                        // bir görünüme (amber) sahip olmalı.
+                        backgroundColor: const Color(0xFFF59E0B),
+                        foregroundColor: theme.surfaceDark,
                         padding: EdgeInsets.zero,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       child: isProcessing
-                          ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
+                          ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: theme.surfaceDark))
                           : Text('AL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 11.5)),
                     )
                   : Row(
@@ -544,7 +554,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         const SizedBox(width: 4),
                         Text(
                           '$current/$target',
-                          style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 10.5),
+                          style: GoogleFonts.outfit(color: theme.textSecondary, fontWeight: FontWeight.bold, fontSize: 10.5),
                         ),
                       ],
                     ),
@@ -557,6 +567,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   /// Liderlik Tablosu (Genişlik & Taşma Korumalı)
   Widget _buildLeaderboardList() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -605,7 +616,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         final int rank = index + 1;
         final bool isUser = item['isUser'] as bool;
 
-        Color rankColor = const Color(0xFF94A3B8);
+        Color rankColor = theme.textSecondary;
         if (rank == 1) rankColor = const Color(0xFFF59E0B);
         if (rank == 2) rankColor = const Color(0xFFE2E8F0);
         if (rank == 3) rankColor = const Color(0xFFD97706);
@@ -618,12 +629,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             // birincil vurgu rengi) taşındı.
             color: isUser
                 ? const Color(0xFFF59E0B).withValues(alpha: 0.18)
-                : const Color(0xFF111827).withValues(alpha: 0.7),
+                : theme.surfaceLight.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isUser
                   ? const Color(0xFFF59E0B)
-                  : (rank <= 3 ? const Color(0xFF10B981).withValues(alpha: 0.3) : const Color(0xFF1F2937)),
+                  : (rank <= 3 ? const Color(0xFF10B981).withValues(alpha: 0.3) : theme.borderSubtle),
               width: isUser ? 1.8 : 1.2,
             ),
           ),
@@ -648,7 +659,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 child: Text(
                   item['name'] as String,
                   style: GoogleFonts.outfit(
-                    color: Colors.white,
+                    color: theme.textPrimary,
                     fontWeight: isUser ? FontWeight.w900 : FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -660,7 +671,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               Text(
                 '${item['xp']} XP',
                 style: GoogleFonts.outfit(
-                  color: isUser ? const Color(0xFFFDE68A) : const Color(0xFF94A3B8),
+                  color: isUser ? const Color(0xFFFDE68A) : theme.textSecondary,
                   fontWeight: FontWeight.w800,
                   fontSize: 13.5,
                 ),

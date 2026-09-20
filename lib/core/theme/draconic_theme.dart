@@ -95,15 +95,22 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
   // davranışıyla (glassBlurSigma: 0, enableHeavyGlow: false) aynı opak
   // yüzey + borderSubtle çerçeve yolunu kullanır — A-7'de tarif edilen
   // "tek koddan beslenme" burada gerçekleşiyor.
+  // UI/UX Düzeltme Listesi — Faz A1: parşömen paleti kullanıcı geri
+  // bildirimine göre kalibre edildi. textPrimary artık saf siyaha yakın
+  // (#1C1917) değil, sıcak koyu kahve (#2C221E) — "tema geçişinde siyah
+  // kalan metin/ikon" şikayetinin köküydü. surfaceLight artık düz beyaz
+  // değil, tok kağıt dokusu tonu (#E6DEC9) — buton/kart arka planları
+  // parşömen zeminden görsel olarak ayrışsın diye. borderSubtle bu yeni
+  // surfaceLight'a karşı hâlâ görünür kalsın diye biraz koyulaştırıldı.
   factory DraconicTheme.parchment() {
     return const DraconicTheme(
       performanceTier: DevicePerformanceTier.low,
       isDark: false,
-      background: Color(0xFFF5EFE3),
+      background: Color(0xFFF4EEDC),
       surfaceDark: Color(0xFFFDFAF3),
-      surfaceLight: Color(0xFFFFFFFF),
-      borderSubtle: Color(0xFFE0D6C4),
-      textPrimary: Color(0xFF1C1917),
+      surfaceLight: Color(0xFFE6DEC9),
+      borderSubtle: Color(0xFFD6C7A8),
+      textPrimary: Color(0xFF2C221E),
       textSecondary: Color(0xFF57534E),
       textMuted: Color(0xFF78716C),
       primaryAmber: Color(0xFFB45309),

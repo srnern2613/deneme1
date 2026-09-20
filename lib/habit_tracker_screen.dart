@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import 'core/theme/draconic_theme.dart';
 import 'xp_shop_service.dart';
 import 'streak_freeze_service.dart';
 import 'shop_screen.dart';
@@ -385,14 +386,15 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final int completedCount = _habits.where((h) => h['isCompleted'] == true).length;
     final double progress = _habits.isNotEmpty ? completedCount / _habits.length : 0.0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFFF59E0B),
-        foregroundColor: const Color(0xFF070B14),
+        foregroundColor: theme.background,
         onPressed: _showAddHabitDialog,
         icon: const Icon(PhosphorIcons.plusBold),
         label: Text('Yeni Hedef', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
@@ -493,7 +495,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                 style: GoogleFonts.outfit(
                   fontWeight: FontWeight.w900,
                   fontSize: 16,
-                  color: Colors.white,
+                  color: theme.textPrimary,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -560,10 +562,10 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+                        color: theme.surfaceDark.withValues(alpha: 0.88),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isCompleted ? const Color(0xFF34D399).withValues(alpha: 0.4) : const Color(0xFF1F2937),
+                          color: isCompleted ? const Color(0xFF34D399).withValues(alpha: 0.4) : theme.borderSubtle,
                           width: 1,
                         ),
                       ),
@@ -573,13 +575,13 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                             width: 42,
                             height: 42,
                             decoration: BoxDecoration(
-                              color: isCompleted ? const Color(0xFF34D399).withValues(alpha: 0.15) : const Color(0xFF1E293B),
+                              color: isCompleted ? const Color(0xFF34D399).withValues(alpha: 0.15) : theme.surfaceLight,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Center(
                               child: Icon(
                                 habit['icon'] as IconData,
-                                color: isCompleted ? const Color(0xFF34D399) : const Color(0xFF94A3B8),
+                                color: isCompleted ? const Color(0xFF34D399) : theme.textSecondary,
                                 size: 20,
                               ),
                             ),
@@ -595,7 +597,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                                     fontWeight: FontWeight.w800,
                                     fontSize: 13.5,
                                     decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                    color: isCompleted ? const Color(0xFF64748B) : Colors.white,
+                                    color: isCompleted ? theme.textMuted : theme.textPrimary,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -606,7 +608,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                                     Flexible(
                                       child: Text(
                                         '${habit['category']}$progressHint',
-                                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF38BDF8)),
+                                        style: GoogleFonts.inter(fontSize: 11, color: theme.infoTeal),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -621,7 +623,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                                       const SizedBox(width: 6),
                                       GestureDetector(
                                         onTap: () => _showEditTargetDialog(habit),
-                                        child: const Icon(PhosphorIcons.pencilSimpleBold, size: 13, color: Color(0xFF94A3B8)),
+                                        child: Icon(PhosphorIcons.pencilSimpleBold, size: 13, color: theme.textSecondary),
                                       ),
                                     ],
                                   ],
@@ -655,11 +657,12 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   }
 
   Widget _buildStreakProtectionCard() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final Color stateColor = _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFEF4444);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: theme.surfaceDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: stateColor.withValues(alpha: 0.45), width: 1.2),
       ),
@@ -687,7 +690,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                   children: [
                     Text(
                       '$_currentStreak Günlük Seri',
-                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14.5),
+                      style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w900, fontSize: 14.5),
                     ),
                     Text(
                       _hasFreezeShield ? '🛡️ Korumada' : '⚠️ Tehlikede',
@@ -700,7 +703,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                   _hasFreezeShield
                       ? 'Seri dondurucu aktif. Okumayı unutsan bile serin sıfırlanmaz.'
                       : 'Serini korumak için bugün oku veya mağazadan kalkan al.',
-                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11),
+                  style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11),
                 ),
               ],
             ),
@@ -715,7 +718,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                   gradient: const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)]),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text('Kalkan Al', style: GoogleFonts.outfit(color: const Color(0xFF070B14), fontWeight: FontWeight.w900, fontSize: 11.5)),
+                child: Text('Kalkan Al', style: GoogleFonts.outfit(color: theme.background, fontWeight: FontWeight.w900, fontSize: 11.5)),
               ),
             ),
           ],
@@ -725,14 +728,15 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   }
 
   Widget _buildWeeklyChainTracker() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     const List<String> dayNames = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: theme.surfaceDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+        border: Border.all(color: theme.borderSubtle, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -742,11 +746,11 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
             children: [
               Text(
                 'Haftalık Zincir',
-                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+                style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13.5),
               ),
               Text(
                 'Son 7 Gün',
-                style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 11),
+                style: GoogleFonts.inter(color: theme.textMuted, fontSize: 11),
               ),
             ],
           ),
@@ -762,7 +766,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                   Text(
                     dayNames[index],
                     style: GoogleFonts.outfit(
-                      color: isToday ? const Color(0xFF38BDF8) : const Color(0xFF64748B),
+                      color: isToday ? theme.infoTeal : theme.textMuted,
                       fontSize: 10.5,
                       fontWeight: isToday ? FontWeight.w900 : FontWeight.w600,
                     ),
@@ -772,11 +776,11 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      color: isActive ? const Color(0xFFF59E0B).withValues(alpha: 0.18) : const Color(0xFF1E293B),
+                      color: isActive ? const Color(0xFFF59E0B).withValues(alpha: 0.18) : theme.surfaceLight,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: isToday
-                            ? const Color(0xFF38BDF8)
+                            ? theme.infoTeal
                             : (isActive ? const Color(0xFFF59E0B).withValues(alpha: 0.5) : Colors.transparent),
                         width: isToday ? 1.8 : 1.0,
                       ),
@@ -784,7 +788,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                     child: Center(
                       child: Icon(
                         isActive ? PhosphorIcons.fireFill : PhosphorIcons.circleBold,
-                        color: isActive ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+                        color: isActive ? const Color(0xFFF59E0B) : theme.textMuted,
                         size: isActive ? 18 : 10,
                       ),
                     ),
@@ -803,6 +807,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   // _userTotalXp gösteriliyor.
   // TODO(Faz 2): _openShop çağrısı PaywallTrigger'a taşınacak.
   Widget _buildModernHeader() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -819,15 +824,15 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                  color: theme.surfaceDark.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: const Color(0xFF1F2937), width: 1),
+                  border: Border.all(color: theme.borderSubtle, width: 1),
                 ),
                 child: Row(
                   children: [
-                    const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 15),
+                    Icon(PhosphorIcons.lightningBold, color: theme.infoTeal, size: 15),
                     const SizedBox(width: 4),
-                    Text('$_userTotalXp', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text('$_userTotalXp', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
                   ],
                 ),
               ),

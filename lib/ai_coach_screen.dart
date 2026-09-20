@@ -15,6 +15,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'core/ai_coach/ai_coach_repository.dart';
 import 'core/ai_coach/ai_coach_models.dart';
 import 'core/entitlement/entitlement_repository.dart';
+import 'core/theme/draconic_theme.dart';
 
 class AiCoachScreen extends StatefulWidget {
   const AiCoachScreen({super.key});
@@ -121,19 +122,20 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: theme.textPrimary),
         centerTitle: true,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildIgnisAvatar(size: 26),
             const SizedBox(width: 8),
-            Text('AI Koç Ignis', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
+            Text('AI Koç Ignis', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: theme.textPrimary, fontSize: 16)),
           ],
         ),
         actions: [
@@ -167,6 +169,7 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
   }
 
   Widget _buildQuotaBadge() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     if (_remainingFree < 0) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
@@ -188,11 +191,11 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: theme.surfaceLight,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(color: theme.borderSubtle),
       ),
-      child: Text('$_remainingFree hak kaldı', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w700, fontSize: 11)),
+      child: Text('$_remainingFree hak kaldı', style: GoogleFonts.outfit(color: theme.textSecondary, fontWeight: FontWeight.w700, fontSize: 11)),
     );
   }
 
@@ -211,21 +214,22 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
   }
 
   Widget _buildMessageBubble(AiCoachMessage message) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final bool isUser = message.role == AiCoachRole.user;
     final bubble = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.68),
       decoration: BoxDecoration(
-        color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.18) : const Color(0xFF0F172A).withValues(alpha: 0.9),
+        color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.18) : theme.surfaceDark.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16).copyWith(
           bottomRight: isUser ? const Radius.circular(4) : null,
           bottomLeft: !isUser ? const Radius.circular(4) : null,
         ),
-        border: Border.all(color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.35) : const Color(0xFF1F2937)),
+        border: Border.all(color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.35) : theme.borderSubtle),
       ),
       child: Text(
         message.content,
-        style: GoogleFonts.inter(color: Colors.white, fontSize: 13.5, height: 1.4),
+        style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 13.5, height: 1.4),
       ),
     );
 
@@ -253,6 +257,7 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
   }
 
   Widget _buildTypingBubble() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -264,9 +269,9 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.9),
+              color: theme.surfaceDark.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(16).copyWith(bottomLeft: const Radius.circular(4)),
-              border: Border.all(color: const Color(0xFF1F2937)),
+              border: Border.all(color: theme.borderSubtle),
             ),
             child: const SizedBox(
               width: 20,
@@ -280,27 +285,28 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
   }
 
   Widget _buildInputBar() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B0F1A),
-        border: Border(top: BorderSide(color: const Color(0xFF1F2937))),
+        color: theme.background,
+        border: Border(top: BorderSide(color: theme.borderSubtle)),
       ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _inputController,
-              style: GoogleFonts.inter(color: Colors.white, fontSize: 13.5),
+              style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 13.5),
               maxLines: 4,
               minLines: 1,
               textCapitalization: TextCapitalization.sentences,
               onSubmitted: (_) => _sendMessage(),
               decoration: InputDecoration(
                 hintText: 'Ignis\'e bir şey sor...',
-                hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
+                hintStyle: GoogleFonts.inter(color: theme.textMuted, fontSize: 13),
                 filled: true,
-                fillColor: const Color(0xFF111827),
+                fillColor: theme.surfaceLight,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
               ),
@@ -310,7 +316,7 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
           IconButton.filled(
             style: IconButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), padding: const EdgeInsets.all(12)),
             onPressed: _isSending ? null : _sendMessage,
-            icon: const Icon(Icons.send_rounded, color: Color(0xFF070B14), size: 18),
+            icon: Icon(Icons.send_rounded, color: theme.background, size: 18),
           ),
         ],
       ),

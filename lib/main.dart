@@ -28,6 +28,7 @@ import 'ai_coach_screen.dart';
 import 'core/coach/ignis_moments_engine.dart';
 import 'core/design_system/platform_tokens.dart';
 import 'core/design_system/primitives.dart'; // BookCover (P1-3)
+import 'core/theme/draconic_theme.dart'; // T-1: Lobi yapısal renkleri temadan
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -183,26 +184,29 @@ class _RootScreenState extends State<RootScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // T-1: alt bar 5 sekmenin hepsinde ortak — tema burada değişince tüm
+    // uygulamada tek noktadan değişiyor.
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       extendBody: true,
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF070B14),
-          border: Border(top: BorderSide(color: Color(0xFF1F2937), width: 1)),
+        decoration: BoxDecoration(
+          color: theme.background,
+          border: Border(top: BorderSide(color: theme.borderSubtle, width: 1)),
         ),
         child: BottomNavigationBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           type: BottomNavigationBarType.fixed,
           elevation: 0,
           currentIndex: _currentIndex,
           onTap: _onTabTapped,
-          selectedItemColor: const Color(0xFFFDE68A),
-          unselectedItemColor: const Color(0xFF64748B),
+          selectedItemColor: theme.primaryAmber,
+          unselectedItemColor: theme.textMuted,
           selectedLabelStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold),
           unselectedLabelStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500),
           items: const [
@@ -364,6 +368,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Ignis Anları'ndaki (getSessionEndMoment) AYNI veri kaynağını kullanır
   // ama günde-1-kez kısıtı yok — her zaman güncel durumu gösterir.
   Widget _buildIgnisDailyStatusCard() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final status = _dailyStatus;
     final hasActivity = status?.hasActivityToday ?? false;
 
@@ -378,9 +383,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        color: theme.surfaceDark.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+        border: Border.all(color: theme.borderSubtle, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,7 +404,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 8),
               Text(
                 'GÜNLÜK DURUM',
-                style: GoogleFonts.outfit(fontSize: 11.5, fontWeight: FontWeight.w800, color: const Color(0xFF64748B), letterSpacing: 0.8),
+                style: GoogleFonts.outfit(fontSize: 11.5, fontWeight: FontWeight.w800, color: theme.textMuted, letterSpacing: 0.8),
               ),
             ],
           ),
@@ -407,7 +412,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (!hasActivity)
             Text(
               'Bugün henüz pratik yapmadın. Bir seans tamamla, Ignis ilerlemeni burada gösterecek.',
-              style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF94A3B8), height: 1.4),
+              style: GoogleFonts.inter(fontSize: 12.5, color: theme.textSecondary, height: 1.4),
             )
           else ...[
             Row(
@@ -415,7 +420,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: _buildDailyStatusStat(
                     icon: PhosphorIcons.sparkleBold,
-                    color: const Color(0xFF34D399),
+                    color: theme.successEmerald,
                     value: '${status!.newWordsToday}',
                     label: 'Yeni Kelime',
                   ),
@@ -423,7 +428,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: _buildDailyStatusStat(
                     icon: PhosphorIcons.arrowClockwiseBold,
-                    color: const Color(0xFF38BDF8),
+                    color: theme.infoTeal,
                     value: '${status.reviewsToday}',
                     label: 'Tekrar',
                   ),
@@ -431,7 +436,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: _buildDailyStatusStat(
                     icon: PhosphorIcons.clockBold,
-                    color: const Color(0xFFF59E0B),
+                    color: theme.primaryAmber,
                     value: '${status.dueTomorrow}',
                     label: 'Yarın Bekleyen',
                   ),
@@ -440,11 +445,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             if (status.weeklyProjection > 0) ...[
               const SizedBox(height: 12),
-              Container(height: 1, color: const Color(0xFF1F2937)),
+              Container(height: 1, color: theme.borderSubtle),
               const SizedBox(height: 12),
               Text(
                 'Bu hızla bir haftada ~${status.weeklyProjection} kelime öğrenmiş olacaksın.',
-                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8), height: 1.4),
+                style: GoogleFonts.inter(fontSize: 12, color: theme.textSecondary, height: 1.4),
               ),
             ],
           ],
@@ -456,16 +461,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDailyStatusStat({required IconData icon, required Color color, required String value, required String label}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Column(
       children: [
         Icon(icon, color: color, size: 18),
         const SizedBox(height: 6),
-        Text(value, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17)),
+        Text(value, style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w900, fontSize: 17)),
         const SizedBox(height: 2),
         Text(
           label,
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 10, height: 1.2),
+          style: GoogleFonts.inter(color: theme.textMuted, fontSize: 10, height: 1.2),
         ),
       ],
     );
@@ -473,17 +479,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF070B14),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFE8C99B))),
+      return Scaffold(
+        backgroundColor: theme.background,
+        body: Center(child: CircularProgressIndicator(color: theme.primaryAmber)),
       );
     }
 
     final double goalProgress = _dailyTargetCards > 0 ? (_todayLearnedCards / _dailyTargetCards).clamp(0.0, 1.0) : 0.0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14), 
+      backgroundColor: theme.background,
       body: Stack(
         children: [
           // 1. KATMAN: KALE SİLUETLİ ARKA PLAN GÖRSELİ VE KARANLIK GEÇİŞ[cite: 3]
@@ -497,6 +504,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     alignment: Alignment.topCenter,
                   ),
                 ),
+                // UI/UX Düzeltme Listesi — Faz A3: üst kısımdaki katman
+                // önceden çok erken opaklaşıyordu (0.3 → 0.8 arasında %40'lık
+                // mesafede) ve özellikle Parşömen temasında kale silueti/
+                // draconic motif üstteki ilk ekranda görünmez oluyordu.
+                // Değerler hafifletildi ki motif hissi hâlâ süzülsün, alt
+                // içerik okunabilirliği için son durak (theme.background,
+                // tam opak) değişmedi.
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -504,9 +518,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          const Color(0xFF070B14).withValues(alpha: 0.3),
-                          const Color(0xFF070B14).withValues(alpha: 0.8),
-                          const Color(0xFF070B14),
+                          theme.background.withValues(alpha: 0.15),
+                          theme.background.withValues(alpha: 0.65),
+                          theme.background,
                         ],
                         stops: const [0.0, 0.4, 1.0],
                       ),
@@ -549,7 +563,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 alignment: Alignment.centerLeft,
                                 errorBuilder: (context, error, stackTrace) => Text(
                                   'Ignis',
-                                  style: GoogleFonts.lora(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)
+                                  style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 15, fontWeight: FontWeight.bold)
                                 ),
                               ),
                             ),
@@ -569,22 +583,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             // XP Sayaç — XpShopService.instance.xpNotifier'a canlı bağlı,
                             // diğer tüm ekranlarla aynı anda senkron güncellenir.
                             Flexible(
-                              child: Container(
+              child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF0F172A).withValues(alpha: 0.75),
+                                  color: theme.surfaceDark.withValues(alpha: 0.75),
                                   borderRadius: BorderRadius.circular(13),
-                                  border: Border.all(color: const Color(0xFF1F2937)),
+                                  border: Border.all(color: theme.borderSubtle),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(PhosphorIcons.lightningBold, color: Color(0xFF38BDF8), size: 15),
+                                    Icon(PhosphorIcons.lightningBold, color: theme.infoTeal, size: 15),
                                     const SizedBox(width: 4),
                                     Flexible(
                                       child: ValueListenableBuilder<int>(
                                         valueListenable: XpShopService.instance.xpNotifier,
-                                        builder: (context, value, _) => Text(_formatNumber(value), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                        builder: (context, value, _) => Text(_formatNumber(value), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
                                       ),
                                     ),
                                   ],
@@ -601,16 +615,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF0F172A).withValues(alpha: 0.75),
+                                  color: theme.surfaceDark.withValues(alpha: 0.75),
                                   borderRadius: BorderRadius.circular(13),
-                                  border: Border.all(color: const Color(0xFF1F2937)),
+                                  border: Border.all(color: theme.borderSubtle),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(PhosphorIcons.fireBold, color: Color(0xFFF59E0B), size: 15),
+                                    Icon(PhosphorIcons.fireBold, color: theme.primaryAmber, size: 15),
                                     const SizedBox(width: 4),
-                                    Flexible(child: Text(_formatNumber(_currentStreak), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
+                                    Flexible(child: Text(_formatNumber(_currentStreak), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13))),
                                   ],
                                 ),
                               ),
@@ -628,10 +642,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 height: 30,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: const Color(0xFF0F172A).withValues(alpha: 0.75),
-                                  border: Border.all(color: const Color(0xFF1F2937)),
+                                  color: theme.surfaceDark.withValues(alpha: 0.75),
+                                  border: Border.all(color: theme.borderSubtle),
                                 ),
-                                child: const Icon(PhosphorIcons.shieldCheckBold, color: Colors.white, size: 14),
+                                child: Icon(PhosphorIcons.shieldCheckBold, color: theme.textPrimary, size: 14),
                               ),
                             ),
                           ],
@@ -803,7 +817,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                        color: theme.surfaceDark.withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.35)),
                       ),
@@ -830,12 +844,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('AI Koç Ignis\'e sor', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5)),
-                                Text('Kelime, telaffuz ve strateji önerileri', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11)),
+                                Text('AI Koç Ignis\'e sor', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w800, fontSize: 13.5)),
+                                Text('Kelime, telaffuz ve strateji önerileri', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11)),
                               ],
                             ),
                           ),
-                          const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 14),
+                          Icon(PhosphorIcons.caretRightBold, color: theme.textMuted, size: 14),
                         ],
                       ),
                     ),
@@ -852,10 +866,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Devam Eden Kitaplar', style: GoogleFonts.lora(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text('Devam Eden Kitaplar', style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
                       GestureDetector(
                         onTap: widget.onNavigateToLibrary,
-                        child: Text('Tümünü Gör >', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500)),
+                        child: Text('Tümünü Gör >', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
                       ),
                     ],
                   ),
@@ -866,7 +880,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     // eklendi ve aşağıdaki Spacer kaldırıldı.
                     height: 132,
                     child: _userBooks.isEmpty
-                        ? Center(child: Text('Henüz kitap eklenmedi.', style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12)))
+                        ? Center(child: Text('Henüz kitap eklenmedi.', style: GoogleFonts.inter(color: theme.textMuted, fontSize: 12)))
                         : ListView.builder(
                             scrollDirection: Axis.horizontal,
                             physics: const BouncingScrollPhysics(),
@@ -886,14 +900,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     width: 110,
                                     padding: const EdgeInsets.all(14),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF0F172A).withValues(alpha: 0.8),
+                                      color: theme.surfaceDark.withValues(alpha: 0.8),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color: isSelected ? const Color(0xFFFDE68A) : const Color(0xFF1F2937),
+                                        color: isSelected ? theme.primaryAmber : theme.borderSubtle,
                                         width: isSelected ? 1.5 : 1,
                                       ),
                                       boxShadow: isSelected
-                                          ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.15), blurRadius: 12)]
+                                          ? [BoxShadow(color: theme.primaryAmber.withValues(alpha: 0.15), blurRadius: 12)]
                                           : [],
                                     ),
                                     child: Column(
@@ -904,12 +918,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         const SizedBox(height: 8),
                                         // P1-8: dar kart genişliğinde tek satır uzun başlıkları
                                         // ("The Adventures of Tom Sawyer") ortadan kesiyordu — 2 satıra çıkarıldı.
-                                        Text(book.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13, height: 1.15)),
+                                        Text(book.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: theme.textPrimary, fontWeight: FontWeight.w600, fontSize: 13, height: 1.15)),
                                         const SizedBox(height: 2),
                                         // P1-7: "%0 okundu" yerine davet metni.
                                         Text(
                                           percent == 0 ? 'Yeni kitap ✨' : '%$percent okundu',
-                                          style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 10),
+                                          style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 10),
                                         ),
                                         const SizedBox(height: 6),
                                         ClipRRect(
@@ -917,8 +931,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           child: LinearProgressIndicator(
                                             value: progress,
                                             minHeight: 4,
-                                            backgroundColor: const Color(0xFF334155), // Açık kontrast zemin[cite: 4]
-                                            valueColor: AlwaysStoppedAnimation<Color>(isSelected ? const Color(0xFFF59E0B) : const Color(0xFF38BDF8)), // Doygun renk[cite: 4]
+                                            backgroundColor: theme.borderSubtle,
+                                            valueColor: AlwaysStoppedAnimation<Color>(isSelected ? theme.primaryAmber : theme.infoTeal),
                                           ),
                                         ),
                                       ],
@@ -936,9 +950,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A).withValues(alpha: 0.8),
+                      color: theme.surfaceDark.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF1F2937)),
+                      border: Border.all(color: theme.borderSubtle),
                     ),
                     child: Column(
                       children: [
@@ -949,15 +963,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               children: [
                                 Container(
                                   padding: const EdgeInsets.all(6),
-                                  decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
-                                  child: const Icon(PhosphorIcons.fireBold, color: Color(0xFFF59E0B), size: 16),
+                                  decoration: BoxDecoration(color: theme.surfaceLight, shape: BoxShape.circle),
+                                  child: Icon(PhosphorIcons.fireBold, color: theme.primaryAmber, size: 16),
                                 ),
                                 const SizedBox(width: 12),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Günlük Seri', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 14)),
-                                    Text('Devam et!', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11)),
+                                    Text('Günlük Seri', style: GoogleFonts.inter(color: theme.textPrimary, fontWeight: FontWeight.w500, fontSize: 14)),
+                                    Text('Devam et!', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11)),
                                   ],
                                 ),
                               ],
@@ -972,9 +986,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.baseline,
                                 textBaseline: TextBaseline.alphabetic,
                                 children: [
-                                  Text('$_currentStreak', style: GoogleFonts.lora(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                                  Text('$_currentStreak', style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 22, fontWeight: FontWeight.bold)),
                                   const SizedBox(width: 4),
-                                  Text('gün >', style: GoogleFonts.inter(color: Colors.white, fontSize: 12)),
+                                  Text('gün >', style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 12)),
                                 ],
                               ),
                             ),
@@ -989,14 +1003,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               width: 32,
                               height: 32,
                               decoration: BoxDecoration(
-                                color: isCompleted ? const Color(0xFFFDE68A) : const Color(0xFF1E293B),
+                                color: isCompleted ? theme.primaryAmber : theme.surfaceLight,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: isCompleted ? const Color(0xFFF59E0B) : const Color(0xFF334155), width: 1.5),
-                                boxShadow: isCompleted ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.3), blurRadius: 8)] : [],
+                                border: Border.all(color: isCompleted ? theme.primaryAmber : theme.borderSubtle, width: 1.5),
+                                boxShadow: isCompleted ? [BoxShadow(color: theme.primaryAmber.withValues(alpha: 0.3), blurRadius: 8)] : [],
                               ),
                               child: Center(
                                 child: isCompleted
-                                    ? const Icon(PhosphorIcons.checkBold, color: Color(0xFF070B14), size: 15)
+                                    ? Icon(PhosphorIcons.checkBold, color: theme.background, size: 15)
                                     : null,
                               ),
                             );
@@ -1012,9 +1026,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A).withValues(alpha: 0.8),
+                      color: theme.surfaceDark.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF1F2937)),
+                      border: Border.all(color: theme.borderSubtle),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1023,27 +1037,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(PhosphorIcons.timerBold, size: 14, color: Color(0xFF38BDF8)),
+                                Icon(PhosphorIcons.timerBold, size: 14, color: theme.infoTeal),
                                 const SizedBox(width: 6),
-                                Text('$_totalReadMinutes dk', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text('$_totalReadMinutes dk', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
                               ],
                             ),
                             const SizedBox(height: 2),
-                            Text('Okuma Süresi', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 10)),
+                            Text('Okuma Süresi', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 10)),
                           ],
                         ),
-                        Container(height: 24, width: 1, color: const Color(0xFF1F2937)),
+                        Container(height: 24, width: 1, color: theme.borderSubtle),
                         Column(
                           children: [
                             Row(
                               children: [
-                                const Icon(PhosphorIcons.bookOpenTextBold, size: 14, color: Color(0xFFFDE68A)),
+                                Icon(PhosphorIcons.bookOpenTextBold, size: 14, color: theme.primaryAmber),
                                 const SizedBox(width: 6),
-                                Text('${_userBooks.length}', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text('${_userBooks.length}', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
                               ],
                             ),
                             const SizedBox(height: 2),
-                            Text('Aktif Kitap', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 10)),
+                            Text('Aktif Kitap', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 10)),
                           ],
                         ),
                       ],

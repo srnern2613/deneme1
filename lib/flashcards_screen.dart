@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/theme/draconic_theme.dart';
 import 'database_helper.dart';
 import 'flashcards_exercise_screen.dart';
 import 'quiz_exercise_screen.dart';
@@ -535,15 +536,16 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       // Lobi'deki gibi nefes alan, custom başlık alanı — standart AppBar
       // sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
       // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları
       // dinler; hiçbir yeni state veya iş mantığı eklenmedi.
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+            ? Center(child: CircularProgressIndicator(color: theme.cognitiveIndigo))
             : SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 // UI/UX Düzeltme Listesi — P0-1: sabit 110 yerine gerçek bar
@@ -558,7 +560,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                     _buildDynamicBossBanner(),
                     _buildMemoryDungeonHero(),
                     const SizedBox(height: 24),
-                    Text('Öğrenme & Oyun Modları', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3)),
+                    Text('Öğrenme & Oyun Modları', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: theme.textPrimary, letterSpacing: -0.3)),
                     const SizedBox(height: 16),
 
                     // --- APPLE (iOS Ayarlar) TARZI GRUPLANMIŞ LİSTE ---
@@ -686,11 +688,12 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   }
 
   Widget _buildArenaHeaderRow() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Row(
       children: [
         ScreenHeaderBadge(
           icon: PhosphorIcons.slidersBold,
-          color: const Color(0xFF38BDF8),
+          color: theme.infoTeal,
           onTap: _openArenaSettings,
           showAffordanceDot: true,
         ),
@@ -703,7 +706,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
         ),
         _buildArenaHeaderStatPill(
           icon: PhosphorIcons.lightningBold,
-          color: const Color(0xFF38BDF8),
+          color: theme.infoTeal,
           listenable: XpShopService.instance.xpNotifier,
         ),
       ],
@@ -711,14 +714,15 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   }
 
   Widget _buildArenaHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return GestureDetector(
       onTap: widget.onNavigateToShop,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+          color: theme.surfaceDark.withValues(alpha: 0.85),
           borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: const Color(0xFF1F2937), width: 1),
+          border: Border.all(color: theme.borderSubtle, width: 1),
         ),
         child: ValueListenableBuilder<int>(
           valueListenable: listenable,
@@ -727,7 +731,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
             children: [
               Icon(icon, size: 15, color: color),
               const SizedBox(width: 4),
-              Text('$value', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('$value', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
             ],
           ),
         ),
@@ -808,11 +812,12 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   // --- 2x2 GRID UYUMLU KART TASARIMI VE SOFT PAYWALL KİLİDİ ---[cite: 6]
   // Apple (iOS Ayarlar) tarzı bölüm etiketi: küçük, büyük harf, gri.
   Widget _buildSectionLabel(String text) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Padding(
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         text,
-        style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B), letterSpacing: 0.6),
+        style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: theme.textMuted, letterSpacing: 0.6),
       ),
     );
   }
@@ -820,6 +825,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   // Apple tarzı "inset grouped" kart: rounded-corner tek kapsayıcı, satırlar
   // arasında ince ayraç (iOS Ayarlar/App Store liste görünümü gibi).
   Widget _buildPracticeSection(List<Widget> rows) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final children = <Widget>[];
     for (var i = 0; i < rows.length; i++) {
       children.add(rows[i]);
@@ -827,15 +833,15 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
         children.add(Container(
           margin: const EdgeInsets.only(left: 68),
           height: 1,
-          color: const Color(0xFF1F2937),
+          color: theme.borderSubtle,
         ));
       }
     }
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: theme.surfaceDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+        border: Border.all(color: theme.borderSubtle, width: 1),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
@@ -857,6 +863,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     String? lockMessage,
     String? fomoLabel,
   }) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final row = Material(
       color: Colors.transparent,
       child: InkWell(
@@ -881,14 +888,14 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                     children: [
                       Text(
                         title,
-                        style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                        style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w800, fontSize: 15),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         desc,
-                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8), height: 1.25),
+                        style: GoogleFonts.inter(fontSize: 12, color: theme.textSecondary, height: 1.25),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -915,7 +922,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                       ),
                       child: Text(
                         (isLocked && lockMessage != null) ? lockMessage : reward,
-                        style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: fomoLabel != null ? const Color(0xFF070B14) : accentColor),
+                        style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: fomoLabel != null ? theme.background : accentColor),
                       ),
                     ),
                   ],
@@ -924,7 +931,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                 Icon(
                   isLocked ? PhosphorIcons.lockKeyBold : PhosphorIcons.caretRightBold,
                   size: isLocked ? 16 : 14,
-                  color: const Color(0xFF64748B),
+                  color: theme.textMuted,
                 ),
               ],
             ),
@@ -942,6 +949,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
       return const SizedBox.shrink();
     }
 
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final topBoss = _bossCards.first;
     final bossWord = topBoss['word'] as String? ?? '';
     final bossLevel = topBoss['boss_level'] as int? ?? 1;
@@ -973,7 +981,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
       margin: const EdgeInsets.only(bottom: 18),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: theme.surfaceDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: badgeColor.withValues(alpha: 0.45), width: 1.5),
         boxShadow: [
@@ -997,7 +1005,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                   Text(
                     '${_bossCards.length} Word Boss Seni Bekliyor',
                     style: GoogleFonts.outfit(
-                      color: Colors.white,
+                      color: theme.textPrimary,
                       fontWeight: FontWeight.w900,
                       fontSize: 15,
                     ),
@@ -1026,7 +1034,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
           Text(
             'Zorlandığın kelimelerden "$bossWord" rövanş istiyor! 6 turlu meydan okumayı tamamla, ekstra XP kazan.',
             style: GoogleFonts.inter(
-              color: const Color(0xFF94A3B8),
+              color: theme.textSecondary,
               fontSize: 12,
               height: 1.35,
             ),
@@ -1038,7 +1046,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: badgeColor,
-                foregroundColor: (bossLevel == 1 || bossLevel == 2) ? const Color(0xFF070B14) : Colors.white,
+                foregroundColor: (bossLevel == 1 || bossLevel == 2) ? theme.background : Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: () => _startBossBattle(topBoss),

@@ -25,6 +25,7 @@ import 'dictionary_screen.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/entitlement/paywall_trigger.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler artık temadan
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -255,16 +256,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildLibraryHeaderRow() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Row(
       children: [
-        const ScreenHeaderBadge(icon: PhosphorIcons.booksBold, color: Color(0xFF10B981)),
+        ScreenHeaderBadge(icon: PhosphorIcons.booksBold, color: theme.successEmerald),
         const SizedBox(width: 12),
         const Expanded(
           child: RuneTitle(title: 'Kitaplık', subtitle: 'Kişisel Kütüphane & Okuma'),
         ),
         _buildLibraryHeaderStatPill(
           icon: PhosphorIcons.lightningBold,
-          color: const Color(0xFF38BDF8),
+          color: theme.infoTeal,
           listenable: XpShopService.instance.xpNotifier,
         ),
       ],
@@ -272,12 +274,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildLibraryHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
+    // T-1: yapısal renkler (kart zemini/çerçevesi/metni) artık temadan —
+    // sadece `color` parametresi (ikon vurgusu) çağıran yerden geliyor.
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+          color: theme.surfaceDark.withValues(alpha: 0.85),
           borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: const Color(0xFF1F2937), width: 1),
+          border: Border.all(color: theme.borderSubtle, width: 1),
         ),
         child: ValueListenableBuilder<int>(
           valueListenable: listenable,
@@ -286,7 +291,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             children: [
               Icon(icon, size: 15, color: color),
               const SizedBox(width: 4),
-              Text('$value', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('$value', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
             ],
           ),
         ),
@@ -299,6 +304,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   // Sağlık tarzı 4'lü minimalist istatistik ızgarası. Metin karmaşası
   // (çıplak sayılar, belirsiz emoji, "G." gibi kısaltmalar) tamamen kaldırıldı.
   Widget _buildStatsOverviewRow() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Row(
       children: [
         Expanded(
@@ -310,7 +316,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               // P1-6: 2 satıra kırılan uzun etiket yerine tek kelime — tile
               // yüksekliği artık 4 kutuda da eşit.
               label: 'Seri',
-              color: _hasFreezeShield ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B),
+              color: _hasFreezeShield ? theme.infoTeal : theme.primaryAmber,
             ),
           ),
         ),
@@ -320,7 +326,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             icon: PhosphorIcons.timerBold,
             value: '$_totalReadMinutes',
             label: 'Dakika',
-            color: const Color(0xFF38BDF8),
+            color: theme.infoTeal,
           ),
         ),
         const SizedBox(width: 10),
@@ -329,7 +335,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             icon: PhosphorIcons.magnifyingGlassBold,
             value: '$_totalWordsExamined',
             label: 'Kelime',
-            color: const Color(0xFF10B981),
+            color: theme.successEmerald,
           ),
         ),
         const SizedBox(width: 10),
@@ -338,7 +344,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             icon: PhosphorIcons.cardsBold,
             value: '$_totalWordsSaved',
             label: 'Kart',
-            color: const Color(0xFF818CF8),
+            color: theme.cognitiveIndigo,
           ),
         ),
       ],
@@ -346,12 +352,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildStatTile({required IconData icon, required String value, required String label, required Color color}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+        color: theme.surfaceDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+        border: Border.all(color: theme.borderSubtle, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,14 +376,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
           const SizedBox(height: 8),
           Text(
             value,
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 17, color: Colors.white),
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 17, color: theme.textPrimary),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8), height: 1.2),
+            style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w600, color: theme.textSecondary, height: 1.2),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -387,6 +394,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   // --- HİBRİT YATAY BANNER (SÖZLÜK VE KİTAP EKLE) ---
   Widget _buildHybridBanner() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Row(
       children: [
         Expanded(
@@ -394,7 +402,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             icon: PhosphorIcons.bookBookmarkBold,
             title: 'Sözlük',
             subtitle: 'Kelimelerim',
-            color: const Color(0xFF10B981),
+            color: theme.successEmerald,
             onTap: _openDictionary,
           ),
         ),
@@ -404,7 +412,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             icon: PhosphorIcons.filePlusBold,
             title: _isLoading ? 'İşleniyor' : 'Kitap Ekle',
             subtitle: 'PDF / TXT',
-            color: const Color(0xFFF59E0B),
+            color: theme.primaryAmber,
             onTap: _isLoading ? null : _pickAndProcessFile,
           ),
         ),
@@ -413,6 +421,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildBannerButton({required IconData icon, required String title, required String subtitle, required Color color, required VoidCallback? onTap}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
@@ -427,7 +436,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           children: [
             Icon(icon, color: color, size: 24),
             const SizedBox(height: 8),
-            Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.white), textAlign: TextAlign.center, maxLines: 1),
+            Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: theme.textPrimary), textAlign: TextAlign.center, maxLines: 1),
             const SizedBox(height: 2),
             Text(subtitle, style: GoogleFonts.inter(fontSize: 10, color: color.withValues(alpha: 0.8)), textAlign: TextAlign.center, maxLines: 1),
           ],
@@ -438,6 +447,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   // --- AKILLI BOŞ DURUM (SMART EMPTY STATE) ---
   Widget _buildEmptyLibraryState() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       alignment: Alignment.center,
@@ -447,21 +457,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+              color: theme.primaryAmber.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(PhosphorIcons.booksBold, size: 48, color: Color(0xFFF59E0B)),
+            child: Icon(PhosphorIcons.booksBold, size: 48, color: theme.primaryAmber),
           ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(begin: const Offset(1, 1), end: const Offset(1.05, 1.05), duration: 1200.ms),
           const SizedBox(height: 20),
           Text(
             'Kütüphanen Şu An Sessiz',
-            style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+            style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: theme.textPrimary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
             'Yukarıdaki "Kitap Ekle" butonuna dokunarak kendi PDF veya TXT kitabını yükle ve kelimeleri avlamaya başla!',
-            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8), height: 1.5),
+            style: GoogleFonts.inter(fontSize: 13, color: theme.textSecondary, height: 1.5),
             textAlign: TextAlign.center,
           ),
         ],
@@ -471,8 +481,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       // Lobi'deki gibi nefes alan, custom başlık alanı — standart AppBar
       // sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
       // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları
@@ -497,9 +508,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B).withValues(alpha: 0.5),
+                  color: theme.surfaceDark.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF334155)),
+                  border: Border.all(color: theme.borderSubtle),
                 ),
                 child: Row(
                   children: [
@@ -508,7 +519,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     Expanded(
                       child: Text(
                         'Klasik eserler Project Gutenberg (gutenberg.org) kamu malı koleksiyonundandır.',
-                        style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8)),
+                        style: GoogleFonts.inter(fontSize: 10.5, color: theme.textSecondary),
                       ),
                     ),
                   ],
@@ -516,7 +527,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
               const SizedBox(height: 14),
 
-              Text('Kitaplarım (${_books.length})', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
+              Text('Kitaplarım (${_books.length})', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: theme.textPrimary)),
               const SizedBox(height: 10),
 
               Expanded(
@@ -548,9 +559,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     // rozet/buton satırları kaldırıldı.
                     return Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+                        color: theme.surfaceDark.withValues(alpha: 0.88),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+                        border: Border.all(color: theme.borderSubtle, width: 1),
                       ),
                       child: Material(
                         color: Colors.transparent,
@@ -574,7 +585,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                         book.title,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13.5, color: Colors.white),
+                                        style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13.5, color: theme.textPrimary),
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
@@ -585,7 +596,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                             : '%$readingPercentage okundu · $discoveredWords kart',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8)),
+                                        style: GoogleFonts.inter(fontSize: 10.5, color: theme.textSecondary),
                                       ),
                                       if (!isUntouched) ...[
                                         const SizedBox(height: 5),
@@ -594,8 +605,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                           child: LinearProgressIndicator(
                                             value: readingRatio,
                                             minHeight: 4,
-                                            backgroundColor: const Color(0xFF334155),
-                                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+                                            backgroundColor: theme.borderSubtle,
+                                            valueColor: AlwaysStoppedAnimation<Color>(theme.infoTeal),
                                           ),
                                         ),
                                       ],
