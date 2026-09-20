@@ -49,16 +49,19 @@ void main() async {
     debugPrint('Servis başlatma hatası: $e');
   }
 
-  // NOT: Sistem çubuğu ikon parlaklığı burada sabit "light" — T-6/A-1/I-7
-  // gereği bu, ThemeController'ın aktif temasına göre güncellenmeli
-  // (karanlıkta açık ikon, parşömende koyu ikon). Bu madde Sıra 2.
-  // adımdaki (PlatformTokens/A-1) işin parçası olarak ele alınacak.
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ),
-  );
+  // Edge-to-edge: Android'in alt 3-tuş/gesture navigasyon şeridi artık
+  // ayrı, kopuk bir gri/beyaz bant gibi durmasın diye sistem çubuklarının
+  // ARKASINA çiziyoruz (Android 15/SDK 35 hedefleyen uygulamalarda zaten
+  // zorunlu olan davranış). Gerçek kontroller/içerik hâlâ MediaQuery
+  // insets'iyle (bkz. PlatformTokens.scrollBottomPadding, SafeArea) güvenli
+  // bölgede tutuluyor — burada sadece ARKA PLAN sistem çubuklarının altından
+  // geçiyor.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+  // NOT: Sistem çubuğu ikon parlaklığı/rengi artık burada SABİT
+  // ayarlanmıyor — tema (Zindan/Parşömen) her değiştiğinde MyApp.build()
+  // içinde yeniden uygulanıyor (bkz. aşağıdaki AnimatedBuilder), açılış
+  // dahil ilk kare de oradan doğru temayla çizilir.
 
   runApp(const MyApp());
 }
@@ -88,6 +91,24 @@ class _MyAppState extends State<MyApp> {
       animation: ThemeController.instance,
       builder: (context, _) {
         final draconicTheme = ThemeController.instance.current;
+
+        // Gerçek cihaz testinde: (1) durum çubuğu ikonları temaya bakmadan
+        // hep "açık/light" kalıyordu — Parşömen'in krem zemininde neredeyse
+        // görünmez oluyordu; (2) alt Android navigasyon şeridi varsayılan
+        // opak rengiyle uygulamanın arka planından kopuk, ayrı bir bant gibi
+        // duruyordu. Tema her değiştiğinde (bu builder yeniden çalıştığında)
+        // ikisini de aktif DraconicTheme'e göre yeniden uyguluyoruz.
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: draconicTheme.isDark ? Brightness.light : Brightness.dark,
+            statusBarBrightness: draconicTheme.isDark ? Brightness.dark : Brightness.light, // iOS
+            systemNavigationBarColor: draconicTheme.background,
+            systemNavigationBarIconBrightness: draconicTheme.isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarDividerColor: Colors.transparent,
+          ),
+        );
+
         return MaterialApp(
           title: 'Ignis',
           debugShowCheckedModeBanner: false,
@@ -763,11 +784,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               const SizedBox(height: 6),
                               // P1-7: "0/5 Kelime" çıplak sıfırı, ilk oturumda davet mesajına dönüşür.
-                              Text(
-                                _todayLearnedCards == 0
-                                    ? 'Bugün henüz kelime öğrenmedin • Hedef: $_dailyTargetCards'
-                                    : 'Günlük Hedef • $_todayLearnedCards/$_dailyTargetCards Kelime',
-                                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12),
+                              // Gerçek cihaz testinde bu satırın sağ tarafı sağ-alt köşedeki
+                              // Ignis görselinin (bkz. aşağıdaki Positioned) ARKASINDA kalıp
+                              // kırpılıyordu — satır genişliği hiç sınırlanmamıştı. Başlıkla
+                              // aynı %55 genişlik sınırı + tek satır/ellipsis burada da veriliyor.
+                              SizedBox(
+                                width: MediaQuery.of(context).size.width * 0.55,
+                                child: Text(
+                                  _todayLearnedCards == 0
+                                      ? 'Bugün henüz kelime öğrenmedin • Hedef: $_dailyTargetCards'
+                                      : 'Günlük Hedef • $_todayLearnedCards/$_dailyTargetCards Kelime',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12),
+                                ),
                               ),
                               const SizedBox(height: 18),
                               Row(

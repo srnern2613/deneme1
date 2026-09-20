@@ -4,7 +4,7 @@
 //            Kozmetikleri ve Reaktif AppHeader Entegrasyonu.
 // ============================================================================
 
-import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/foundation.dart' show ValueListenable, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -159,6 +159,28 @@ class ProfileScreenState extends State<ProfileScreen> {
         leagueRivalName = rival['name'] as String;
       }
 
+      final int totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
+      final int totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
+      final int totalPagesRead = prefs.getInt('stats_total_pages_read') ?? 0;
+      final now = DateTime.now();
+      final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final int dailyPages = prefs.getInt('daily_pages_$todayKey') ?? 0;
+      final bool hasShield = streakResult['hasFreezeShield'] ?? false;
+
+      // Faz F3: rozet motoru daha önce HİÇ çağrılmıyordu — "3/22 rozet
+      // açıldı" gibi görünen eski/kalıcı badge_unlocked_* bayrakları
+      // geçmişteki bir sürümden kalmaydı, yeni rozetler hiç açılmıyordu.
+      // Ana Sayfa'daki seri kaybı/günlük hedef anlarıyla aynı desende:
+      // Profil her açıldığında güncel istatistiklerle kontrol ediyoruz.
+      final newlyUnlocked = await AchievementService.instance.checkAndUnlockAchievements(
+        totalPagesRead: totalPagesRead,
+        totalFlashcards: cards.length,
+        totalReadMinutes: totalReadMinutes,
+        wordsExamined: totalWordsExamined,
+        dailyPages: dailyPages,
+        hasShield: hasShield,
+      );
+
       final unlocked = <String>{};
       for (var badge in _allBadges) {
         if (await AchievementService.instance.isBadgeUnlocked(badge['id']!)) {
@@ -168,12 +190,12 @@ class ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
       setState(() {
-        _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
-        _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
+        _totalReadMinutes = totalReadMinutes;
+        _totalWordsExamined = totalWordsExamined;
         _totalFlashcards = cards.length;
         _masteredFlashcardsCount = masteredCount;
         _streakDays = streakResult['streakDays'] ?? 1;
-        _hasFreezeShield = streakResult['hasFreezeShield'] ?? false;
+        _hasFreezeShield = hasShield;
         _hasGoldenCrown = crown;
         _activeFrame = frame;
         _unlockedBadges = unlocked;
@@ -181,6 +203,25 @@ class ProfileScreenState extends State<ProfileScreen> {
         _leagueXpGap = leagueXpGap;
         _leagueRivalName = leagueRivalName;
       });
+
+      // Yeni açılan rozet(ler) varsa — build tamamlandıktan sonra, Ignis
+      // pop-up'ıyla kutla (aynı frame-sonrası deseni: bkz. main.dart'taki
+      // streakLossMoment). Birden fazla açıldıysa şimdilik en yenisini
+      // (listenin sonuncusu) gösteriyoruz — art arda pop-up yığını UX'i
+      // bozar.
+      if (newlyUnlocked.isNotEmpty && mounted) {
+        final badge = newlyUnlocked.last;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          IgnisMomentDialog.show(
+            context,
+            pose: 'celebrating',
+            title: '${badge.emoji} ${badge.title}',
+            message: badge.celebrationText,
+            primaryLabel: 'Harika! 🎉',
+          );
+        });
+      }
     } catch (_) {}
   }
 
@@ -648,44 +689,113 @@ class ProfileScreenState extends State<ProfileScreen> {
                     title: 'Sürüm',
                     trailingValue: '1.0.0',
                   ),
-                  const SizedBox(height: 22),
-                  Text('DEV/TEST ARAÇLARI', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Sadece önizleme — gerçek seri/istatistik verisi değişmez.',
-                    style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 10.5),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSheetRow(
-                    icon: PhosphorIcons.bugBold,
-                    iconColor: const Color(0xFFEF4444),
-                    title: 'Seri Kaybı Pop-up\'ını Göster',
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      IgnisMomentDialog.show(
-                        context,
-                        pose: 'sad',
-                        title: 'Serin Kırıldı...',
-                        message: 'Sorun değil, herkesin ara verdiği günler olur. Bugün yeniden başlayalım — bir sonraki serin daha güçlü olacak!',
-                        primaryLabel: 'Yeniden Başla 💪',
-                      );
-                    },
-                  ),
-                  _buildSheetRow(
-                    icon: PhosphorIcons.fireBold,
-                    iconColor: const Color(0xFFF59E0B),
-                    title: 'Kutlama Pop-up\'ını Göster',
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      IgnisMomentDialog.show(
-                        context,
-                        pose: 'celebrating',
-                        title: '7 Günlük Seri!',
-                        message: '7 gündür kesintisiz pratik yapıyorsun. Bu disiplin kalıcı hafızanın temeli.',
-                        primaryLabel: 'Harika, Devam! 🔥',
-                      );
-                    },
-                  ),
+                  // Gerçek cihaz testinde "Dev/Test Araçları" bölümünün son
+                  // kullanıcı sürümünde (release build) hiç görünmemesi
+                  // gerekiyor — artık sadece debug build'de render ediliyor
+                  // (bkz. flashcards_screen.dart'taki aynı kDebugMode kararı).
+                  if (kDebugMode) ...[
+                    const SizedBox(height: 22),
+                    Text('DEV/TEST ARAÇLARI', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Sadece önizleme — gerçek seri/istatistik verisi değişmez.',
+                      style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 10.5),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildSheetRow(
+                      icon: PhosphorIcons.bugBold,
+                      iconColor: const Color(0xFFEF4444),
+                      title: 'Seri Kaybı Pop-up\'ını Göster',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        IgnisMomentDialog.show(
+                          context,
+                          pose: 'sad',
+                          title: 'Serin Kırıldı...',
+                          message: 'Sorun değil, herkesin ara verdiği günler olur. Bugün yeniden başlayalım — bir sonraki serin daha güçlü olacak!',
+                          primaryLabel: 'Yeniden Başla 💪',
+                        );
+                      },
+                    ),
+                    _buildSheetRow(
+                      icon: PhosphorIcons.fireBold,
+                      iconColor: const Color(0xFFF59E0B),
+                      title: 'Kutlama Pop-up\'ını Göster',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        IgnisMomentDialog.show(
+                          context,
+                          pose: 'celebrating',
+                          title: '7 Günlük Seri!',
+                          message: '7 gündür kesintisiz pratik yapıyorsun. Bu disiplin kalıcı hafızanın temeli.',
+                          primaryLabel: 'Harika, Devam! 🔥',
+                        );
+                      },
+                    ),
+                    // Faz F2 önizlemeleri: yeni eklenen duygu pozlarını
+                    // (loving/angry/worried) ve rozet kutlamasını gerçek bir
+                    // hedefe/savaşa/rozete ulaşmadan test edebilmek için.
+                    _buildSheetRow(
+                      icon: PhosphorIcons.targetBold,
+                      iconColor: const Color(0xFFF472B6),
+                      title: 'Günlük Hedef Pop-up\'ını Göster',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        IgnisMomentDialog.show(
+                          context,
+                          pose: 'loving',
+                          title: 'Günlük Hedefin Tamam!',
+                          message: 'Bugünkü hedefini tamamladın. Bu istikrar seni çok uzağa taşıyacak — seninle gurur duyuyorum!',
+                          primaryLabel: 'Teşekkürler! 💖',
+                        );
+                      },
+                    ),
+                    _buildSheetRow(
+                      icon: PhosphorIcons.skullBold,
+                      iconColor: const Color(0xFFEF4444),
+                      title: 'Boss Yenilgi Pop-up\'ını Göster',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        IgnisMomentDialog.show(
+                          context,
+                          pose: 'angry',
+                          title: 'Boss Hâlâ Ayakta!',
+                          message: 'Bu kelime biraz zor görünüyor. Pes etme! Tekrarlarını tamamlayıp güçlendiğinde tekrar rövanşa çıkabilirsin.',
+                          primaryLabel: 'Tekrar Dene 🔥',
+                        );
+                      },
+                    ),
+                    _buildSheetRow(
+                      icon: PhosphorIcons.warningBold,
+                      iconColor: const Color(0xFF94A3B8),
+                      title: 'Savaştan Çıkış Uyarısını Göster',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        IgnisMomentDialog.show(
+                          context,
+                          pose: 'worried',
+                          title: 'Savaştan çık?',
+                          message: 'Bossu yenmeden çıkarsan bu turdaki ilerleme kaybolur.',
+                          primaryLabel: 'Anladım',
+                        );
+                      },
+                    ),
+                    _buildSheetRow(
+                      icon: PhosphorIcons.trophyBold,
+                      iconColor: const Color(0xFFFBBF24),
+                      title: 'Rozet Kazanma Pop-up\'ını Göster',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        IgnisMomentDialog.show(
+                          context,
+                          pose: 'celebrating',
+                          title: '🔥 Sinaps Ustası',
+                          message: 'Hafızanı test ettin ve kazandın! Bu rozet, öğrendiklerinin kalıcı hâle geldiğinin kanıtı.',
+                          primaryLabel: 'Harika! 🎉',
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             );

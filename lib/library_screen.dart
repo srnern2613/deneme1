@@ -43,6 +43,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
   int _totalReadMinutes = 0;
   int _totalWordsExamined = 0;
   int _totalWordsSaved = 0;
+  // Faz F3: rozet/başarım motoru (achievement_service.dart) ve Alışkanlık
+  // Takipçisi'nin (habit_tracker_screen.dart) haftalık aktivite grafiği
+  // buna bağlı — ikisi de daha önce hiç yazılmayan bir okuma sayısı
+  // bekliyordu.
+  int _totalPagesRead = 0;
 
   final Map<String, Map<String, dynamic>> _bookStatsCache = {};
 
@@ -89,6 +94,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
       _totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
       _totalWordsSaved = prefs.getInt('stats_total_words_saved') ?? 0;
+      _totalPagesRead = prefs.getInt('stats_total_pages_read') ?? 0;
       _streakDays = streakResult['streakDays'] ?? 1;
       _hasFreezeShield = streakResult['hasFreezeShield'] ?? false;
     });
@@ -131,6 +137,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await prefs.setInt('stats_total_read_minutes', _totalReadMinutes);
     await prefs.setInt('stats_total_words_examined', _totalWordsExamined);
     await prefs.setInt('stats_total_words_saved', _totalWordsSaved);
+    await prefs.setInt('stats_total_pages_read', _totalPagesRead);
+  }
+
+  // Faz F3: main.dart'taki AYNI format ('YYYY-MM-DD') — habit_tracker_screen.dart
+  // bu anahtarı 'daily_pages_YYYY-MM-DD' olarak okuyor ama şimdiye kadar hiçbir
+  // yerden yazılmıyordu, bu yüzden haftalık aktivite grafiği hep boş kalıyordu.
+  String _getTodayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   Future<void> _pickAndProcessFile() async {
@@ -225,10 +240,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
           book.totalReadSeconds += validDurationSeconds;
           _totalReadMinutes += actualMinutes;
           _totalWordsExamined += result.wordsExamined;
+          _totalPagesRead += addedPages;
         });
 
         await _saveBooksToStorage();
         await _saveStatsToStorage();
+
+        // Faz F3: günlük sayfa sayacı — habit_tracker_screen.dart'ın haftalık
+        // aktivite grafiği ve achievement_service.dart'ın 'marathoner'/
+        // 'weekend_warrior' rozetleri bunu okuyor, şimdiye kadar hiç
+        // yazılmıyordu.
+        final prefs = await SharedPreferences.getInstance();
+        final todayKey = _getTodayKey();
+        final todayPages = prefs.getInt('daily_pages_$todayKey') ?? 0;
+        await prefs.setInt('daily_pages_$todayKey', todayPages + addedPages);
       }
     }
 

@@ -53,7 +53,13 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/images/app_icon.png"
 
 flutter_native_splash:
-  color: "#0f172a"
+  # NOT (kutu/dikdörtgen görünme sorunu düzeltmesi): Bu #0f172a düz renk,
+  # ignis_splash.png'nin gerçek kenar/köşe piksel tonundan (yaklaşık
+  # #06070f, neredeyse siyah) belirgin biçimde daha açık/mavimsiydi — bu da
+  # ekranda görselin kenarlarında görünür bir "kutu" kenarı/dikişi
+  # oluşturuyordu. Artık görselin gerçek kenar tonuyla piksel seviyesinde
+  # eşleşecek şekilde ayarlandı.
+  color: "#06070f"
   image: assets/images/ignis_splash.png
   android_12:
     # ÖNEMLİ SINIRLAMA: Android 12+ kendi native splash API'sini dayatıyor —
@@ -64,7 +70,12 @@ flutter_native_splash:
     # o yuvarlak kırpılmış görüntünün sebebi bu. Bunun için afiş yerine,
     # zaten dairesel çerçeveye uygun tasarlanmış app_icon.png kullanılıyor.
     image: assets/images/app_icon.png
-    icon_background_color: "#0f172a"
+    # NOT: app_icon.png'nin gerçek kenar tonu (~#030c1e, neredeyse siyah)
+    # eski #0f172a'dan belirgin biçimde koyu/farklıydı — Android 12+
+    # cihazlarda (artık cihazların çoğu) ortada görünen "kutu" şikayetinin
+    # asıl kaynağı büyük olasılıkla buydu. Artık ikonun gerçek kenar
+    # tonuyla eşleşiyor.
+    icon_background_color: "#030c1e"
   fullscreen: true
 
 flutter:

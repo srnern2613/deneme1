@@ -356,6 +356,13 @@ class RuneTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Gerçek cihaz geri bildirimi: parşömen (aydınlık) temaya geçince bu
+    // başlık — TÜM ekranların en üstündeki "PROFİL"/"ARENA"/"SIRALAMA" gibi
+    // metin — sabit Colors.white/gri kullandığı için açık krem zemin
+    // üzerinde neredeyse okunaksız kalıyordu. Artık DraconicTheme'den okuyor
+    // (Zindan'da hâlâ beyaza, Parşömen'de koyu kahveye düşer), tıpkı
+    // ekranların artık tamamının kullandığı diğer token'lar gibi.
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -363,7 +370,7 @@ class RuneTitle extends StatelessWidget {
           // UI/UX Düzeltme Listesi — P0-3: Dart'ın toUpperCase()'i yerine
           // Türkçe kurallarına göre büyüten toUpperCaseTr() (i → İ).
           title.toUpperCaseTr(),
-          style: GoogleFonts.lora(color: Colors.white, fontSize: fontSize, fontWeight: FontWeight.w700, letterSpacing: 1.6),
+          style: GoogleFonts.lora(color: theme.textPrimary, fontSize: fontSize, fontWeight: FontWeight.w700, letterSpacing: 1.6),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -372,7 +379,7 @@ class RuneTitle extends StatelessWidget {
           width: 40,
           height: 2,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Colors.transparent]),
+            gradient: LinearGradient(colors: [theme.primaryAmber, theme.primaryAmber.withValues(alpha: 0.0)]),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -380,7 +387,7 @@ class RuneTitle extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             subtitle!,
-            style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500),
+            style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w500),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -434,6 +441,7 @@ class EmptyWordPoolState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -456,13 +464,13 @@ class EmptyWordPoolState extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w900, color: Colors.white),
+              style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w900, color: theme.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF94A3B8), height: 1.5),
+              style: GoogleFonts.inter(fontSize: 12.5, color: theme.textSecondary, height: 1.5),
             ),
             const SizedBox(height: 22),
             SizedBox(

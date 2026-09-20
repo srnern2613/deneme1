@@ -24,7 +24,7 @@ import 'listening_exercise_screen.dart';
 import 'speed_round_screen.dart';
 import 'word_boss_battle_screen.dart';
 import 'xp_shop_service.dart';
-import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/foundation.dart' show ValueListenable, kDebugMode;
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/fsrs/fsrs_repository.dart';
 import 'core/entitlement/paywall_trigger.dart';
@@ -114,15 +114,22 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       
+      // Release build'de anahtar UI'dan kaldırıldı (bkz. Arena Ayarları
+      // sheet'indeki kDebugMode koşulu) ama eski bir debug/test kurulumundan
+      // 'dev_test_mode' prefs'te true kalmış olabilir — release'de bunu asla
+      // uygulamıyoruz, yoksa kullanıcı hiç kapatamayacağı kalıcı bir
+      // "tüm Premium kilitleri açık" durumuna takılı kalır.
+      final bool storedTestMode = prefs.getBool('dev_test_mode') ?? false;
+      final bool effectiveTestMode = kDebugMode && storedTestMode;
       setState(() {
         _sessionLimit = prefs.getInt('arena_session_limit') ?? 0;
         _learningStateFilter = prefs.getString('arena_state_filter') ?? 'ALL';
-        _isTestModeActive = prefs.getBool('dev_test_mode') ?? false;
+        _isTestModeActive = effectiveTestMode;
       });
       // Geliştirici Test Modu artık Premium kilitlerini de açar (bkz.
       // EntitlementRepository.devTestOverrideNotifier) — ekran her yeniden
       // yüklendiğinde (initState/resume) senkron kalsın.
-      EntitlementRepository.instance.setDevTestOverride(_isTestModeActive);
+      EntitlementRepository.instance.setDevTestOverride(effectiveTestMode);
 
       await _loadCardsAndStats();
     } catch (_) {
@@ -234,49 +241,59 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                     ],
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // --- GELİŞTİRİCİ TEST MODU (KİLİTLERİ AÇAR) ---[cite: 6]
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+                  // Gerçek cihaz testinde bu anahtarın (ve tüm Premium
+                  // kilitlerini anında açan etkisinin) release/production
+                  // build'de son kullanıcıya görünmesi istenmiyor — artık
+                  // sadece debug build'de (flutter run / dev ortamı) render
+                  // ediliyor. `dev_test_mode` prefs anahtarı ve
+                  // EntitlementRepository.devTestOverrideNotifier davranışı
+                  // AYNI kalıyor, sadece bu sheet'teki anahtar release'de
+                  // gizli.
+                  if (kDebugMode) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(PhosphorIcons.bugBold, color: Color(0xFFEF4444), size: 20),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Geliştirici Test Modu', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                  Text('Tüm kilitleri (Premium dahil) anında açar', style: GoogleFonts.inter(color: const Color(0xFFFCA5A5), fontSize: 10)),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Switch(
+                            value: _isTestModeActive,
+                            activeThumbColor: const Color(0xFFEF4444),
+                            onChanged: (val) async {
+                              HapticFeedback.heavyImpact();
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setBool('dev_test_mode', val);
+                              // Premium (PaywallTrigger) kilitlerini de kapsasın —
+                              // switch kapatılınca otomatik geri kilitlenir.
+                              EntitlementRepository.instance.setDevTestOverride(val);
+                              setModalState(() => _isTestModeActive = val);
+                              setState(() => _isTestModeActive = val);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(PhosphorIcons.bugBold, color: Color(0xFFEF4444), size: 20),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Geliştirici Test Modu', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                                Text('Tüm kilitleri (Premium dahil) anında açar', style: GoogleFonts.inter(color: const Color(0xFFFCA5A5), fontSize: 10)),
-                              ],
-                            ),
-                          ],
-                        ),
-                        Switch(
-                          value: _isTestModeActive,
-                          activeThumbColor: const Color(0xFFEF4444),
-                          onChanged: (val) async {
-                            HapticFeedback.heavyImpact();
-                            final prefs = await SharedPreferences.getInstance();
-                            await prefs.setBool('dev_test_mode', val);
-                            // Premium (PaywallTrigger) kilitlerini de kapsasın —
-                            // switch kapatılınca otomatik geri kilitlenir.
-                            EntitlementRepository.instance.setDevTestOverride(val);
-                            setModalState(() => _isTestModeActive = val);
-                            setState(() => _isTestModeActive = val); 
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
+                  ],
 
                   SizedBox(
                     width: double.infinity,
@@ -989,7 +1006,11 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                       Text(
                         desc,
                         style: GoogleFonts.inter(fontSize: 12, color: theme.textSecondary, height: 1.25),
-                        maxLines: 1,
+                        // P0 düzeltme: açıklamalar tek satıra sığmayınca
+                        // cümle ortasında "..." ile kesiliyordu (ör. "4
+                        // seçenek arasından doğr..."). 2 satıra izin
+                        // verilerek satır sonuna kadar okunabiliyor.
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
