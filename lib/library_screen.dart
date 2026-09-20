@@ -479,70 +479,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  // UI/UX Düzeltme Listesi — Faz E: kısa kitap listelerinde ListView'in
-  // altında kalan boş alanı, kitap listesinin doğal bir parçası olarak
-  // dolduran özet kart. Yeni veri kaynağı/ağ çağrısı eklenmedi — mevcut
-  // _books ve _bookStatsCache üzerinden türetiliyor.
-  Widget _buildLibraryJourneyFooter() {
-    final theme = Theme.of(context).extension<DraconicTheme>()!;
-    final int totalBooks = _books.length;
-    final int startedBooks = _books.where((b) {
-      final discoveredWords = _bookStatsCache[b.title]?['total_words'] as int? ?? 0;
-      return b.currentPage > 0 || discoveredWords > 0;
-    }).length;
-    final int finishedBooks = _books.where((b) {
-      final total = b.pages.isEmpty ? 1 : b.pages.length;
-      final current = b.currentPage.clamp(0, total);
-      return total > 1 && current >= total - 1;
-    }).length;
-
-    final String message = finishedBooks > 0
-        ? '$totalBooks kitaptan $finishedBooks\'ini tamamladın, $startedBooks\'inde ilerliyorsun. Böyle devam! 🔥'
-        : startedBooks > 0
-            ? '$totalBooks kitaptan $startedBooks\'inde ilerliyorsun. Bir sayfa daha oku, seriyi büyüt! 📖'
-            : 'Kitaplığında $totalBooks kitap seni bekliyor. Birine başlamak için dokun! ✨';
-
-    // UI/UX Düzeltme Listesi — Faz E (2. düzeltme): kart artık sadece kalan
-    // alanın İÇİNDE ortalanan küçük bir kutu değil — SizedBox.expand ile
-    // kalan alanın TAMAMINI (arka planı ve çerçevesiyle) kaplıyor, içeriği
-    // ise o büyük kartın kendi içinde dikey ortalanıyor. Önceki sürümde kart
-    // küçük kalıp Scaffold'un çıplak arka planı hâlâ üstünde/altında
-    // görünüyordu — bu artık mümkün değil, kart tüm alanı kaplıyor.
-    return SizedBox.expand(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: theme.surfaceDark.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: theme.borderSubtle),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(PhosphorIcons.booksBold, size: 16, color: theme.textMuted),
-                const SizedBox(width: 8),
-                Text(
-                  'OKUMA YOLCULUĞUN',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11, color: theme.textMuted, letterSpacing: 0.5),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              message,
-              style: GoogleFonts.inter(fontSize: 12.5, color: theme.textSecondary, height: 1.4),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).extension<DraconicTheme>()!;
@@ -728,22 +664,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     );
                         },
                         childCount: _books.length * 2 - 1,
-                      ),
-                    ),
-                    // UI/UX Düzeltme Listesi — Faz E (düzeltme): kısa kitap
-                    // listelerinde kalan boşluk artık listenin son satırı
-                    // olarak değil, `SliverFillRemaining` ile ÖLÇÜLEN gerçek
-                    // kalan alanın TAMAMINI kaplayan bir kart olarak
-                    // dolduruluyor (bkz. _buildLibraryJourneyFooter içindeki
-                    // SizedBox.expand) — önceki sürüm kartı sadece o alanın
-                    // ortasına koyuyordu, üstünde/altında hâlâ çıplak
-                    // Scaffold arka planı görünüyordu.
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      fillOverscroll: false,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: _buildLibraryJourneyFooter(),
                       ),
                     ),
                   ],

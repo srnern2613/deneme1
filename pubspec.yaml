@@ -43,12 +43,27 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/images/app_icon.png"
+  # Android 8+ (Oreo) adaptive ikon: bunlar verilmezse Android, kare görseli
+  # "legacy" ikon sayıp KENDİSİ otomatik olarak beyaz zeminli bir daireye
+  # küçültüp oturtuyor (ekrandaki "beyaz zeminde küçülmüş kare" görünümünün
+  # sebebi buydu). Arka planı marka rengiyle, ön planı aynı görselle
+  # tanımlayınca Android kendi otomatik küçültme/beyazlatma davranışını
+  # uygulamıyor.
+  adaptive_icon_background: "#0f172a"
+  adaptive_icon_foreground: "assets/images/app_icon.png"
 
 flutter_native_splash:
   color: "#0f172a"
   image: assets/images/ignis_splash.png
   android_12:
-    image: assets/images/ignis_splash.png
+    # ÖNEMLİ SINIRLAMA: Android 12+ kendi native splash API'sini dayatıyor —
+    # bu API'de tam ekran özel görsel YOK, sadece ortada sabit boyutlu
+    # (~240dp), dairesel maskelenen küçük bir "ikon" gösterilebiliyor. Tam
+    # afiş görseli (ejderha + "IGNIS DRACONIC LINGUA" yazısı) o daireye
+    # sığdırılmaya çalışılınca kenarlardan/yazıdan kırpılıyordu — gördüğün
+    # o yuvarlak kırpılmış görüntünün sebebi bu. Bunun için afiş yerine,
+    # zaten dairesel çerçeveye uygun tasarlanmış app_icon.png kullanılıyor.
+    image: assets/images/app_icon.png
     icon_background_color: "#0f172a"
   fullscreen: true
 

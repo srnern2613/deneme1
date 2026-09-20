@@ -208,8 +208,11 @@ class _RootScreenState extends State<RootScreen> {
           onTap: _onTabTapped,
           selectedItemColor: theme.primaryAmber,
           unselectedItemColor: theme.textMuted,
-          selectedLabelStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold),
-          unselectedLabelStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500),
+          // Parşömen (aydınlık) temaya geçildiğinde sekme isimlerinin
+          // okunaksız kalmaması için rengi burada da AÇIKÇA belirtiyoruz —
+          // sadece selected/unselectedItemColor'a güvenmek yerine.
+          selectedLabelStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: theme.primaryAmber),
+          unselectedLabelStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: theme.textMuted),
           items: const [
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.compassBold)), label: 'Ana Sayfa'),
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.bookOpenBold)), label: 'Dersler'),
