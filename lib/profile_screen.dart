@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import 'core/theme/draconic_theme.dart';
 import 'database_helper.dart';
 import 'library_screen.dart';
 import 'flashcards_screen.dart';
@@ -21,9 +22,11 @@ import 'xp_shop_service.dart';
 import 'dictionary_screen.dart';
 import 'leaderboard_screen.dart';
 import 'achievement_service.dart';
-import 'core/design_system/primitives.dart'; // GlassPanel & IgnisCharacterPortrait
+import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/entitlement/paywall_trigger.dart';
 import 'core/entitlement/entitlement_repository.dart';
+import 'core/design_system/platform_tokens.dart';
+import 'core/theme/theme_controller.dart'; // T-6: Görünüm anahtarı
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -134,8 +137,10 @@ class ProfileScreenState extends State<ProfileScreen> {
         {'name': 'Seydihan Akıl.', 'xp': userCurrentXp + 30, 'isUser': false},
         {'name': 'Eren (Sen)', 'xp': userCurrentXp, 'isUser': true},
         {'name': 'Sezer', 'xp': (userCurrentXp - 10).clamp(0, 999999), 'isUser': false},
-        {'name': 'Zenci', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'isUser': false},
-        {'name': 'Çinli', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'isUser': false},
+        // UI/UX Düzeltme Listesi — P0-6: leaderboard_screen.dart ile aynı
+        // isim havuzu, oradaki düzeltmeyle senkron tutuldu (bkz. o dosyadaki not).
+        {'name': 'Alevkanat', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'isUser': false},
+        {'name': 'Gölgeavcı', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'isUser': false},
         {'name': 'Gece.', 'xp': (userCurrentXp - 130).clamp(0, 999999), 'isUser': false},
         {'name': 'Deniz Acar', 'xp': (userCurrentXp - 180).clamp(0, 999999), 'isUser': false},
         {'name': 'Selin Öztürk', 'xp': (userCurrentXp - 230).clamp(0, 999999), 'isUser': false},
@@ -306,8 +311,13 @@ class ProfileScreenState extends State<ProfileScreen> {
                         return;
                       }
                       await XpShopService.instance.setActiveCosmetic('frame', id);
-                      if (!mounted) return;
+                      // `ctx` alt sayfanın (bottom sheet) kendi BuildContext'i;
+                      // State'in `mounted`'ı onun hâlâ ağaçta olduğunu garanti
+                      // etmiyor (use_build_context_synchronously uyarısı bu
+                      // yüzden çıkıyordu) — doğru kontrol `ctx.mounted`.
+                      if (!ctx.mounted) return;
                       Navigator.pop(ctx);
+                      if (!mounted) return;
                       _loadProfileData();
                     },
                     child: Column(
@@ -442,8 +452,9 @@ class ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       body: Stack(
         children: [
           // Profile'a özel atmosferik zemin: taş kemer/kapı + uzakta kale
@@ -464,8 +475,8 @@ class ProfileScreenState extends State<ProfileScreen> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    const Color(0xFF070B14).withValues(alpha: 0.55),
-                    const Color(0xFF070B14),
+                    theme.background.withValues(alpha: 0.55),
+                    theme.background,
                   ],
                   stops: const [0.0, 0.35, 0.7],
                 ),
@@ -475,7 +486,9 @@ class ProfileScreenState extends State<ProfileScreen> {
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+              // UI/UX Düzeltme Listesi — P0-1: sabit 110 yerine gerçek bar
+              // yüksekliği + viewPadding.bottom + 16'dan okunuyor.
+              padding: EdgeInsets.fromLTRB(20, 16, 20, PlatformTokens.scrollBottomPadding(context)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -493,7 +506,13 @@ class ProfileScreenState extends State<ProfileScreen> {
                   // temiz bir liste olarak sunuluyor, başarılar hep görünür.
                   _buildSettingsStyleStatsList(),
                   const SizedBox(height: 22),
-                  _buildAchievementsGrid(),
+                  // Faz B2: eski 22 rozetlik tam ızgara + Yaklaşan Rozetler
+                  // yığını yerine kompakt özet satırı — tamamı Başarı
+                  // Odası sheet'inde (bkz. _openAchievementRoomSheet).
+                  _buildBadgesSummaryRow(),
+                  // Faz B1: Görünüm anahtarı ve Ayarlar bölümü artık burada
+                  // değil — sağ üstteki dişli çark rozetinden açılan
+                  // _openProfileSettingsSheet() içinde.
                 ],
               ),
             ),
@@ -509,6 +528,7 @@ class ProfileScreenState extends State<ProfileScreen> {
   // hiçbir yeni state veya iş mantığı eklenmedi, sadece görsel sunum.
   // EJDERHA ROTASI V2 — FAZ 1: Elmas rozeti kaldırıldı.
   Widget _buildProfileHeaderRow() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Row(
       children: [
         const ScreenHeaderBadge(icon: PhosphorIcons.userBold, color: Color(0xFFA855F7)),
@@ -518,20 +538,185 @@ class ProfileScreenState extends State<ProfileScreen> {
         ),
         _buildHeaderStatPill(
           icon: PhosphorIcons.lightningBold,
-          color: const Color(0xFF38BDF8),
+          color: theme.infoTeal,
           listenable: XpShopService.instance.xpNotifier,
+        ),
+        const SizedBox(width: 8),
+        // UI/UX Düzeltme Listesi — Faz B1: Görünüm (Zindan/Parşömen) anahtarı
+        // ve Ayarlar artık ekranın ortasında gömülü değil, Apple standardına
+        // uygun sağ üstteki dişli çark rozetinden açılan bir bottom sheet'te
+        // — Arena sekmesindeki "Ayarlar" rozetiyle aynı 44x44pt dokunma
+        // alanı ve görsel dil.
+        ScreenHeaderBadge(
+          icon: PhosphorIcons.gearSixBold,
+          color: theme.infoTeal,
+          onTap: _openProfileSettingsSheet,
         ),
       ],
     );
   }
 
+  // Faz B1: Profil > Ayarlar bottom sheet — Görünüm anahtarı, Satın
+  // Alımları Geri Yükle ve Sürüm bilgisi artık burada. Diğer sabit-koyu
+  // sheet'lerle (Arena Ayarları, Rozet Detayı, Çerçeve Seçici) aynı görsel
+  // dili kullanır: her zaman koyu (0xFF111827) — açık/koyu tema anahtarının
+  // kendisi bu sheet'in İÇİNDE olduğu için sheet'in kendisini tema tokenına
+  // bağlamak döngüsel bir bağımlılık yaratır, bu yüzden bilinçli olarak
+  // sabit-koyu bırakıldı (diğer sheet'lerle tutarlı).
+  void _openProfileSettingsSheet() {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF111827),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (sheetContext) {
+        return AnimatedBuilder(
+          animation: ThemeController.instance,
+          builder: (context, _) {
+            final isDark = ThemeController.instance.isDark;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(sheetContext).padding.bottom + 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Icon(PhosphorIcons.gearSixBold, color: Color(0xFF38BDF8), size: 22),
+                      const SizedBox(width: 10),
+                      Text('Ayarlar', style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text('GÖRÜNÜM', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(14)),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildSheetAppearanceOption(
+                            label: 'Zindan',
+                            selected: isDark,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ThemeController.instance.setDark(true);
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildSheetAppearanceOption(
+                            label: 'Parşömen',
+                            selected: !isDark,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ThemeController.instance.setDark(false);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Text('HESAP VE VERİ', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  const SizedBox(height: 10),
+                  _buildSheetRow(
+                    icon: PhosphorIcons.arrowClockwiseBold,
+                    iconColor: const Color(0xFF818CF8),
+                    title: 'Satın Alımları Geri Yükle',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _handleRestorePurchases();
+                    },
+                  ),
+                  const SizedBox(height: 22),
+                  Text('UYGULAMA BİLGİSİ', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  const SizedBox(height: 10),
+                  _buildSheetRow(
+                    icon: PhosphorIcons.infoBold,
+                    iconColor: const Color(0xFF64748B),
+                    title: 'Sürüm',
+                    trailingValue: '1.0.0',
+                  ),
+                  // NOT: Duolingo tarzı karakter pop-up'ları için "Dev/Test
+                  // Araçları" bölümü (Faz F kapsamı) o özellik gerçekten
+                  // eklenince buraya gelecek — henüz var olmayan bir
+                  // metoda bağlanan ölü buton koymamak için şimdilik boş
+                  // bırakıldı.
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSheetAppearanceOption({required String label, required bool selected, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(11),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFF59E0B) : Colors.transparent,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: selected ? const Color(0xFF070B14) : const Color(0xFF94A3B8)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSheetRow({required IconData icon, required Color iconColor, required String title, String? trailingValue, VoidCallback? onTap}) {
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: iconColor, size: 17),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(title, style: GoogleFonts.inter(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w600)),
+          ),
+          if (trailingValue != null)
+            Text(trailingValue, style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.w700)),
+          if (onTap != null) ...[
+            const SizedBox(width: 6),
+            const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 14),
+          ],
+        ],
+      ),
+    );
+    if (onTap == null) return row;
+    return InkWell(borderRadius: BorderRadius.circular(12), onTap: onTap, child: row);
+  }
+
   Widget _buildHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+          color: theme.surfaceDark.withValues(alpha: 0.85),
           borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: const Color(0xFF1F2937), width: 1),
+          border: Border.all(color: theme.borderSubtle, width: 1),
         ),
         child: ValueListenableBuilder<int>(
           valueListenable: listenable,
@@ -540,7 +725,7 @@ class ProfileScreenState extends State<ProfileScreen> {
             children: [
               Icon(icon, size: 15, color: color),
               const SizedBox(width: 4),
-              Text('$value', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('$value', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
             ],
           ),
         ),
@@ -585,257 +770,329 @@ class ProfileScreenState extends State<ProfileScreen> {
     return results.take(2).toList();
   }
 
-  Widget _buildAchievementsGrid() {
-    final upcoming = _computeUpcomingBadges();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (upcoming.isNotEmpty) ...[
-          Text('Yaklaşan Rozetler', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 10),
-          ...upcoming.map((badge) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: GestureDetector(
-                  onTap: () => _showBadgeDetailDialog(badge, false),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A).withValues(alpha: 0.88),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF1F2937), width: 1),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(badge['emoji'] as String, style: const TextStyle(fontSize: 22)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(badge['title'] as String, style: GoogleFonts.outfit(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800)),
-                              const SizedBox(height: 6),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: badge['ratio'] as double,
-                                  minHeight: 5,
-                                  backgroundColor: const Color(0xFF334155),
-                                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFDE68A)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text('${badge['current']}/${badge['threshold']}', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 11.5)),
-                      ],
-                    ),
-                  ),
-                ),
-              )),
-          const SizedBox(height: 6),
-        ],
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // Faz B2: Profil ekranındaki 22 rozetlik ızgara + "Yaklaşan Rozetler"
+  // dikey yığını kaldırıldı (görsel gürültü şikayeti) — yerine sadece bu
+  // kompakt özet satırı var; tamamı artık _openAchievementRoomSheet()'te.
+  Widget _buildBadgesSummaryRow() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    // NOT: _unlockedBadges bir Set<String> — kilidi açılma zamanı
+    // tutulmuyor. "Son 3 rozet" bu yüzden _allBadges listesindeki sıraya
+    // göre (liste kabaca kolay→zor ilerliyor) en yüksek indeksli açık
+    // rozetler alınarak YAKLAŞIK hesaplanıyor; gerçek bir "en son açılan"
+    // değil. Gerçek zaman damgası eklenirse burası ona göre güncellenmeli.
+    final unlockedInOrder = _allBadges.where((b) => _unlockedBadges.contains(b['id'])).toList();
+    final recentThree = unlockedInOrder.length <= 3 ? unlockedInOrder.reversed.toList() : unlockedInOrder.reversed.take(3).toList();
+
+    return GestureDetector(
+      onTap: _openAchievementRoomSheet,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: theme.surfaceDark.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: theme.borderSubtle, width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Koleksiyon Vitrini', style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
-            Text('${_unlockedBadges.length} / ${_allBadges.length}', style: GoogleFonts.outfit(color: const Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 13)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _allBadges.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.85,
-          ),
-          itemBuilder: (context, index) {
-            final badge = _allBadges[index];
-            final isUnlocked = _unlockedBadges.contains(badge['id']);
-            final Color badgeColor = badge['color'];
-
-            return GestureDetector(
-              onTap: () => _showBadgeDetailDialog(badge, isUnlocked),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isUnlocked ? badgeColor.withValues(alpha: 0.1) : const Color(0xFF111827),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isUnlocked ? badgeColor.withValues(alpha: 0.5) : const Color(0xFF1F2937),
-                    width: isUnlocked ? 1.5 : 1.0,
-                  ),
-                  boxShadow: isUnlocked ? [BoxShadow(color: badgeColor.withValues(alpha: 0.15), blurRadius: 10, spreadRadius: 1)] : [],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 46, height: 46,
-                      decoration: BoxDecoration(
-                        color: isUnlocked ? badgeColor.withValues(alpha: 0.15) : const Color(0xFF1E293B),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: isUnlocked
-                            ? Text(badge['emoji'], style: const TextStyle(fontSize: 22))
-                            : const Icon(PhosphorIcons.lockFill, color: Color(0xFF475569), size: 20),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Text(
-                        badge['title'],
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          color: isUnlocked ? Colors.white : const Color(0xFF64748B),
-                          fontWeight: isUnlocked ? FontWeight.w800 : FontWeight.w600,
-                          fontSize: 10.5,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  // Hero profil kartı — artık Lobi'nin kendi "Today's Lesson" kartıyla aynı
-  // dilde: koyu sıcak gradient + altın kenarlık + glow. Ignis, kartın sağ
-  // üstünden bir konuşma balonuyla birlikte sahneye giriyor; ileride
-  // sayfaya özel karakterle değişecek tek yer IgnisCharacterPortrait
-  // (core/design_system/primitives.dart).
-  Widget _buildModernProfileCard() {
-    return Container(
-      margin: const EdgeInsets.only(top: 40),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFDE68A).withValues(alpha: 0.12),
-            blurRadius: 26,
-            spreadRadius: 0,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF17213C), Color(0xFF0B0F1A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.4), width: 1.2),
-            ),
-            child: Row(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                GestureDetector(
-                  onTap: _showFramePickerSheet,
-                  child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
+                Text('Rozetler', style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 16, fontWeight: FontWeight.w900)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildCosmeticAvatar(),
-                    if (_hasGoldenCrown)
-                      Positioned(
-                        top: -14,
-                        child: Icon(PhosphorIcons.crownBold, color: const Color(0xFFF59E0B), size: 22)
-                            .animate(onPlay: (c) => c.repeat(reverse: true))
-                            .moveY(duration: 1000.ms, begin: 0, end: -3),
-                      ),
+                    Text('${_unlockedBadges.length} / ${_allBadges.length}', style: GoogleFonts.outfit(color: theme.infoTeal, fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(width: 4),
+                    Icon(PhosphorIcons.caretRightBold, color: theme.textMuted, size: 14),
                   ],
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text('Eren', style: GoogleFonts.outfit(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
-                          if (_hasGoldenCrown) ...[
-                            const SizedBox(width: 4),
-                            const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 14),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      // Streak sayısı artık sadece alt istatistik gridinde
-                      // (tekrarı önlemek için) — burada, kalkan yokken Loss
-                      // Aversion ilkesine uygun büyütülmüş bir uyarı var;
-                      // kalkan varken minimal bir "güvende" onayı gösteriliyor.
-                      // EJDERHA ROTASI V2 — FAZ 2: Seri Koruma artık elmasla değil
-                      // Premium üyelikle açılıyor; dokunuş doğrudan merkezi
-                      // PaywallTrigger'ı tetikliyor (bkz. streak_freeze_service.dart).
-                      if (!_hasFreezeShield)
-                        PaywallTrigger(
-                          onUnlocked: _loadProfileData,
-                          child: Row(
-                            children: [
-                              const Icon(PhosphorIcons.fireBold, color: Color(0xFFEF4444), size: 14),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  'Serin risk altında, kalkanın yok!',
-                                  style: GoogleFonts.inter(color: const Color(0xFFFCA5A5), fontSize: 11.5, fontWeight: FontWeight.w700),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        Row(
-                          children: [
-                            const Icon(PhosphorIcons.shieldCheckBold, color: Color(0xFF34D399), size: 13),
-                            const SizedBox(width: 5),
-                            Text('Seri güvende', style: GoogleFonts.inter(color: const Color(0xFF6EE7B7), fontSize: 11.5, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                    ],
-                  ),
                 ),
               ],
             ),
-          ),
-          Positioned(
-            top: -40,
-            right: 6,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 3))],
+            const SizedBox(height: 12),
+            if (recentThree.isEmpty)
+              Text(
+                'Henüz kilidi açılmış bir rozetin yok — Başarı Odası\'nı aç ve ilk hedefini seç.',
+                style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12.5, height: 1.4),
+              )
+            else
+              Row(
+                children: [
+                  for (final badge in recentThree) ...[
+                    _buildBadgeCircle(badge, true),
+                    const SizedBox(width: 12),
+                  ],
+                  if (recentThree.length < 3)
+                    Expanded(child: Text('Devamı için dokun →', style: GoogleFonts.inter(color: theme.textMuted, fontSize: 12))),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBadgeCircle(Map<String, dynamic> badge, bool isUnlocked) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    final Color badgeColor = badge['color'];
+    return GestureDetector(
+      onTap: () => _showBadgeDetailDialog(badge, isUnlocked),
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: isUnlocked ? badgeColor.withValues(alpha: 0.15) : theme.surfaceLight,
+          shape: BoxShape.circle,
+          border: Border.all(color: isUnlocked ? badgeColor.withValues(alpha: 0.5) : theme.borderSubtle, width: 1.5),
+        ),
+        child: Center(
+          child: isUnlocked
+              ? Text(badge['emoji'], style: const TextStyle(fontSize: 24))
+              : Icon(PhosphorIcons.lockFill, color: theme.textMuted, size: 20),
+        ),
+      ),
+    );
+  }
+
+  // Faz B2: "Başarı Odası" — önceden ana profil ekranında dikey olarak
+  // yığılan Yaklaşan Rozetler + tam rozet ızgarası artık burada, sürüklenip
+  // büyütülebilen bir sheet içinde. Diğer büyük sheet'lerle (Rozet Detayı,
+  // Çerçeve Seçici) aynı sabit-koyu palet kullanılıyor.
+  void _openAchievementRoomSheet() {
+    HapticFeedback.lightImpact();
+    final upcoming = _computeUpcomingBadges();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF111827),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (sheetContext) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return SingleChildScrollView(
+              controller: scrollController,
+              padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(sheetContext).padding.bottom + 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(2)),
+                    ),
                   ),
-                  child: Text(
-                    'Harika gidiyorsun!',
-                    style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 10.5, fontWeight: FontWeight.w700),
+                  const SizedBox(height: 20),
+                  Text('Başarı Odası', style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 4),
+                  Text('${_unlockedBadges.length} / ${_allBadges.length} rozet açıldı', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13)),
+                  if (upcoming.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text('Yaklaşan Rozetler', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 10),
+                    ...upcoming.map((badge) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: GestureDetector(
+                            onTap: () => _showBadgeDetailDialog(badge, false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0xFF334155), width: 1),
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(badge['emoji'] as String, style: const TextStyle(fontSize: 22)),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(badge['title'] as String, style: GoogleFonts.outfit(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800)),
+                                        const SizedBox(height: 6),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: LinearProgressIndicator(
+                                            value: badge['ratio'] as double,
+                                            minHeight: 5,
+                                            backgroundColor: const Color(0xFF334155),
+                                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFDE68A)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text('${badge['current']}/${badge['threshold']}', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )),
+                  ],
+                  const SizedBox(height: 20),
+                  Text('Koleksiyon Vitrini', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 12),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _allBadges.length,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 0.85,
+                    ),
+                    itemBuilder: (context, index) {
+                      final badge = _allBadges[index];
+                      final isUnlocked = _unlockedBadges.contains(badge['id']);
+                      final Color badgeColor = badge['color'];
+
+                      return GestureDetector(
+                        onTap: () => _showBadgeDetailDialog(badge, isUnlocked),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isUnlocked ? badgeColor.withValues(alpha: 0.12) : const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isUnlocked ? badgeColor.withValues(alpha: 0.5) : const Color(0xFF334155),
+                              width: isUnlocked ? 1.5 : 1.0,
+                            ),
+                            boxShadow: isUnlocked ? [BoxShadow(color: badgeColor.withValues(alpha: 0.15), blurRadius: 10, spreadRadius: 1)] : [],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 46, height: 46,
+                                decoration: BoxDecoration(
+                                  color: isUnlocked ? badgeColor.withValues(alpha: 0.15) : const Color(0xFF1E293B),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: isUnlocked
+                                      ? Text(badge['emoji'], style: const TextStyle(fontSize: 22))
+                                      : const Icon(PhosphorIcons.lockFill, color: Color(0xFF64748B), size: 20),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  badge['title'],
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.outfit(
+                                    color: isUnlocked ? Colors.white : const Color(0xFF64748B),
+                                    fontWeight: isUnlocked ? FontWeight.w800 : FontWeight.w600,
+                                    fontSize: 10.5,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Hero profil kartı — EJDERHA ROTASI V2: Ignis maskotu ve konuşma balonu
+  // kaldırıldı (Faz A, "Ignis Temizliği"). Sade, Apple tarzı minimalist bir
+  // kart: koyu gradient + ince altın kenarlık, dikkat dağıtıcı üst rozet
+  // katmanı olmadan doğrudan avatar + isim + seri durumuna odaklanıyor.
+  Widget _buildModernProfileCard() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF17213C), Color(0xFF0B0F1A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.3), width: 1),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: _showFramePickerSheet,
+            child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              _buildCosmeticAvatar(),
+              if (_hasGoldenCrown)
+                Positioned(
+                  top: -14,
+                  child: Icon(PhosphorIcons.crownBold, color: const Color(0xFFF59E0B), size: 22)
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .moveY(duration: 1000.ms, begin: 0, end: -3),
                 ),
-                const SizedBox(height: 2),
-                const IgnisCharacterPortrait(size: 78),
+            ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('Eren', style: GoogleFonts.outfit(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+                    if (_hasGoldenCrown) ...[
+                      const SizedBox(width: 4),
+                      const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 14),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                // Streak sayısı artık sadece alt istatistik gridinde
+                // (tekrarı önlemek için) — burada, kalkan yokken Loss
+                // Aversion ilkesine uygun büyütülmüş bir uyarı var;
+                // kalkan varken minimal bir "güvende" onayı gösteriliyor.
+                // EJDERHA ROTASI V2 — FAZ 2: Seri Koruma artık elmasla değil
+                // Premium üyelikle açılıyor; dokunuş doğrudan merkezi
+                // PaywallTrigger'ı tetikliyor (bkz. streak_freeze_service.dart).
+                if (!_hasFreezeShield)
+                  PaywallTrigger(
+                    onUnlocked: _loadProfileData,
+                    child: Row(
+                      children: [
+                        const Icon(PhosphorIcons.fireBold, color: Color(0xFFEF4444), size: 14),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            'Serin risk altında, kalkanın yok!',
+                            style: GoogleFonts.inter(color: const Color(0xFFFCA5A5), fontSize: 11.5, fontWeight: FontWeight.w700),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      const Icon(PhosphorIcons.shieldCheckBold, color: Color(0xFF34D399), size: 13),
+                      const SizedBox(width: 5),
+                      Text('Seri güvende', style: GoogleFonts.inter(color: const Color(0xFF6EE7B7), fontSize: 11.5, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -845,6 +1102,7 @@ class ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildMasteryProgressBanner() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     final double percentage = _totalFlashcards > 0 ? (_masteredFlashcardsCount / _totalFlashcards).clamp(0.0, 1.0) : 0.0;
     final int percentInt = (percentage * 100).round();
 
@@ -853,9 +1111,9 @@ class ProfileScreenState extends State<ProfileScreen> {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+          color: theme.surfaceDark.withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFF1F2937), width: 1),
+          border: Border.all(color: theme.borderSubtle, width: 1),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 14, spreadRadius: 0, offset: const Offset(0, 4)),
           ],
@@ -870,7 +1128,9 @@ class ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     const Text('🟢', style: TextStyle(fontSize: 16)),
                     const SizedBox(width: 8),
-                    Text('Mastered Words Vitrini', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+                    // P1-16: İngilizce/Türkçe karışımı ("Mastered Words Vitrini")
+                    // tamamen Türkçe başlığa çevrildi.
+                    Text('Kalıcı Hafıza', style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 15, fontWeight: FontWeight.w900)),
                   ],
                 ),
                 Row(
@@ -878,25 +1138,29 @@ class ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0xFF34D399).withValues(alpha: 0.16), borderRadius: BorderRadius.circular(10)),
-                      child: Text('%$percentInt Tamamlandı', style: GoogleFonts.outfit(color: const Color(0xFF6EE7B7), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                      decoration: BoxDecoration(color: theme.successEmerald.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(10)),
+                      // P1-7: "%0 Tamamlandı" yerine davet metni.
+                      child: Text(
+                        percentInt == 0 ? 'Henüz başlamadın' : '%$percentInt Tamamlandı',
+                        style: GoogleFonts.outfit(color: const Color(0xFF6EE7B7), fontWeight: FontWeight.bold, fontSize: 11.5),
+                      ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 14),
+                    Icon(PhosphorIcons.caretRightBold, color: theme.textMuted, size: 14),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            Text('Toplam havuzdaki $_totalFlashcards kelimeden $_masteredFlashcardsCount tanesi kalıcı hafızaya alındı.', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12)),
+            Text('Toplam havuzdaki $_totalFlashcards kelimeden $_masteredFlashcardsCount tanesi kalıcı hafızaya alındı.', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12)),
             const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
                 value: percentage,
                 minHeight: 7,
-                backgroundColor: const Color(0xFF334155),
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
+                backgroundColor: theme.borderSubtle,
+                valueColor: AlwaysStoppedAnimation<Color>(theme.successEmerald),
               ),
             ),
           ],
@@ -906,6 +1170,7 @@ class ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildLeagueRankCard() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return InkWell(
       borderRadius: BorderRadius.circular(22),
       onTap: () => _navigateTo(const LeaderboardScreen()),
@@ -913,9 +1178,9 @@ class ProfileScreenState extends State<ProfileScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+          color: theme.surfaceDark.withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFF1F2937), width: 1),
+          border: Border.all(color: theme.borderSubtle, width: 1),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 14, spreadRadius: 0, offset: const Offset(0, 4)),
           ],
@@ -935,23 +1200,28 @@ class ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Flexible(child: Text('12. Arena: Kelime Ustası', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14), overflow: TextOverflow.ellipsis)),
+                      Flexible(child: Text('12. Arena: Kelime Ustası', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w800, fontSize: 14), overflow: TextOverflow.ellipsis)),
                       Text('#$_leagueRank. Sırada', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.bold, fontSize: 12)),
                     ],
                   ),
                   const SizedBox(height: 3),
+                  // P1-8: maxLines eksikti, tek başına overflow:ellipsis hiçbir işe
+                  // yaramıyordu (Text sınırsız satıra sarıyordu) — metin gerçekte
+                  // sözcük ortasından ("...sadece 31 XP k...") kesiliyordu. Artık
+                  // gerçekten tek satırda kesiliyor.
                   Text(
                     _leagueRank <= 1
                         ? 'Zirvedesin! Kimse seni geçemiyor 👑'
                         : '$_leagueRivalName\'i geçmek için sadece $_leagueXpGap XP kaldı!',
-                    style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5),
+                    style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11.5),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 14),
+            Icon(PhosphorIcons.caretRightBold, color: theme.textMuted, size: 14),
           ],
         ),
       ),
@@ -961,53 +1231,74 @@ class ProfileScreenState extends State<ProfileScreen> {
   // EJDERHA ROTASI V2 — FAZ 6: Apple/iOS Ayarlar tarzı temiz liste — eski
   // 2x2 kutu grid'i yerine tek grup içinde ince ayraçlarla bölünen satırlar.
   // Aynı 4 istatistik ve aynı navigasyon hedefleri korunuyor.
+  // Faz B3: dikey iOS Ayarlar tarzı liste yerine 2x2 kart ızgarası —
+  // "liste elemanları alt alta duruyor, bilişsel yük azaltılmalı" geri
+  // bildirimine göre. Dokunma alanı ve navigasyon hedefleri değişmedi.
   Widget _buildSettingsStyleStatsList() {
-    final rows = [
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    final stats = [
       (title: 'Okuma Süresi', value: '$_totalReadMinutes dk', icon: PhosphorIcons.timerBold, color: const Color(0xFF38BDF8), onTap: () => _navigateTo(const LibraryScreen())),
       (title: 'Kelime Havuzu', value: '$_totalFlashcards Kart', icon: PhosphorIcons.cardsBold, color: const Color(0xFFEC4899), onTap: () => _navigateTo(const FlashcardsScreen())),
       (title: 'Koleksiyon Arşivi', value: '$_totalWordsExamined Kelime', icon: PhosphorIcons.magnifyingGlassBold, color: const Color(0xFF10B981), onTap: () => _navigateTo(const DictionaryScreen())),
       (title: 'Başarı Serisi', value: '$_streakDays Gün', icon: PhosphorIcons.fireBold, color: const Color(0xFFF59E0B), onTap: () => _navigateTo(const HabitTrackerScreen())),
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1),
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: stats.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.55,
       ),
-      child: Column(
-        children: [
-          for (int i = 0; i < rows.length; i++) ...[
-            _buildSettingsRow(rows[i]),
-            if (i < rows.length - 1) const Divider(height: 1, color: Color(0xFF1F2937), indent: 56),
-          ],
-        ],
-      ),
+      itemBuilder: (context, index) {
+        final s = stats[index];
+        return InkWell(
+          onTap: s.onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.surfaceDark.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: theme.borderSubtle, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(color: s.color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                  child: Icon(s.icon, color: s.color, size: 17),
+                ),
+                const SizedBox(height: 8),
+                Text(s.value, style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 16, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 2),
+                Text(s.title, style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildSettingsRow(({String title, String value, IconData icon, Color color, VoidCallback onTap}) row) {
-    return InkWell(
-      onTap: row.onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        child: Row(
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(color: row.color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(9)),
-              child: Icon(row.icon, color: row.color, size: 16),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(row.title, style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-            ),
-            Text(row.value, style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.w700)),
-            const SizedBox(width: 6),
-            const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF475569), size: 14),
-          ],
-        ),
+  // Faz B1: eski _buildAyarlarSection / _buildAppearanceSection /
+  // _buildAppearanceOption kaldırıldı — içerikleri (Görünüm anahtarı,
+  // Satın Alımları Geri Yükle, Sürüm) artık _openProfileSettingsSheet()
+  // içinde, sağ üstteki dişli çark rozetinden açılıyor.
+  Future<void> _handleRestorePurchases() async {
+    HapticFeedback.selectionClick();
+    final restored = await EntitlementRepository.instance.restorePurchases();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(restored ? 'Satın alımların geri yüklendi.' : 'Geri yüklenecek bir satın alma bulunamadı.'),
+        backgroundColor: const Color(0xFF1F2937),
       ),
     );
   }

@@ -367,6 +367,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // AŞAMA 4 — "Günlük Durum" kartı: Apple tarzı sade istatistik satırı.
   // Ignis Anları'ndaki (getSessionEndMoment) AYNI veri kaynağını kullanır
   // ama günde-1-kez kısıtı yok — her zaman güncel durumu gösterir.
+  // Faz C2: gün saatine göre kısa selamlama — sabah/gündüz/akşam/gece için
+  // ayrı metin. Kullanıcı adı, profil ekranındaki gibi (bkz. profile_screen.dart
+  // 'Eren' metni) sabit — uygulamada henüz dinamik bir kullanıcı adı alanı yok.
+  String _greetingText() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) return 'Günaydın, Eren';
+    if (hour >= 12 && hour < 18) return 'İyi günler, Eren';
+    if (hour >= 18 && hour < 23) return 'İyi akşamlar, Eren';
+    return 'Geç oldu ama hâlâ buradasın, Eren';
+  }
+
   Widget _buildIgnisDailyStatusCard() {
     final theme = Theme.of(context).extension<DraconicTheme>()!;
     final status = _dailyStatus;
@@ -542,6 +553,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // UI/UX Düzeltme Listesi — Faz C2: "üst kısımda zarif bir
+                  // karşılama... kalabilir" geri bildirimi — gün saatine göre
+                  // değişen kısa bir selamlama. Seri/XP/elmas sayaçları zaten
+                  // hemen altındaki HUD satırında (bkz. P1-13 sticky CTA'nın
+                  // üstündeki satır) — bu yüzden ayrı bir seri rozeti
+                  // eklenmedi, tekrar olurdu.
+                  Text(_greetingText(), style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 10),
                   // --- 1. ÜST MARKA (DİKEY LOGO - SCALE İLE BOŞLUKLAR GİDERİLDİ) VE MİNİMALİST HUD ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -742,20 +742,84 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   Widget _buildMemoryDungeonHero() {
     final bool isPoolEmpty = !_isTestModeActive && _totalValidPoolCount < 4;
 
+    // UI/UX Düzeltme Listesi — Faz D: "Zindan Kapalı" boş-havuz durumu artık
+    // sert kırmızı/koyu-mor bir "hata" alarmı gibi değil — hemen üstündeki
+    // Word Boss banner'ıyla (bkz. _buildDynamicBossBanner) renk/dikkat
+    // çatışması yaratıyordu. Bu, bir hata değil bir "henüz kilitli" durumu,
+    // bu yüzden artık GlassPanel (core/design_system/primitives.dart) ile
+    // aynı yumuşak, iOS tarzı translucent/blur dile taşındı — tema
+    // token'larıyla (surfaceDark/borderSubtle/textPrimary/textSecondary)
+    // uyumlu, tek başına çığlık atan bir kart değil. Havuz DOLUYKEN
+    // gösterilen amber "Hafıza Zindanı" hero'su bilinçli bir CTA vurgusu
+    // olduğundan (hero-kart kuralı) DEĞİŞTİRİLMEDİ.
+    if (isPoolEmpty) {
+      final theme = Theme.of(context).extension<DraconicTheme>()!;
+      return GlassPanel(
+        padding: const EdgeInsets.all(24),
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: theme.borderSubtle.withValues(alpha: 0.5), shape: BoxShape.circle),
+                  child: Icon(PhosphorIcons.bookOpenTextBold, color: theme.textPrimary, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Zindan Kapalı',
+                        style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Girmek için önce kitaplıkta avlanmalısın.',
+                        style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.primaryAmber,
+                  foregroundColor: theme.background,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: _navigateToLibraryRoot,
+                child: Text(
+                  'KİTAPLIĞA GİT VE AVLAN 🏹',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isPoolEmpty 
-            ? [const Color(0xFF1F1123), const Color(0xFF0F172A)]
-            : [const Color(0xFFD97706), const Color(0xFFB45309)],
+        gradient: const LinearGradient(
+          colors: [Color(0xFFD97706), Color(0xFFB45309)],
           begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isPoolEmpty ? const Color(0xFFEF4444).withValues(alpha: 0.5) : const Color(0xFFFDE68A).withValues(alpha: 0.5), width: 1.5),
+        border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.5), width: 1.5),
         boxShadow: [
-          BoxShadow(color: (isPoolEmpty ? const Color(0xFFEF4444) : const Color(0xFFF59E0B)).withValues(alpha: 0.25), blurRadius: 20, spreadRadius: 4),
+          BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.25), blurRadius: 20, spreadRadius: 4),
         ],
       ),
       child: Column(
@@ -766,7 +830,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.2), shape: BoxShape.circle),
-                child: Icon(isPoolEmpty ? PhosphorIcons.bookOpenTextBold : PhosphorIcons.swordBold, color: Colors.white, size: 28),
+                child: Icon(PhosphorIcons.swordBold, color: Colors.white, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -774,12 +838,12 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isPoolEmpty ? 'Zindan Kapalı!' : 'Hafıza Zindanı (SRS)',
+                      'Hafıza Zindanı (SRS)',
                       style: GoogleFonts.outfit(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      isPoolEmpty ? 'Girmek için önce kitaplıkta avlanmalısın.' : '${_cards.length} kelime aralıklı tekrar bekliyor.',
+                      '${_cards.length} kelime aralıklı tekrar bekliyor.',
                       style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w500),
                     ),
                   ],
@@ -793,13 +857,13 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
             height: 48,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: isPoolEmpty ? const Color(0xFFEF4444) : const Color(0xFF070B14),
-                foregroundColor: isPoolEmpty ? Colors.white : const Color(0xFFFDE68A),
+                backgroundColor: const Color(0xFF070B14),
+                foregroundColor: const Color(0xFFFDE68A),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              onPressed: isPoolEmpty ? _navigateToLibraryRoot : _startMixedDungeonSession,
+              onPressed: _startMixedDungeonSession,
               child: Text(
-                isPoolEmpty ? 'KİTAPLIĞA GİT VE AVLAN 🏹' : 'ZİNDANA GİR ⚔️',
+                'ZİNDANA GİR ⚔️',
                 style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5),
               ),
             ),
