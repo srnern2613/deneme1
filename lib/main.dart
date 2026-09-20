@@ -26,6 +26,7 @@ import 'xp_shop_service.dart';
 import 'streak_freeze_service.dart';
 import 'ai_coach_screen.dart';
 import 'core/coach/ignis_moments_engine.dart';
+import 'ignis_moment_dialog.dart'; // Faz F: Duolingo tarzı seri-kaybı pop-up'ı
 import 'core/design_system/platform_tokens.dart';
 import 'core/design_system/primitives.dart'; // BookCover (P1-3)
 import 'core/theme/draconic_theme.dart'; // T-1: Lobi yapısal renkleri temadan
@@ -293,6 +294,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       
       final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
+      // Faz F: seri gerçekten kırıldıysa (kalkan da yoksa) Duolingo tarzı
+      // "üzgün Ignis" pop-up'ı — günde en fazla 1 kez (bkz.
+      // IgnisMomentsEngine._prefsLastStreakLossDateKey).
+      final streakLossMoment = await IgnisMomentsEngine.instance.getStreakLossMoment(streakResult);
       final todayKey = _getTodayKey();
       
       final learnedToday = prefs.getInt('daily_learned_words_$todayKey') ?? 0;
@@ -327,6 +332,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _dailyStatus = dailyStatus;
         _isLoading = false;
       });
+
+      // Faz F: setState'ten SONRA, bir sonraki frame çizildikten sonra
+      // gösteriliyor — build sırasında dialog açmaya çalışmak hataya yol
+      // açar. mounted kontrolü hem burada hem callback içinde tekrarlanıyor
+      // çünkü addPostFrameCallback asenkron bir aralıkta çalışıyor.
+      if (streakLossMoment != null && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          IgnisMomentDialog.show(
+            context,
+            pose: streakLossMoment.pose,
+            title: streakLossMoment.title,
+            message: streakLossMoment.message,
+            primaryLabel: 'Yeniden Başla 💪',
+          );
+        });
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);

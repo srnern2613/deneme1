@@ -26,6 +26,9 @@ class StreakFreezeService {
     int streakDays = prefs.getInt('current_streak_days') ?? 1;
     bool hasFreezeShield = prefs.getBool('has_freeze_shield') ?? true; // Varsayılan 1 kalkan hediye
     bool shieldUsedToday = false;
+    // Faz F: Duolingo tarzı "seri kırıldı" pop-up'ının tetikleyicisi —
+    // sadece kalkan da yokken seri gerçekten 1'e sıfırlandığında true olur.
+    bool streakLost = false;
 
     if (lastActiveStr != null) {
       final lastActiveDate = DateTime.tryParse(lastActiveStr) ?? DateTime.now();
@@ -52,6 +55,7 @@ class StreakFreezeService {
         } else {
           // Kalkan yok, seri maalesef sıfırlanır :(
           streakDays = 1;
+          streakLost = true;
           await prefs.setInt('current_streak_days', 1);
         }
       }
@@ -64,6 +68,7 @@ class StreakFreezeService {
       'streakDays': streakDays,
       'hasFreezeShield': hasFreezeShield || isPremium,
       'shieldUsedToday': shieldUsedToday,
+      'streakLost': streakLost,
     };
   }
 

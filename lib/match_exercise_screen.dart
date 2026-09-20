@@ -19,6 +19,7 @@ import 'coach_messages.dart';
 import 'tts_service.dart';
 import 'core/design_system/primitives.dart';
 import 'core/coach/ignis_moments_engine.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
 
 class MatchItem {
   final String id;
@@ -310,27 +311,29 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           elevation: 0,
-          title: Text('Kelime Eşleştirme', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Text('Kelime Eşleştirme', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold)),
         ),
-        body: const Center(
-          child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+        body: Center(
+          child: CircularProgressIndicator(color: theme.cognitiveIndigo),
         ),
       );
     }
 
     if (_activeItems.isEmpty && _pool.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           elevation: 0,
-          title: Text('Kelime Eşleştirme', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Text('Kelime Eşleştirme', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold)),
         ),
         body: EmptyWordPoolState(
           message: 'Eşleştirme oyunu için Kitaplığında geçerli bir kelime bulunamadı.',
@@ -340,34 +343,34 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: theme.textPrimary),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Kelime Eşleştirme', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
+            Text('Kelime Eşleştirme', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: theme.textPrimary, fontSize: 16)),
             if (widget.xpMultiplier > 1)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '~+4 XP', 
+                    '~+4 XP',
                     style: GoogleFonts.outfit(
-                      color: Colors.grey.shade500, 
-                      fontSize: 10, 
+                      color: theme.textMuted,
+                      fontSize: 10,
                       decoration: TextDecoration.lineThrough,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '⚡ ${4 * widget.xpMultiplier} XP (2X Şanslı Mod!)', 
+                    '⚡ ${4 * widget.xpMultiplier} XP (2X Şanslı Mod!)',
                     style: GoogleFonts.outfit(
-                      color: const Color(0xFFF59E0B), 
-                      fontSize: 10.5, 
+                      color: theme.primaryAmber,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -377,7 +380,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: Icon(Icons.close_rounded, color: theme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -394,17 +397,17 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                          color: theme.dangerRed.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.35)),
+                          border: Border.all(color: theme.dangerRed.withValues(alpha: 0.35)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(PhosphorIcons.timerBold, size: 16, color: Color(0xFFEF4444)),
+                            Icon(PhosphorIcons.timerBold, size: 16, color: theme.dangerRed),
                             const SizedBox(width: 6),
                             Text(
                               '$_timeLeft sn',
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFFEF4444)),
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: theme.dangerRed),
                             ),
                           ],
                         ),
@@ -455,13 +458,13 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? const Color(0xFF6366F1).withValues(alpha: 0.22)
-                                    : const Color(0xFF111827),
+                                    ? theme.cognitiveIndigo.withValues(alpha: 0.22)
+                                    : theme.surfaceDark,
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
                                   color: isSelected
-                                      ? const Color(0xFF6366F1)
-                                      : const Color(0xFF1F2937),
+                                      ? theme.cognitiveIndigo
+                                      : theme.borderSubtle,
                                   width: isSelected ? 2 : 1.5,
                                 ),
                                 boxShadow: [
@@ -481,7 +484,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                                 style: GoogleFonts.outfit(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: isSelected ? const Color(0xFF818CF8) : Colors.white,
+                                  color: isSelected ? theme.cognitiveIndigo : theme.textPrimary,
                                 ),
                               ),
                             ),
@@ -505,11 +508,11 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
+                      color: theme.successEmerald,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                          color: theme.successEmerald.withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),

@@ -18,6 +18,7 @@ import 'coach_messages.dart';
 import 'database_helper.dart';
 import 'core/design_system/primitives.dart';
 import 'core/coach/ignis_moments_engine.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
 
 class QuizExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -335,13 +336,15 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+
     if (_questions.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           elevation: 0,
-          title: Text('Hızlı Test', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Text('Hızlı Test', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold)),
         ),
         body: EmptyWordPoolState(
           message: 'Bu testi çözebilmek için önce Kitaplığından birkaç kelime eklemen gerekiyor.',
@@ -354,34 +357,34 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
     final correctAnswer = (_questions[_currentIndex]['meaning'] ?? '').toString().trim();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: theme.textPrimary),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('4 Şıklı Hızlı Test', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
+            Text('4 Şıklı Hızlı Test', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: theme.textPrimary, fontSize: 16)),
             if (widget.xpMultiplier > 1)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '~+6 XP', 
+                    '~+6 XP',
                     style: GoogleFonts.outfit(
-                      color: Colors.grey.shade500, 
-                      fontSize: 10, 
+                      color: theme.textMuted,
+                      fontSize: 10,
                       decoration: TextDecoration.lineThrough,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '⚡ ${6 * widget.xpMultiplier} XP (2X Şanslı Mod!)', 
+                    '⚡ ${6 * widget.xpMultiplier} XP (2X Şanslı Mod!)',
                     style: GoogleFonts.outfit(
-                      color: const Color(0xFFF59E0B), 
-                      fontSize: 10.5, 
+                      color: theme.primaryAmber,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -391,7 +394,7 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: Icon(Icons.close_rounded, color: theme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -408,17 +411,17 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                     children: [
                       Text(
                         'Soru ${_currentIndex + 1} / ${_questions.length}',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF94A3B8)),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: theme.textSecondary),
                       ),
                       Row(
                         children: [
                           const Text('🔥', style: TextStyle(fontSize: 14)),
                           const SizedBox(width: 4),
-                          Text('$_streak Seri', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+                          Text('$_streak Seri', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: theme.textPrimary)),
                           const SizedBox(width: 12),
-                          const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 16),
+                          Icon(PhosphorIcons.lightningBold, color: theme.primaryAmber, size: 16),
                           const SizedBox(width: 2),
-                          Text('$_score', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Color(0xFFF59E0B))),
+                          Text('$_score', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: theme.primaryAmber)),
                         ],
                       ),
                     ],
@@ -430,9 +433,9 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                     child: LinearProgressIndicator(
                       value: (_timeRemaining / 10.0).clamp(0.0, 1.0),
                       minHeight: 6,
-                      backgroundColor: const Color(0xFF111827),
+                      backgroundColor: theme.surfaceDark,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        _timeRemaining > 3.0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                        _timeRemaining > 3.0 ? theme.successEmerald : theme.dangerRed,
                       ),
                     ),
                   ),
@@ -441,9 +444,9 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111827),
+                      color: theme.surfaceDark,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+                      border: Border.all(color: theme.borderSubtle, width: 1.5),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.3),
@@ -461,15 +464,15 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                             fontSize: 30,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.5,
-                            color: Colors.white,
+                            color: theme.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 8),
                         IconButton.filledTonal(
                           style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                            backgroundColor: theme.infoTeal.withValues(alpha: 0.15),
                           ),
-                          icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF38BDF8)),
+                          icon: Icon(Icons.volume_up_rounded, color: theme.infoTeal),
                           onPressed: () {
                             HapticFeedback.selectionClick();
                             TtsService.instance.speakWord(currentWord);
@@ -490,19 +493,19 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                         final isSelected = (_selectedOption == option);
                         final isCorrect = (option == correctAnswer);
 
-                        Color borderColor = const Color(0xFF1F2937);
-                        Color bgColor = const Color(0xFF111827);
-                        Color textColor = Colors.white;
+                        Color borderColor = theme.borderSubtle;
+                        Color bgColor = theme.surfaceDark;
+                        Color textColor = theme.textPrimary;
 
                         if (_answered) {
                           if (isCorrect) {
-                            borderColor = const Color(0xFF10B981);
-                            bgColor = const Color(0xFF10B981).withValues(alpha: 0.15);
-                            textColor = const Color(0xFF10B981);
+                            borderColor = theme.successEmerald;
+                            bgColor = theme.successEmerald.withValues(alpha: 0.15);
+                            textColor = theme.successEmerald;
                           } else if (isSelected) {
-                            borderColor = const Color(0xFFEF4444);
-                            bgColor = const Color(0xFFEF4444).withValues(alpha: 0.15);
-                            textColor = const Color(0xFFEF4444);
+                            borderColor = theme.dangerRed;
+                            bgColor = theme.dangerRed.withValues(alpha: 0.15);
+                            textColor = theme.dangerRed;
                           }
                         }
 
@@ -562,11 +565,11 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
+                      color: theme.successEmerald,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                          color: theme.successEmerald.withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),

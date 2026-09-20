@@ -22,6 +22,7 @@ import 'coach_messages.dart';
 import 'database_helper.dart';
 import 'core/design_system/primitives.dart';
 import 'core/coach/ignis_moments_engine.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
 
 class SpeedRoundScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -313,13 +314,15 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+
     if (_pool.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           elevation: 0,
-          title: Text('Hız Turu', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Text('Hız Turu', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold)),
         ),
         body: EmptyWordPoolState(
           message: 'Bu turu çözebilmek için önce Kitaplığından birkaç kelime eklemen gerekiyor.',
@@ -329,42 +332,42 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text('Hız Turu ⚡', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
+        iconTheme: IconThemeData(color: theme.textPrimary),
+        title: Text('Hız Turu ⚡', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: theme.textPrimary, fontSize: 16)),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: Icon(Icons.close_rounded, color: theme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: SafeArea(
-        child: !_isRoundStarted ? _buildStartOverlay() : _buildRoundBody(),
+        child: !_isRoundStarted ? _buildStartOverlay(theme) : _buildRoundBody(theme),
       ),
     );
   }
 
-  Widget _buildStartOverlay() {
+  Widget _buildStartOverlay(DraconicTheme theme) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(PhosphorIcons.timerBold, color: Color(0xFFF59E0B), size: 56),
+            Icon(PhosphorIcons.timerBold, color: theme.primaryAmber, size: 56),
             const SizedBox(height: 18),
             Text(
               '60 Saniyen Var!',
-              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22),
+              style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w900, fontSize: 22),
             ),
             const SizedBox(height: 10),
             Text(
               'Süre dolana kadar mümkün olduğunca çok doğru cevap ver. Havuz biterse otomatik karılır, durmadan devam eder.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+              style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 28),
             SizedBox(
@@ -372,8 +375,8 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
               height: 52,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFF59E0B),
-                  foregroundColor: const Color(0xFF070B14),
+                  backgroundColor: theme.primaryAmber,
+                  foregroundColor: theme.background,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 onPressed: _startRound,
@@ -386,9 +389,9 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
     );
   }
 
-  Widget _buildRoundBody() {
+  Widget _buildRoundBody(DraconicTheme theme) {
     if (_questions.isEmpty || _currentIndex >= _questions.length) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFFF59E0B)));
+      return Center(child: CircularProgressIndicator(color: theme.primaryAmber));
     }
 
     final currentWord = _questions[_currentIndex]['word'] ?? '';
@@ -406,11 +409,11 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(PhosphorIcons.timerBold, color: Color(0xFFF59E0B), size: 16),
+                      Icon(PhosphorIcons.timerBold, color: theme.primaryAmber, size: 16),
                       const SizedBox(width: 4),
                       Text(
                         '${_sessionTimeRemaining.ceil()}s',
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: const Color(0xFFF59E0B)),
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: theme.primaryAmber),
                       ),
                     ],
                   ),
@@ -418,11 +421,11 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
                     children: [
                       const Text('🔥', style: TextStyle(fontSize: 14)),
                       const SizedBox(width: 4),
-                      Text('$_streak Seri', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text('$_streak Seri', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: theme.textPrimary)),
                       const SizedBox(width: 12),
-                      const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 16),
+                      Icon(PhosphorIcons.lightningBold, color: theme.primaryAmber, size: 16),
                       const SizedBox(width: 2),
-                      Text('$_score', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B))),
+                      Text('$_score', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: theme.primaryAmber)),
                     ],
                   ),
                 ],
@@ -434,9 +437,9 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
                 child: LinearProgressIndicator(
                   value: (_sessionTimeRemaining / _sessionDuration).clamp(0.0, 1.0),
                   minHeight: 6,
-                  backgroundColor: const Color(0xFF111827),
+                  backgroundColor: theme.surfaceDark,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    _sessionTimeRemaining > 15.0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                    _sessionTimeRemaining > 15.0 ? theme.successEmerald : theme.dangerRed,
                   ),
                 ),
               ),
@@ -445,9 +448,9 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
+                  color: theme.surfaceDark,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+                  border: Border.all(color: theme.borderSubtle, width: 1.5),
                 ),
                 child: Text(
                   currentWord,
@@ -456,7 +459,7 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.5,
-                    color: Colors.white,
+                    color: theme.textPrimary,
                   ),
                 ),
               ),
@@ -472,19 +475,19 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
                     final isSelected = (_selectedOption == option);
                     final isCorrect = (option == correctAnswer);
 
-                    Color borderColor = const Color(0xFF1F2937);
-                    Color bgColor = const Color(0xFF111827);
-                    Color textColor = Colors.white;
+                    Color borderColor = theme.borderSubtle;
+                    Color bgColor = theme.surfaceDark;
+                    Color textColor = theme.textPrimary;
 
                     if (_answered) {
                       if (isCorrect) {
-                        borderColor = const Color(0xFF10B981);
-                        bgColor = const Color(0xFF10B981).withValues(alpha: 0.15);
-                        textColor = const Color(0xFF10B981);
+                        borderColor = theme.successEmerald;
+                        bgColor = theme.successEmerald.withValues(alpha: 0.15);
+                        textColor = theme.successEmerald;
                       } else if (isSelected) {
-                        borderColor = const Color(0xFFEF4444);
-                        bgColor = const Color(0xFFEF4444).withValues(alpha: 0.15);
-                        textColor = const Color(0xFFEF4444);
+                        borderColor = theme.dangerRed;
+                        bgColor = theme.dangerRed.withValues(alpha: 0.15);
+                        textColor = theme.dangerRed;
                       }
                     }
 
@@ -541,11 +544,11 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981),
+                color: theme.successEmerald,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                    color: theme.successEmerald.withValues(alpha: 0.35),
                     blurRadius: 14,
                     offset: const Offset(0, 4),
                   ),

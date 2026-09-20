@@ -27,6 +27,7 @@ import 'core/entitlement/paywall_trigger.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/design_system/platform_tokens.dart';
 import 'core/theme/theme_controller.dart'; // T-6: Görünüm anahtarı
+import 'ignis_moment_dialog.dart'; // Faz F: Dev/Test tetikleyicileri
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -647,11 +648,44 @@ class ProfileScreenState extends State<ProfileScreen> {
                     title: 'Sürüm',
                     trailingValue: '1.0.0',
                   ),
-                  // NOT: Duolingo tarzı karakter pop-up'ları için "Dev/Test
-                  // Araçları" bölümü (Faz F kapsamı) o özellik gerçekten
-                  // eklenince buraya gelecek — henüz var olmayan bir
-                  // metoda bağlanan ölü buton koymamak için şimdilik boş
-                  // bırakıldı.
+                  const SizedBox(height: 22),
+                  Text('DEV/TEST ARAÇLARI', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Sadece önizleme — gerçek seri/istatistik verisi değişmez.',
+                    style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 10.5),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSheetRow(
+                    icon: PhosphorIcons.bugBold,
+                    iconColor: const Color(0xFFEF4444),
+                    title: 'Seri Kaybı Pop-up\'ını Göster',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      IgnisMomentDialog.show(
+                        context,
+                        pose: 'sad',
+                        title: 'Serin Kırıldı...',
+                        message: 'Sorun değil, herkesin ara verdiği günler olur. Bugün yeniden başlayalım — bir sonraki serin daha güçlü olacak!',
+                        primaryLabel: 'Yeniden Başla 💪',
+                      );
+                    },
+                  ),
+                  _buildSheetRow(
+                    icon: PhosphorIcons.fireBold,
+                    iconColor: const Color(0xFFF59E0B),
+                    title: 'Kutlama Pop-up\'ını Göster',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      IgnisMomentDialog.show(
+                        context,
+                        pose: 'celebrating',
+                        title: '7 Günlük Seri!',
+                        message: '7 gündür kesintisiz pratik yapıyorsun. Bu disiplin kalıcı hafızanın temeli.',
+                        primaryLabel: 'Harika, Devam! 🔥',
+                      );
+                    },
+                  ),
                 ],
               ),
             );

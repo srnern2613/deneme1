@@ -19,6 +19,7 @@ enum IgnisMomentType {
   streakMilestone,
   paceInsight,
   dailySummary,
+  streakLost,
 }
 
 class IgnisMoment {
@@ -59,6 +60,10 @@ class IgnisMomentsEngine {
   static final IgnisMomentsEngine instance = IgnisMomentsEngine._();
 
   static const _prefsLastImportantDateKey = 'ignis_last_important_moment_date';
+  // Faz F: seri-kaybı anı ayrı bir tetikleyici noktada (uygulama açılışı)
+  // gösteriliyor — seans-sonu "önemli an" sıklık kuralıyla PAYLAŞMIYOR,
+  // kendi günlük kilidini kullanıyor.
+  static const _prefsLastStreakLossDateKey = 'ignis_last_streak_loss_moment_date';
   static const List<int> _streakMilestones = [7, 30, 100];
 
   String _todayKey() {
@@ -138,6 +143,30 @@ class IgnisMomentsEngine {
       title: 'Bugünkü İlerlemen',
       message: 'Bugün $newWords yeni kelime, $reviews tekrar yaptın. '
           'Yarın $dueTomorrow kelimenin tekrar vakti geliyor.',
+    );
+  }
+
+  /// Faz F — Uygulama açılışında (Ana Sayfa yüklenirken) çağrılır. Parametre
+  /// olarak StreakFreezeService.checkAndUpdateStreak()'in ZATEN hesaplanmış
+  /// sonucunu alır — burada tekrar çağırmıyoruz, çünkü o metod state
+  /// mutasyonu yapıyor (seri sayacını günceller); iki kez çağırmak yanlış
+  /// sonuç üretir. Günde en fazla 1 kez gösterilir (kullanıcı ekranı birden
+  /// çok kez açıp kapatsa bile canını sıkıcı şekilde tekrar etmesin diye).
+  Future<IgnisMoment?> getStreakLossMoment(Map<String, dynamic> streakResult) async {
+    final bool streakLost = streakResult['streakLost'] == true;
+    if (!streakLost) return null;
+
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyShownToday = prefs.getString(_prefsLastStreakLossDateKey) == _todayKey();
+    if (alreadyShownToday) return null;
+
+    await prefs.setString(_prefsLastStreakLossDateKey, _todayKey());
+    return IgnisMoment(
+      type: IgnisMomentType.streakLost,
+      pose: 'sad',
+      title: 'Serin Kırıldı...',
+      message: 'Sorun değil, herkesin ara verdiği günler olur. Bugün yeniden başlayalım — '
+          'bir sonraki serin daha güçlü olacak!',
     );
   }
 

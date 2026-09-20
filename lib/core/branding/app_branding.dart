@@ -25,20 +25,24 @@ class AppBranding {
   /// Örn: '${AppBranding.poseAssetPrefix}celebrating.webp'
   static const String poseAssetPrefix = 'assets/images/ignis_poses/';
 
-  /// Şu an üretilmiş poz görselleri yok (bkz. Aşama 2 "Poz seti" maddesi) —
-  /// bu yüzden geçici olarak mevcut rozet görseline düşülüyor. Yeni pozlar
-  /// eklendiğinde bu haritayı güncellemek yeterli, çağıran kod değişmez.
+  /// Faz F: gerçek duygu-ifade görselleri eklendi (assets/images/*.webp) —
+  /// artık tüm pozlar rozet görseline değil, kendi duygusuna uygun gerçek
+  /// bir yüz ifadesine düşüyor. Yeni bir poz eklemek istersen sadece bu
+  /// haritaya bir satır eklemek yeterli, çağıran kod değişmez.
   static const Map<String, String> _poseFallback = {
-    'celebrating': 'assets/images/ignis_avatar_badge.png',
-    'teacher': 'assets/images/ignis_avatar_badge.png',
-    'worried': 'assets/images/ignis_avatar_badge.png',
-    'sad': 'assets/images/ignis_avatar_badge.png',
-    'greeting': 'assets/images/ignis_avatar_badge.png',
-    'thinking': 'assets/images/ignis_avatar_badge.png',
+    'celebrating': 'assets/images/excited.webp',
+    'loving': 'assets/images/loving.webp',
+    'teacher': 'assets/images/thinking.webp',
+    'worried': 'assets/images/suspicious.webp',
+    'sad': 'assets/images/sad.webp',
+    'angry': 'assets/images/angry.webp',
+    'greeting': 'assets/images/happy.webp',
+    'thinking': 'assets/images/thinking.webp',
+    'happy': 'assets/images/happy.webp',
   };
 
-  /// Bir poz anahtarı için görsel yolunu döner (poz üretilene kadar rozet
-  /// görseline düşer). Poz üretildiğinde sadece _poseFallback güncellenir.
+  /// Bir poz anahtarı için görsel yolunu döner (tanımsız bir anahtar gelirse
+  /// kutlama pozuna düşer — hiçbir zaman boş/kırık görsel göstermez).
   static String poseAsset(String poseKey) {
     return _poseFallback[poseKey] ?? _poseFallback['celebrating']!;
   }

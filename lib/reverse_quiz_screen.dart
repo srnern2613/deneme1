@@ -21,6 +21,7 @@ import 'coach_messages.dart';
 import 'database_helper.dart';
 import 'core/design_system/primitives.dart';
 import 'core/coach/ignis_moments_engine.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
 
 class ReverseQuizScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -329,13 +330,15 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+
     if (_questions.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           elevation: 0,
-          title: Text('Ters Test', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Text('Ters Test', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold)),
         ),
         body: EmptyWordPoolState(
           message: 'Bu testi çözebilmek için önce Kitaplığından birkaç kelime eklemen gerekiyor.',
@@ -348,15 +351,15 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
     final currentMeaning = (_questions[_currentIndex]['meaning'] ?? '').toString().trim();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: theme.textPrimary),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Ters Test (TR → EN)', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 15)),
+            Text('Ters Test (TR → EN)', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: theme.textPrimary, fontSize: 15)),
             if (widget.xpMultiplier > 1)
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -364,7 +367,7 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
                   Text(
                     '~+10 XP',
                     style: GoogleFonts.outfit(
-                      color: Colors.grey.shade500,
+                      color: theme.textMuted,
                       fontSize: 10,
                       decoration: TextDecoration.lineThrough,
                       fontWeight: FontWeight.w600,
@@ -374,7 +377,7 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
                   Text(
                     '⚡ ${10 * widget.xpMultiplier} XP (2X Şanslı Mod!)',
                     style: GoogleFonts.outfit(
-                      color: const Color(0xFFF59E0B),
+                      color: theme.primaryAmber,
                       fontSize: 10.5,
                       fontWeight: FontWeight.w900,
                     ),
@@ -385,7 +388,7 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: Icon(Icons.close_rounded, color: theme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -402,14 +405,18 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
                     children: [
                       Text(
                         'Soru ${_currentIndex + 1} / ${_questions.length}',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF94A3B8)),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: theme.textSecondary),
                       ),
                       Row(
                         children: [
                           const Text('🔥', style: TextStyle(fontSize: 14)),
                           const SizedBox(width: 4),
-                          Text('$_streak Seri', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+                          Text('$_streak Seri', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: theme.textPrimary)),
                           const SizedBox(width: 12),
+                          // NOT: 0xFFA855F7 (mor) bu Premium modun kendi kimlik
+                          // rengi — T-1 çekirdek token'larıyla eşlenmiyor,
+                          // bilinçli olarak semantik/per-item vurgu (diğer
+                          // Premium rozetleriyle aynı istisna kuralı).
                           const Icon(PhosphorIcons.crownBold, color: Color(0xFFA855F7), size: 16),
                           const SizedBox(width: 2),
                           Text('$_score', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFFA855F7))),
@@ -424,9 +431,9 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
                     child: LinearProgressIndicator(
                       value: (_timeRemaining / 12.0).clamp(0.0, 1.0),
                       minHeight: 6,
-                      backgroundColor: const Color(0xFF111827),
+                      backgroundColor: theme.surfaceDark,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        _timeRemaining > 4.0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                        _timeRemaining > 4.0 ? theme.successEmerald : theme.dangerRed,
                       ),
                     ),
                   ),
@@ -435,9 +442,9 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111827),
+                      color: theme.surfaceDark,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+                      border: Border.all(color: theme.borderSubtle, width: 1.5),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.3),
@@ -457,7 +464,7 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.3,
-                            color: Colors.white,
+                            color: theme.textPrimary,
                           ),
                         ),
                       ],
@@ -475,19 +482,19 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
                         final isSelected = (_selectedOption == option);
                         final isCorrectOpt = (option.toLowerCase() == correctWord.toLowerCase());
 
-                        Color borderColor = const Color(0xFF1F2937);
-                        Color bgColor = const Color(0xFF111827);
-                        Color textColor = Colors.white;
+                        Color borderColor = theme.borderSubtle;
+                        Color bgColor = theme.surfaceDark;
+                        Color textColor = theme.textPrimary;
 
                         if (_answered) {
                           if (isCorrectOpt) {
-                            borderColor = const Color(0xFF10B981);
-                            bgColor = const Color(0xFF10B981).withValues(alpha: 0.15);
-                            textColor = const Color(0xFF10B981);
+                            borderColor = theme.successEmerald;
+                            bgColor = theme.successEmerald.withValues(alpha: 0.15);
+                            textColor = theme.successEmerald;
                           } else if (isSelected) {
-                            borderColor = const Color(0xFFEF4444);
-                            bgColor = const Color(0xFFEF4444).withValues(alpha: 0.15);
-                            textColor = const Color(0xFFEF4444);
+                            borderColor = theme.dangerRed;
+                            bgColor = theme.dangerRed.withValues(alpha: 0.15);
+                            textColor = theme.dangerRed;
                           }
                         }
 
@@ -547,11 +554,11 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
+                      color: theme.successEmerald,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                          color: theme.successEmerald.withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),

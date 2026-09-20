@@ -20,6 +20,7 @@ import 'coach_messages.dart';
 import 'database_helper.dart';
 import 'core/design_system/primitives.dart';
 import 'core/coach/ignis_moments_engine.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
 
 class ClozeExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -281,27 +282,29 @@ class _ClozeExerciseScreenState extends State<ClozeExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           elevation: 0,
-          title: Text('Cümlede Boşluk Doldurma', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+          title: Text('Cümlede Boşluk Doldurma', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 15)),
         ),
-        body: const Center(
-          child: CircularProgressIndicator(color: Color(0xFF34D399)),
+        body: Center(
+          child: CircularProgressIndicator(color: theme.successEmerald),
         ),
       );
     }
 
     if (_questions.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           elevation: 0,
-          title: Text('Cümlede Boşluk Doldurma', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+          title: Text('Cümlede Boşluk Doldurma', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 15)),
         ),
         body: EmptyWordPoolState(
           message: 'Bu mod, kelimenin kitabındaki gerçek cümlesini kullanır. Cümle bilgisi olan yeterli kelime bulunamadı — kitaplığından okumaya devam et.',
@@ -313,25 +316,25 @@ class _ClozeExerciseScreenState extends State<ClozeExerciseScreen> {
     final correctWord = (_questions[_currentIndex]['word'] ?? '').toString().trim();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: theme.textPrimary),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Cümlede Boşluk Doldurma', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 14)),
+            Text('Cümlede Boşluk Doldurma', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: theme.textPrimary, fontSize: 14)),
             if (widget.xpMultiplier > 1)
               Text(
                 '⚡ ${7 * widget.xpMultiplier} XP (2X Şanslı Mod!)',
-                style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontSize: 10.5, fontWeight: FontWeight.w900),
+                style: GoogleFonts.outfit(color: theme.primaryAmber, fontSize: 10.5, fontWeight: FontWeight.w900),
               ),
           ],
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: Icon(Icons.close_rounded, color: theme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -348,17 +351,17 @@ class _ClozeExerciseScreenState extends State<ClozeExerciseScreen> {
                     children: [
                       Text(
                         'Cümle ${_currentIndex + 1} / ${_questions.length}',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF94A3B8)),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: theme.textSecondary),
                       ),
                       Row(
                         children: [
                           const Text('🔥', style: TextStyle(fontSize: 14)),
                           const SizedBox(width: 4),
-                          Text('$_streak Seri', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+                          Text('$_streak Seri', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: theme.textPrimary)),
                           const SizedBox(width: 12),
-                          const Icon(PhosphorIcons.lightningBold, color: Color(0xFF34D399), size: 16),
+                          Icon(PhosphorIcons.lightningBold, color: theme.successEmerald, size: 16),
                           const SizedBox(width: 2),
-                          Text('$_score', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFF34D399))),
+                          Text('$_score', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: theme.successEmerald)),
                         ],
                       ),
                     ],
@@ -369,9 +372,9 @@ class _ClozeExerciseScreenState extends State<ClozeExerciseScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 22),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111827),
+                      color: theme.surfaceDark,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+                      border: Border.all(color: theme.borderSubtle, width: 1.5),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.3),
@@ -382,7 +385,7 @@ class _ClozeExerciseScreenState extends State<ClozeExerciseScreen> {
                     ),
                     child: Column(
                       children: [
-                        const Icon(PhosphorIcons.bookOpenTextBold, color: Color(0xFF34D399), size: 26),
+                        Icon(PhosphorIcons.bookOpenTextBold, color: theme.successEmerald, size: 26),
                         const SizedBox(height: 14),
                         Text(
                           _blankedSentence,
@@ -391,7 +394,7 @@ class _ClozeExerciseScreenState extends State<ClozeExerciseScreen> {
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                             height: 1.4,
-                            color: Colors.white,
+                            color: theme.textPrimary,
                           ),
                         ),
                       ],
@@ -409,19 +412,19 @@ class _ClozeExerciseScreenState extends State<ClozeExerciseScreen> {
                         final isSelected = (_selectedOption == option);
                         final isCorrectOpt = (option.toLowerCase() == correctWord.toLowerCase());
 
-                        Color borderColor = const Color(0xFF1F2937);
-                        Color bgColor = const Color(0xFF111827);
-                        Color textColor = Colors.white;
+                        Color borderColor = theme.borderSubtle;
+                        Color bgColor = theme.surfaceDark;
+                        Color textColor = theme.textPrimary;
 
                         if (_answered) {
                           if (isCorrectOpt) {
-                            borderColor = const Color(0xFF10B981);
-                            bgColor = const Color(0xFF10B981).withValues(alpha: 0.15);
-                            textColor = const Color(0xFF10B981);
+                            borderColor = theme.successEmerald;
+                            bgColor = theme.successEmerald.withValues(alpha: 0.15);
+                            textColor = theme.successEmerald;
                           } else if (isSelected) {
-                            borderColor = const Color(0xFFEF4444);
-                            bgColor = const Color(0xFFEF4444).withValues(alpha: 0.15);
-                            textColor = const Color(0xFFEF4444);
+                            borderColor = theme.dangerRed;
+                            bgColor = theme.dangerRed.withValues(alpha: 0.15);
+                            textColor = theme.dangerRed;
                           }
                         }
 
@@ -481,11 +484,11 @@ class _ClozeExerciseScreenState extends State<ClozeExerciseScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
+                      color: theme.successEmerald,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                          color: theme.successEmerald.withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),

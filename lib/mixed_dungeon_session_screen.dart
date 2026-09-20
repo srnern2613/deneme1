@@ -30,6 +30,7 @@ import 'core/fsrs/fsrs_models.dart';
 import 'core/design_system/primitives.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/coach/ignis_moments_engine.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
 
 // AŞAMA 3 — Karma Mod'a yeni pratik tipleri eklendi. `cloze` (Cümlede
 // Boşluk Doldurma) her karta uygulanabilir değil — sadece geçerli
@@ -117,6 +118,10 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
   List<_LetterTile> _placedTiles = [];
   bool _spellingChecked = false;
   bool _spellingCorrect = false;
+
+  // T-1: build() içinde her seferinde set edilir; yardımcı metodlar tema
+  // parametresi almak zorunda kalmadan buradan okur.
+  late DraconicTheme _theme;
 
   @override
   void initState() {
@@ -532,6 +537,9 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
   // FSRS/V1 sistemine anlık yazılıyor) ama kullanıcıyı kazara çıkıştan
   // korumak için tek, ortak bir onay diyaloğu kullanılıyor.
   Future<void> _confirmExit() async {
+    // NOT: 0xFF0F172A sabit-koyu modal arkaplanı — T-1 istisnası
+    // (Arena/Profil Ayarları sheet'leriyle aynı kural: sabit-koyu
+    // modal/dialog arkaplanları temaya bağlanmaz).
     final shouldExit = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -555,21 +563,24 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    _theme = theme;
+
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF070B14),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))),
+      return Scaffold(
+        backgroundColor: theme.background,
+        body: Center(child: CircularProgressIndicator(color: theme.cognitiveIndigo)),
       );
     }
 
     if (_questions.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: Text('Hafıza Zindanı', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          iconTheme: IconThemeData(color: theme.textPrimary),
+          title: Text('Hafıza Zindanı', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold)),
         ),
         body: EmptyWordPoolState(
           message: 'Zindanda tekrar edilecek vadesi gelmiş bir kelime bulunamadı. Kitaplığından yeni kelimeler ekleyebilirsin.',
@@ -589,15 +600,15 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
         _confirmExit();
       },
       child: Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: theme.textPrimary),
         centerTitle: true,
-        title: Text('Hafıza Zindanı · Karma Mod', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 15)),
+        title: Text('Hafıza Zindanı · Karma Mod', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: theme.textPrimary, fontSize: 15)),
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: Icon(Icons.close_rounded, color: theme.textPrimary),
           onPressed: _confirmExit,
         ),
       ),
@@ -613,7 +624,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Kelime ${_currentIndex + 1} / ${_questions.length}',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF94A3B8))),
+                          style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: theme.textSecondary)),
                       _buildModeBadge(mode),
                     ],
                   ),
@@ -623,7 +634,11 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
                     child: LinearProgressIndicator(
                       value: (_currentIndex) / _questions.length,
                       minHeight: 6,
-                      backgroundColor: const Color(0xFF111827),
+                      backgroundColor: theme.surfaceDark,
+                      // NOT: 0xFFA855F7 (mor) modlar arası sabit ilerleme
+                      // rengi — T-1 çekirdek token'larıyla eşlenmiyor,
+                      // bilinçli olarak semantik vurgu (Ters Test'in kimlik
+                      // rengiyle aynı istisna kuralı).
                       valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFA855F7)),
                     ),
                   ),
@@ -642,7 +657,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981),
+                    color: theme.successEmerald,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(_cheerToast!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
@@ -656,11 +671,15 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
   }
 
   Widget _buildModeBadge(_MixedMode mode) {
+    // NOT: reverseQuiz (0xFFA855F7, Premium kimlik rengi) ve listening
+    // (0xFF06B6D4) T-1 çekirdek token'larıyla eşlenmiyor — her mod
+    // rozetinin kendine özgü, bilinçli semantik vurgu rengi (established
+    // istisna kuralı, diğer per-item rozetlerle aynı).
     final data = switch (mode) {
-      _MixedMode.quiz => (icon: PhosphorIcons.crosshairBold, label: 'Hızlı Test', color: const Color(0xFF38BDF8)),
-      _MixedMode.match => (icon: PhosphorIcons.puzzlePieceBold, label: 'Eşleştirme', color: const Color(0xFF6366F1)),
-      _MixedMode.spelling => (icon: PhosphorIcons.waveformBold, label: 'Dinle & Yaz', color: const Color(0xFF10B981)),
-      _MixedMode.cloze => (icon: PhosphorIcons.pencilSimpleBold, label: 'Boşluk Doldurma', color: const Color(0xFF34D399)),
+      _MixedMode.quiz => (icon: PhosphorIcons.crosshairBold, label: 'Hızlı Test', color: _theme.infoTeal),
+      _MixedMode.match => (icon: PhosphorIcons.puzzlePieceBold, label: 'Eşleştirme', color: _theme.cognitiveIndigo),
+      _MixedMode.spelling => (icon: PhosphorIcons.waveformBold, label: 'Dinle & Yaz', color: _theme.successEmerald),
+      _MixedMode.cloze => (icon: PhosphorIcons.pencilSimpleBold, label: 'Boşluk Doldurma', color: _theme.successEmerald),
       _MixedMode.reverseQuiz => (icon: PhosphorIcons.magnifyingGlassBold, label: 'Ters Test', color: const Color(0xFFA855F7)),
       _MixedMode.listening => (icon: PhosphorIcons.waveformBold, label: 'Sadece Dinleme', color: const Color(0xFF06B6D4)),
     };
@@ -686,17 +705,17 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: _theme.surfaceDark,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+        border: Border.all(color: _theme.borderSubtle, width: 1.5),
       ),
       child: Column(
         children: [
-          Text(word, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: Colors.white)),
+          Text(word, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: _theme.textPrimary)),
           const SizedBox(height: 6),
           IconButton.filledTonal(
-            style: IconButton.styleFrom(backgroundColor: const Color(0xFF38BDF8).withValues(alpha: 0.15)),
-            icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF38BDF8)),
+            style: IconButton.styleFrom(backgroundColor: _theme.infoTeal.withValues(alpha: 0.15)),
+            icon: Icon(Icons.volume_up_rounded, color: _theme.infoTeal),
             onPressed: () {
               HapticFeedback.selectionClick();
               TtsService.instance.speakWord(word);
@@ -717,15 +736,18 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: _theme.surfaceDark,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+            border: Border.all(color: _theme.borderSubtle, width: 1.5),
           ),
           child: Column(
             children: [
+              // NOT: 0xFFA855F7 (mor) — Ters Test'in kimlik rengi, T-1
+              // çekirdek token'larıyla eşlenmiyor (diğer Premium
+              // rozetleriyle aynı istisna kuralı).
               const Icon(PhosphorIcons.magnifyingGlassBold, color: Color(0xFFA855F7), size: 22),
               const SizedBox(height: 10),
-              Text(meaning, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+              Text(meaning, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: _theme.textPrimary)),
             ],
           ),
         );
@@ -733,15 +755,15 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: _theme.surfaceDark,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+            border: Border.all(color: _theme.borderSubtle, width: 1.5),
           ),
           child: Column(
             children: [
-              const Icon(PhosphorIcons.pencilSimpleBold, color: Color(0xFF34D399), size: 20),
+              Icon(PhosphorIcons.pencilSimpleBold, color: _theme.successEmerald, size: 20),
               const SizedBox(height: 10),
-              Text(_blankedSentence, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, height: 1.4, color: Colors.white)),
+              Text(_blankedSentence, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, height: 1.4, color: _theme.textPrimary)),
             ],
           ),
         );
@@ -749,12 +771,14 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: _theme.surfaceDark,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+            border: Border.all(color: _theme.borderSubtle, width: 1.5),
           ),
           child: Column(
             children: [
+              // NOT: 0xFF06B6D4 — Sadece Dinleme'nin kimlik rengi, T-1
+              // çekirdek token'larıyla eşlenmiyor (aynı istisna kuralı).
               IconButton.filled(
                 style: IconButton.styleFrom(backgroundColor: const Color(0xFF06B6D4), padding: const EdgeInsets.all(16)),
                 icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 26),
@@ -770,7 +794,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
                 style: GoogleFonts.outfit(
                   fontSize: _wordRevealed ? 22 : 13,
                   fontWeight: _wordRevealed ? FontWeight.w900 : FontWeight.w600,
-                  color: _wordRevealed ? Colors.white : const Color(0xFF94A3B8),
+                  color: _wordRevealed ? _theme.textPrimary : _theme.textSecondary,
                 ),
               ),
             ],
@@ -785,14 +809,14 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 20),
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: _theme.surfaceDark,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+            border: Border.all(color: _theme.borderSubtle, width: 1.5),
           ),
           child: Column(
             children: [
               IconButton.filled(
-                style: IconButton.styleFrom(backgroundColor: const Color(0xFF10B981), padding: const EdgeInsets.all(14)),
+                style: IconButton.styleFrom(backgroundColor: _theme.successEmerald, padding: const EdgeInsets.all(14)),
                 icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 26),
                 onPressed: () {
                   HapticFeedback.selectionClick();
@@ -803,7 +827,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
               Text(
                 meaning.isNotEmpty ? '"$meaning"' : 'Dinle ve kelimeyi hecele',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+                style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: _theme.textSecondary),
               ),
             ],
           ),
@@ -831,7 +855,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
 
   Widget _buildOptionList({required bool isGrid}) {
     if (_currentOptions.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)));
+      return Center(child: CircularProgressIndicator(color: _theme.cognitiveIndigo));
     }
     final mode = _modeSequence[_currentIndex];
     final bool compareByWord = (mode == _MixedMode.cloze || mode == _MixedMode.reverseQuiz);
@@ -845,18 +869,18 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
       final isSelected = _selectedOption == option;
       final isCorrect = compareByWord ? option.toLowerCase() == correctAnswer.toLowerCase() : option == correctAnswer;
 
-      Color borderColor = const Color(0xFF1F2937);
-      Color bgColor = const Color(0xFF111827);
-      Color textColor = Colors.white;
+      Color borderColor = _theme.borderSubtle;
+      Color bgColor = _theme.surfaceDark;
+      Color textColor = _theme.textPrimary;
       if (_answered) {
         if (isCorrect) {
-          borderColor = const Color(0xFF10B981);
-          bgColor = const Color(0xFF10B981).withValues(alpha: 0.15);
-          textColor = const Color(0xFF10B981);
+          borderColor = _theme.successEmerald;
+          bgColor = _theme.successEmerald.withValues(alpha: 0.15);
+          textColor = _theme.successEmerald;
         } else if (isSelected) {
-          borderColor = const Color(0xFFEF4444);
-          bgColor = const Color(0xFFEF4444).withValues(alpha: 0.15);
-          textColor = const Color(0xFFEF4444);
+          borderColor = _theme.dangerRed;
+          bgColor = _theme.dangerRed.withValues(alpha: 0.15);
+          textColor = _theme.dangerRed;
         }
       }
 
@@ -911,12 +935,14 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
         Container(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           decoration: BoxDecoration(
+            // NOT: 0xFF0F172A sabit-koyu kutu arkaplanı — modal istisnasıyla
+            // aynı kural, T-1 çekirdek token'larıyla eşlenmiyor.
             color: const Color(0xFF0F172A),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: _spellingChecked
-                  ? (_spellingCorrect ? const Color(0xFF10B981) : const Color(0xFFEF4444))
-                  : const Color(0xFF1F2937),
+                  ? (_spellingCorrect ? _theme.successEmerald : _theme.dangerRed)
+                  : _theme.borderSubtle,
               width: 1.5,
             ),
           ),
@@ -940,8 +966,8 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
           const SizedBox(height: 16),
           TextButton.icon(
             onPressed: _placedTiles.isEmpty ? null : _removeLastLetter,
-            icon: const Icon(Icons.backspace_outlined, color: Color(0xFF94A3B8), size: 18),
-            label: Text('Son Harfi Sil', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
+            icon: Icon(Icons.backspace_outlined, color: _theme.textSecondary, size: 18),
+            label: Text('Son Harfi Sil', style: GoogleFonts.inter(color: _theme.textSecondary, fontWeight: FontWeight.w600)),
           ),
         ] else
           Padding(
@@ -952,7 +978,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
               style: GoogleFonts.outfit(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
-                color: _spellingCorrect ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                color: _spellingCorrect ? _theme.successEmerald : _theme.dangerRed,
               ),
             ),
           ),
@@ -966,11 +992,13 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
       height: 36,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: letter != null ? const Color(0xFF1F2937) : Colors.transparent,
+        color: letter != null ? _theme.borderSubtle : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
+        // NOT: 0xFF374151 sabit dekoratif kenarlık — T-1 çekirdek
+        // token'larıyla eşlenmiyor (harf karolarıyla aynı istisna).
         border: Border.all(color: const Color(0xFF374151)),
       ),
-      child: Text(letter ?? '', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
+      child: Text(letter ?? '', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: _theme.textPrimary)),
     );
   }
 
@@ -982,7 +1010,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
         height: 42,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: tile.isUsed ? const Color(0xFF111827) : const Color(0xFF1F2937),
+          color: tile.isUsed ? _theme.surfaceDark : _theme.borderSubtle,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFF374151)),
         ),
@@ -991,7 +1019,7 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
           style: GoogleFonts.outfit(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: tile.isUsed ? const Color(0xFF374151) : Colors.white,
+            color: tile.isUsed ? const Color(0xFF374151) : _theme.textPrimary,
           ),
         ),
       ),

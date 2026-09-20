@@ -16,6 +16,7 @@ import 'dictionary_service.dart';
 import 'core/fsrs/fsrs_repository.dart';
 import 'core/fsrs/fsrs_models.dart';
 import 'core/coach/ignis_moments_engine.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
 
 class FlashcardsExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -50,6 +51,10 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
   bool _showHint = false;
   bool _celebrationShown = false;
   bool _isProcessing = false;
+
+  // T-1: build() içinde her seferinde set edilir; yardımcı metodlar tema
+  // parametresi almak zorunda kalmadan buradan okur.
+  late DraconicTheme _theme;
 
   final Map<String, WordDefinitionResult?> _definitionCache = {};
 
@@ -234,7 +239,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       subtitle: _masteredCountInSession > 0
           ? '$_masteredCountInSession kelimede ustalığa ulaştın.'
           : feedback.subtitle,
-      themeColor: _masteredCountInSession > 0 ? const Color(0xFFF59E0B) : feedback.themeColor,
+      themeColor: _masteredCountInSession > 0 ? _theme.primaryAmber : feedback.themeColor,
       earnedXp: _totalEarnedXp,
       totalWordsReviewed: _initialTotal,
       strengthenedWords: _knownCount,
@@ -275,6 +280,10 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     return '~$minutes dk';
   }
 
+  // NOT: 4 durumun (MASTERED/FAMILIAR/REVIEWING/LEARNING) kendine özgü
+  // rozet renk şeması T-1 çekirdek token'larıyla birebir eşlenmiyor
+  // (FAMILIAR'ın sarısı gibi bazı tonlar tabloda yok) — established
+  // per-item semantik rozet istisnası (boss-level rozetleriyle aynı kural).
   Widget _buildLearningStateBadge(String state) {
     Color bg;
     Color fg;
@@ -362,6 +371,8 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _theme = Theme.of(context).extension<DraconicTheme>()!;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -369,11 +380,11 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         _confirmExit();
       },
       child: Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: _theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: _theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: _theme.textPrimary),
         title: Column(
           children: [
             Row(
@@ -382,7 +393,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                 Flexible(
                   child: Text(
                     widget.isReviewOnly ? 'Gözden Geçir' : 'SRS Hafıza Egzersizi',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: _theme.textPrimary),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -390,21 +401,21 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(6)),
-                    child: Text('${widget.xpMultiplier}X XP', style: const TextStyle(color: Color(0xFF070B14), fontWeight: FontWeight.bold, fontSize: 10)),
+                    decoration: BoxDecoration(color: _theme.primaryAmber, borderRadius: BorderRadius.circular(6)),
+                    child: Text('${widget.xpMultiplier}X XP', style: TextStyle(color: _theme.background, fontWeight: FontWeight.bold, fontSize: 10)),
                   )
                 ]
               ],
             ),
             Text(
               '$_initialTotal kelime • ${_getEstimatedSessionTime()}',
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 11.5, color: _theme.textSecondary, fontWeight: FontWeight.w500),
             ),
           ],
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: Icon(Icons.close_rounded, color: _theme.textPrimary),
           onPressed: _confirmExit,
         ),
       ),
@@ -412,7 +423,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
         child: Stack(
           children: [
             _remainingCards.isEmpty
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+                ? Center(child: CircularProgressIndicator(color: _theme.infoTeal))
                 : _buildExerciseView(),
 
             if (_cheerMessage != null)
@@ -427,14 +438,14 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: _cheerMessage!.contains('✨') || _cheerMessage!.contains('🏆')
-                          ? const Color(0xFFF59E0B) 
-                          : const Color(0xFF10B981),
+                          ? _theme.primaryAmber
+                          : _theme.successEmerald,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
                           color: (_cheerMessage!.contains('✨') || _cheerMessage!.contains('🏆')
-                              ? const Color(0xFFF59E0B) 
-                              : const Color(0xFF10B981)).withValues(alpha: 0.35),
+                              ? _theme.primaryAmber
+                              : _theme.successEmerald).withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),
@@ -492,21 +503,21 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
             children: [
               Text(
                 'Kelime $currentIndex / $_initialTotal',
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF94A3B8),
+                  color: _theme.textSecondary,
                   fontSize: 13.5,
                 ),
               ),
               Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
+                  Icon(Icons.check_circle_rounded, color: _theme.successEmerald, size: 16),
                   const SizedBox(width: 4),
-                  Text('$_knownCount', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                  Text('$_knownCount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _theme.textPrimary)),
                   const SizedBox(width: 10),
-                  const Icon(Icons.replay_circle_filled_rounded, color: Color(0xFFEF4444), size: 16),
+                  Icon(Icons.replay_circle_filled_rounded, color: _theme.dangerRed, size: 16),
                   const SizedBox(width: 4),
-                  Text('$_reviewCount', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                  Text('$_reviewCount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _theme.textPrimary)),
                 ],
               ),
             ],
@@ -516,8 +527,8 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: (currentIndex - 1) / _initialTotal,
-              backgroundColor: const Color(0xFF111827),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+              backgroundColor: _theme.surfaceDark,
+              valueColor: AlwaysStoppedAnimation<Color>(_theme.infoTeal),
               minHeight: 5,
             ),
           ),
@@ -548,7 +559,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.symmetric(horizontal: 28),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981),
+                  color: _theme.successEmerald,
                   borderRadius: BorderRadius.circular(28),
                 ),
                 child: const Row(
@@ -563,7 +574,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.symmetric(horizontal: 28),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444),
+                  color: _theme.dangerRed,
                   borderRadius: BorderRadius.circular(28),
                 ),
                 child: const Row(
@@ -584,12 +595,12 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
+                    color: _theme.surfaceDark,
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: currentState == 'MASTERED' 
-                          ? const Color(0xFF10B981).withValues(alpha: 0.5) 
-                          : const Color(0xFF1F2937),
+                      color: currentState == 'MASTERED'
+                          ? _theme.successEmerald.withValues(alpha: 0.5)
+                          : _theme.borderSubtle,
                       width: 1.5,
                     ),
                   ),
@@ -605,22 +616,22 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                                  color: _theme.cognitiveIndigo.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+                                  border: Border.all(color: _theme.cognitiveIndigo.withValues(alpha: 0.3)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.menu_book_rounded, size: 13, color: Color(0xFF818CF8)),
+                                    Icon(Icons.menu_book_rounded, size: 13, color: _theme.cognitiveIndigo),
                                     const SizedBox(width: 5),
                                     Flexible(
                                       child: Text(
                                         '$bookTitle ${chapterInfo != null ? '• $chapterInfo' : ''}',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFF818CF8),
+                                          color: _theme.cognitiveIndigo,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -629,7 +640,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                                 ),
                               ),
                             ),
-                            
+
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -637,10 +648,10 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                                 const SizedBox(width: 8),
                                 IconButton.filledTonal(
                                   style: IconButton.styleFrom(
-                                    backgroundColor: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                                    backgroundColor: _theme.infoTeal.withValues(alpha: 0.15),
                                     padding: const EdgeInsets.all(8),
                                   ),
-                                  icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF38BDF8), size: 20),
+                                  icon: Icon(Icons.volume_up_rounded, color: _theme.infoTeal, size: 20),
                                   tooltip: 'Telaffuzu Dinle',
                                   onPressed: () {
                                     HapticFeedback.selectionClick();
@@ -660,21 +671,21 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                             Text(
                               currentWord,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 32,
-                                color: Colors.white,
+                                color: _theme.textPrimary,
                               ),
                             ),
                             if (formattedPos.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Text(
                                 formattedPos,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   letterSpacing: 1.2,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF38BDF8),
+                                  color: _theme.infoTeal,
                                 ),
                               ),
                             ],
@@ -683,10 +694,10 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                               Text(
                                 effectiveMeaning.isNotEmpty ? effectiveMeaning : 'anlam yükleniyor...',
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF38BDF8),
+                                  color: _theme.infoTeal,
                                 ),
                               ),
                             ],
@@ -698,10 +709,13 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                         if (hasValidContext) ...[
                           if (!_isFlipped) ...[
                             if (!_showHint)
+                              // NOT: 0xFFFDE68A (sarı) — "İpucu" ikon/metin
+                              // kimlik rengi, T-1 çekirdek token'larıyla
+                              // eşlenmiyor (rozet renk şemasıyla aynı istisna).
                               TextButton.icon(
                                 style: TextButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                                  backgroundColor: _theme.cognitiveIndigo.withValues(alpha: 0.15),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 ),
                                 icon: const Icon(Icons.lightbulb_outline_rounded, size: 16, color: Color(0xFFFDE68A)),
@@ -716,13 +730,17 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF070B14),
+                                  color: _theme.background,
                                   borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: const Color(0xFF1F2937)),
+                                  border: Border.all(color: _theme.borderSubtle),
                                 ),
                                 child: Text(
                                   '“${contextSentence.replaceAll(RegExp(RegExp.escape(currentWord), caseSensitive: false), '___')}”',
                                   textAlign: TextAlign.center,
+                                  // NOT: 0xFFCBD5E1 — alıntı metni için sabit
+                                  // açık gri ton, T-1 çekirdek token'larıyla
+                                  // eşlenmiyor (word_boss'un 0xFFE2E8F0'ıyla
+                                  // aynı istisna kuralı).
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontStyle: FontStyle.italic,
@@ -735,9 +753,9 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF070B14),
+                                color: _theme.background,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFF1F2937)),
+                                border: Border.all(color: _theme.borderSubtle),
                               ),
                               child: Text(
                                 '“$contextSentence”',
@@ -756,11 +774,11 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.touch_app_outlined, size: 14, color: Color(0xFF64748B)),
+                            Icon(Icons.touch_app_outlined, size: 14, color: _theme.textMuted),
                             const SizedBox(width: 5),
                             Text(
                               _isFlipped ? 'Gizlemek için dokun' : 'Cevabı görmek için dokun',
-                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                              style: TextStyle(fontSize: 11.5, color: _theme.textMuted),
                             ),
                           ],
                         ),
@@ -779,8 +797,8 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
               height: 52,
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFF59E0B),
-                  foregroundColor: const Color(0xFF070B14),
+                  backgroundColor: _theme.primaryAmber,
+                  foregroundColor: _theme.background,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 icon: const Icon(Icons.flip_rounded, size: 20),
@@ -799,7 +817,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   child: _buildNaturalSrsButton(
                     title: 'Tekrar',
                     sub: 'Hatırlayamadım',
-                    color: const Color(0xFFEF4444),
+                    color: _theme.dangerRed,
                     icon: Icons.replay_rounded,
                     onTap: () => _handleSrsRating(0),
                   ),
@@ -809,7 +827,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   child: _buildNaturalSrsButton(
                     title: 'Zor',
                     sub: 'Zorlandım',
-                    color: const Color(0xFFF59E0B),
+                    color: _theme.primaryAmber,
                     icon: Icons.timelapse_rounded,
                     onTap: () => _handleSrsRating(1),
                   ),
@@ -820,7 +838,7 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                   child: _buildNaturalSrsButton(
                     title: 'Bildim',
                     sub: 'Rahat hatırladım',
-                    color: const Color(0xFF10B981),
+                    color: _theme.successEmerald,
                     icon: Icons.check_circle_rounded,
                     onTap: () => _handleSrsRating(2),
                   ),

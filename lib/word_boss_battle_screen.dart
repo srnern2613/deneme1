@@ -11,6 +11,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'database_helper.dart';
 import 'tts_service.dart';
 import 'xp_shop_service.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
 
 class WordBossBattleScreen extends StatefulWidget {
   final Map<String, dynamic> bossCard;
@@ -39,6 +40,10 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
   List<String> _shuffledKeyboardLetters = [];
 
   bool _isFinalFlipped = false;
+
+  // T-1: build() içinde her seferinde set edilir; yardımcı metodlar tema
+  // parametresi almak zorunda kalmadan buradan okur.
+  late DraconicTheme _theme;
 
   @override
   void initState() {
@@ -254,7 +259,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
         backgroundColor: const Color(0xFF0F172A).withValues(alpha: 0.88),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: Color(0xFF10B981), width: 2),
+          side: BorderSide(color: _theme.successEmerald, width: 2),
         ),
         title: Column(
           children: [
@@ -262,7 +267,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
             const SizedBox(height: 8),
             Text(
               'BOSS DEFEATED!',
-              style: GoogleFonts.outfit(color: const Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 20),
+              style: GoogleFonts.outfit(color: _theme.successEmerald, fontWeight: FontWeight.w900, fontSize: 20),
             ),
           ],
         ),
@@ -271,28 +276,28 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
           children: [
             Text(
               '"$_word"',
-              style: GoogleFonts.outfit(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+              style: GoogleFonts.outfit(color: _theme.textPrimary, fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             Text(
               _meaning,
-              style: GoogleFonts.outfit(color: const Color(0xFF38BDF8), fontSize: 15, fontWeight: FontWeight.w600),
+              style: GoogleFonts.outfit(color: _theme.infoTeal, fontSize: 15, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF070B14),
+                color: _theme.background,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF1F2937)),
+                border: Border.all(color: _theme.borderSubtle),
               ),
               child: Column(
                 children: [
-                  _buildRewardRow('🧠 Mastery Progress', '+1 Ustalık Katkısı', const Color(0xFF818CF8)),
+                  _buildRewardRow('🧠 Mastery Progress', '+1 Ustalık Katkısı', _theme.cognitiveIndigo),
                   const SizedBox(height: 8),
-                  _buildRewardRow('⚡ Tecrübe Puanı', '+20 XP', const Color(0xFFF59E0B)),
+                  _buildRewardRow('⚡ Tecrübe Puanı', '+20 XP', _theme.primaryAmber),
                   const SizedBox(height: 8),
-                  _buildRewardRow('⏳ Sonraki Tekrar', '3 gün sonra', const Color(0xFF94A3B8)),
+                  _buildRewardRow('⏳ Sonraki Tekrar', '3 gün sonra', _theme.textSecondary),
                 ],
               ),
             ),
@@ -303,7 +308,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
             width: double.infinity,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
+                backgroundColor: _theme.successEmerald,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: () {
@@ -334,14 +339,14 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
             const SizedBox(height: 8),
             Text(
               'Boss Hâlâ Ayakta!',
-              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 19),
+              style: GoogleFonts.outfit(color: _theme.textPrimary, fontWeight: FontWeight.w900, fontSize: 19),
             ),
           ],
         ),
         content: Text(
           'Bu kelime biraz zor görünüyor. Pes etme! Tekrarlarını tamamlayıp güçlendiğinde tekrar rövanşa çıkabilirsin.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+          style: GoogleFonts.inter(color: _theme.textSecondary, fontSize: 13, height: 1.4),
         ),
         actions: [
           Row(
@@ -349,14 +354,14 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
               Expanded(
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF1F2937)),
+                    side: BorderSide(color: _theme.borderSubtle),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: () {
                     Navigator.pop(ctx);
                     Navigator.pop(context, false);
                   },
-                  child: Text('Daha Sonra', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
+                  child: Text('Daha Sonra', style: GoogleFonts.outfit(color: _theme.textSecondary, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -388,7 +393,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8))),
+        Text(label, style: GoogleFonts.inter(fontSize: 11.5, color: _theme.textSecondary)),
         Text(value, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: valueColor)),
       ],
     );
@@ -423,6 +428,8 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _theme = Theme.of(context).extension<DraconicTheme>()!;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -430,12 +437,12 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
         _confirmExit();
       },
       child: Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: _theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: _theme.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: Icon(Icons.close_rounded, color: _theme.textPrimary),
           onPressed: _confirmExit,
         ),
         title: Column(
@@ -453,7 +460,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
             ),
             Text(
               'Tur ${_currentRound + 1} / $_totalRounds',
-              style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600),
+              style: GoogleFonts.inter(color: _theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -461,9 +468,9 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
       ),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+            ? Center(child: CircularProgressIndicator(color: _theme.infoTeal))
             : _errorMessage != null
-                ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.white)))
+                ? Center(child: Text(_errorMessage!, style: TextStyle(color: _theme.textPrimary)))
                 : Padding(
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
                     child: Column(
@@ -471,6 +478,10 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
+                            // NOT: 0xFF0F172A (%88 alfa) — Word Boss'un cam
+                            // efekti (glassmorphism) kimlik tasarımı, T-1
+                            // çekirdek token'larıyla eşlenmiyor (established
+                            // sabit-koyu modal istisnasıyla aynı kural).
                             color: const Color(0xFF0F172A).withValues(alpha: 0.88),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: _bossThemeColor.withValues(alpha: 0.4), width: 1.5),
@@ -486,7 +497,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
                                       const SizedBox(width: 8),
                                       Text(
                                         _word,
-                                        style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                                        style: GoogleFonts.outfit(color: _theme.textPrimary, fontWeight: FontWeight.w900, fontSize: 18),
                                       ),
                                     ],
                                   ),
@@ -501,7 +512,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
                                 alignment: Alignment.centerLeft,
                                 child: Text(
                                   _bossSubtitle,
-                                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11),
+                                  style: GoogleFonts.inter(color: _theme.textSecondary, fontSize: 11),
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -550,13 +561,13 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
       children: [
         Text(
           'ROUND 1: MEANING',
-          style: GoogleFonts.outfit(color: const Color(0xFF38BDF8), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+          style: GoogleFonts.outfit(color: _theme.infoTeal, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
         ),
         const SizedBox(height: 8),
         Text(
           'Kelimenin doğru Türkçe karşılığını seç:',
           textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          style: GoogleFonts.outfit(color: _theme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const Spacer(),
         ..._currentOptions.map((opt) => _buildOptionButton(opt)),
@@ -574,7 +585,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
       children: [
         Text(
           'ROUND 2: CONTEXT',
-          style: GoogleFonts.outfit(color: const Color(0xFF818CF8), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+          style: GoogleFonts.outfit(color: _theme.cognitiveIndigo, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
         ),
         const SizedBox(height: 8),
         Container(
@@ -582,7 +593,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFF0F172A).withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF1F2937)),
+            border: Border.all(color: _theme.borderSubtle),
           ),
           child: Text(
             '“$sentence”',
@@ -602,22 +613,22 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
       children: [
         Text(
           'ROUND 3: LISTENING',
-          style: GoogleFonts.outfit(color: const Color(0xFFF59E0B), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+          style: GoogleFonts.outfit(color: _theme.primaryAmber, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
         ),
         const SizedBox(height: 12),
         IconButton.filledTonal(
           style: IconButton.styleFrom(
-            backgroundColor: const Color(0xFFF59E0B).withValues(alpha: 0.18),
+            backgroundColor: _theme.primaryAmber.withValues(alpha: 0.18),
             padding: const EdgeInsets.all(22),
           ),
-          icon: const Icon(Icons.volume_up_rounded, size: 36, color: Color(0xFFF59E0B)),
+          icon: Icon(Icons.volume_up_rounded, size: 36, color: _theme.primaryAmber),
           onPressed: () {
             HapticFeedback.selectionClick();
             TtsService.instance.speakWord(_word);
           },
         ),
         const SizedBox(height: 8),
-        Text('Dinlemek için dokun', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11)),
+        Text('Dinlemek için dokun', style: GoogleFonts.inter(color: _theme.textSecondary, fontSize: 11)),
         const Spacer(),
         ..._currentOptions.map((opt) => _buildOptionButton(opt)),
         const Spacer(),
@@ -628,6 +639,9 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
   Widget _buildSpellingRound() {
     return Column(
       children: [
+        // NOT: 0xFFA855F7 (mor) — Round 4 (Spelling)'in kimlik rengi, T-1
+        // çekirdek token'larıyla eşlenmiyor (diğer per-item vurgu
+        // renkleriyle aynı istisna kuralı).
         Text(
           'ROUND 4: SPELLING',
           style: GoogleFonts.outfit(color: const Color(0xFFA855F7), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
@@ -635,7 +649,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
         const SizedBox(height: 6),
         Text(
           _meaning,
-          style: GoogleFonts.outfit(color: const Color(0xFF38BDF8), fontSize: 16, fontWeight: FontWeight.bold),
+          style: GoogleFonts.outfit(color: _theme.infoTeal, fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const Spacer(),
         Wrap(
@@ -652,13 +666,13 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
                 color: hasLetter ? const Color(0xFF1E1B4B) : const Color(0xFF0F172A).withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: hasLetter ? const Color(0xFFA855F7) : const Color(0xFF1F2937),
+                  color: hasLetter ? const Color(0xFFA855F7) : _theme.borderSubtle,
                   width: 1.5,
                 ),
               ),
               child: Text(
                 hasLetter ? _enteredLetters[index] : '',
-                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: _theme.textPrimary),
               ),
             );
           }),
@@ -673,7 +687,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
             return ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0F172A).withValues(alpha: 0.88),
-                foregroundColor: Colors.white,
+                foregroundColor: _theme.textPrimary,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               ),
@@ -685,8 +699,8 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
         const SizedBox(height: 12),
         if (_enteredLetters.isNotEmpty)
           TextButton.icon(
-            icon: const Icon(Icons.refresh_rounded, size: 16, color: Color(0xFF94A3B8)),
-            label: Text('Harfleri Sıfırla', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12)),
+            icon: Icon(Icons.refresh_rounded, size: 16, color: _theme.textSecondary),
+            label: Text('Harfleri Sıfırla', style: GoogleFonts.inter(color: _theme.textSecondary, fontSize: 12)),
             onPressed: _resetSpellingLetters,
           ),
       ],
@@ -704,7 +718,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
       children: [
         Text(
           'ROUND 5: BOOK CONTEXT ($bookTitle)',
-          style: GoogleFonts.outfit(color: const Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+          style: GoogleFonts.outfit(color: _theme.successEmerald, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
         ),
         const SizedBox(height: 8),
         Container(
@@ -712,7 +726,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFF0F172A).withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+            border: Border.all(color: _theme.successEmerald.withValues(alpha: 0.3)),
           ),
           child: Text(
             '“$blankedSentence”',
@@ -732,7 +746,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
       children: [
         Text(
           'FINAL ROUND: RECALL',
-          style: GoogleFonts.outfit(color: const Color(0xFFEF4444), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+          style: GoogleFonts.outfit(color: _theme.dangerRed, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
         ),
         const SizedBox(height: 12),
         Expanded(
@@ -747,25 +761,25 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF0F172A).withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5), width: 2),
+                border: Border.all(color: _theme.dangerRed.withValues(alpha: 0.5), width: 2),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     _word,
-                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
+                    style: GoogleFonts.outfit(color: _theme.textPrimary, fontSize: 32, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 16),
                   if (_isFinalFlipped)
                     Text(
                       _meaning,
-                      style: GoogleFonts.outfit(color: const Color(0xFF38BDF8), fontSize: 20, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.outfit(color: _theme.infoTeal, fontSize: 20, fontWeight: FontWeight.bold),
                     )
                   else
                     Text(
                       'Anlamı kontrol etmek için dokun',
-                      style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12),
+                      style: GoogleFonts.inter(color: _theme.textSecondary, fontSize: 12),
                     ),
                 ],
               ),
@@ -779,19 +793,19 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
               Expanded(
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFEF4444)),
+                    side: BorderSide(color: _theme.dangerRed),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onPressed: _handleRoundFailure,
-                  child: Text('Hatırlayamadım', style: GoogleFonts.outfit(color: const Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                  child: Text('Hatırlayamadım', style: GoogleFonts.outfit(color: _theme.dangerRed, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
+                    backgroundColor: _theme.successEmerald,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -807,16 +821,16 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
 
   Widget _buildOptionButton(String option) {
     final isSelected = (_selectedOption == option);
-    Color borderColor = const Color(0xFF1F2937);
+    Color borderColor = _theme.borderSubtle;
     Color bgColor = const Color(0xFF0F172A).withValues(alpha: 0.88);
 
     if (isSelected && _isOptionCorrect != null) {
       if (_isOptionCorrect == true) {
-        borderColor = const Color(0xFF10B981);
-        bgColor = const Color(0xFF10B981).withValues(alpha: 0.15);
+        borderColor = _theme.successEmerald;
+        bgColor = _theme.successEmerald.withValues(alpha: 0.15);
       } else {
-        borderColor = const Color(0xFFEF4444);
-        bgColor = const Color(0xFFEF4444).withValues(alpha: 0.15);
+        borderColor = _theme.dangerRed;
+        bgColor = _theme.dangerRed.withValues(alpha: 0.15);
       }
     }
 
@@ -834,7 +848,7 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
         child: Text(
           option,
           textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w700),
+          style: GoogleFonts.outfit(color: _theme.textPrimary, fontSize: 14.5, fontWeight: FontWeight.w700),
         ),
       ),
     );

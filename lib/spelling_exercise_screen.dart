@@ -18,6 +18,7 @@ import 'celebration_dialog.dart';
 import 'coach_messages.dart';
 import 'core/design_system/primitives.dart';
 import 'core/coach/ignis_moments_engine.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
 
 class LetterBlock {
   final int id;
@@ -333,27 +334,29 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           elevation: 0,
-          title: Text('Dinle & Yaz', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Text('Dinle & Yaz', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold)),
         ),
-        body: const Center(
-          child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
+        body: Center(
+          child: CircularProgressIndicator(color: theme.infoTeal),
         ),
       );
     }
 
     if (_questions.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF070B14),
+          backgroundColor: theme.background,
           elevation: 0,
-          title: Text('Dinle & Yaz', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Text('Dinle & Yaz', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold)),
         ),
         body: EmptyWordPoolState(
           message: 'Yazım pratiği için Kitaplığında geçerli bir kelime bulunamadı.',
@@ -369,34 +372,34 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
     final targetWord = currentWordText.toString().trim().toUpperCase().replaceAll(RegExp(r'[^A-Z]'), '');
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070B14),
+        backgroundColor: theme.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: theme.textPrimary),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Dinle & Yaz', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
+            Text('Dinle & Yaz', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: theme.textPrimary, fontSize: 16)),
             if (widget.xpMultiplier > 1)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '~+8 XP', 
+                    '~+8 XP',
                     style: GoogleFonts.outfit(
-                      color: Colors.grey.shade500, 
-                      fontSize: 10, 
+                      color: theme.textMuted,
+                      fontSize: 10,
                       decoration: TextDecoration.lineThrough,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '⚡ ${8 * widget.xpMultiplier} XP (2X Şanslı Mod!)', 
+                    '⚡ ${8 * widget.xpMultiplier} XP (2X Şanslı Mod!)',
                     style: GoogleFonts.outfit(
-                      color: const Color(0xFFF59E0B), 
-                      fontSize: 10.5, 
+                      color: theme.primaryAmber,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -406,12 +409,12 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: Icon(Icons.close_rounded, color: theme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(PhosphorIcons.lightbulbBold, color: Color(0xFFF59E0B)),
+            icon: Icon(PhosphorIcons.lightbulbBold, color: theme.primaryAmber),
             tooltip: 'İpucu Al',
             onPressed: _useHint,
           ),
@@ -430,13 +433,13 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                     children: [
                       Text(
                         'Kelime ${_currentIndex + 1} / ${_questions.length}',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF94A3B8)),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: theme.textSecondary),
                       ),
                       Row(
                         children: [
-                          const Icon(PhosphorIcons.lightningBold, color: Color(0xFFF59E0B), size: 16),
+                          Icon(PhosphorIcons.lightningBold, color: theme.primaryAmber, size: 16),
                           const SizedBox(width: 4),
-                          Text('$_score Doğru', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B))),
+                          Text('$_score Doğru', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: theme.primaryAmber)),
                         ],
                       ),
                     ],
@@ -447,8 +450,8 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 6,
-                      backgroundColor: const Color(0xFF111827),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+                      backgroundColor: theme.surfaceDark,
+                      valueColor: AlwaysStoppedAnimation<Color>(theme.infoTeal),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -456,9 +459,9 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111827),
+                      color: theme.surfaceDark,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF1F2937), width: 1.5),
+                      border: Border.all(color: theme.borderSubtle, width: 1.5),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.3),
@@ -471,10 +474,10 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                       children: [
                         IconButton.filled(
                           style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xFF38BDF8),
+                            backgroundColor: theme.infoTeal,
                             padding: const EdgeInsets.all(14),
                           ),
-                          icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF070B14), size: 28),
+                          icon: Icon(Icons.volume_up_rounded, color: theme.background, size: 28),
                           tooltip: 'Tekrar Dinle',
                           onPressed: () {
                             HapticFeedback.selectionClick();
@@ -488,7 +491,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                           style: GoogleFonts.outfit(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF94A3B8),
+                            color: theme.textSecondary,
                           ),
                         ),
                       ],
@@ -504,12 +507,12 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                       final hasLetter = index < _placedLetters.length;
                       final letterBlock = hasLetter ? _placedLetters[index] : null;
 
-                      Color boxBorderColor = const Color(0xFF1F2937);
-                      Color boxBgColor = const Color(0xFF111827);
+                      Color boxBorderColor = theme.borderSubtle;
+                      Color boxBgColor = theme.surfaceDark;
 
                       if (_isAnswerChecked) {
-                        boxBorderColor = _isCorrect ? const Color(0xFF10B981) : const Color(0xFFEF4444);
-                        boxBgColor = (_isCorrect ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.15);
+                        boxBorderColor = _isCorrect ? theme.successEmerald : theme.dangerRed;
+                        boxBgColor = (_isCorrect ? theme.successEmerald : theme.dangerRed).withValues(alpha: 0.15);
                       }
 
                       return GestureDetector(
@@ -522,7 +525,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                             color: boxBgColor,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: hasLetter ? const Color(0xFF38BDF8) : boxBorderColor,
+                              color: hasLetter ? theme.infoTeal : boxBorderColor,
                               width: hasLetter ? 2 : 1.5,
                             ),
                           ),
@@ -532,7 +535,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                             style: GoogleFonts.outfit(
                               fontSize: 22,
                               fontWeight: FontWeight.w900,
-                              color: Colors.white,
+                              color: theme.textPrimary,
                             ),
                           ),
                         ),
@@ -555,10 +558,10 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                             width: 50,
                             height: 54,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF111827),
+                              color: theme.surfaceDark,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: const Color(0xFF1F2937),
+                                color: theme.borderSubtle,
                                 width: 1.5,
                               ),
                               boxShadow: [
@@ -575,7 +578,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                               style: GoogleFonts.outfit(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: theme.textPrimary,
                               ),
                             ),
                           ),
@@ -599,11 +602,11 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
+                      color: theme.successEmerald,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                          color: theme.successEmerald.withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),
