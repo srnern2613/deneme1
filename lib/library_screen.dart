@@ -479,6 +479,59 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  // UI/UX Düzeltme Listesi — Faz E: kısa kitap listelerinde ListView'in
+  // altında kalan boş alanı, kitap listesinin doğal bir parçası olarak
+  // dolduran özet kart. Yeni veri kaynağı/ağ çağrısı eklenmedi — mevcut
+  // _books ve _bookStatsCache üzerinden türetiliyor.
+  Widget _buildLibraryJourneyFooter() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    final int totalBooks = _books.length;
+    final int startedBooks = _books.where((b) {
+      final discoveredWords = _bookStatsCache[b.title]?['total_words'] as int? ?? 0;
+      return b.currentPage > 0 || discoveredWords > 0;
+    }).length;
+    final int finishedBooks = _books.where((b) {
+      final total = b.pages.isEmpty ? 1 : b.pages.length;
+      final current = b.currentPage.clamp(0, total);
+      return total > 1 && current >= total - 1;
+    }).length;
+
+    final String message = finishedBooks > 0
+        ? '$totalBooks kitaptan $finishedBooks\'ini tamamladın, $startedBooks\'inde ilerliyorsun. Böyle devam! 🔥'
+        : startedBooks > 0
+            ? '$totalBooks kitaptan $startedBooks\'inde ilerliyorsun. Bir sayfa daha oku, seriyi büyüt! 📖'
+            : 'Kitaplığında $totalBooks kitap seni bekliyor. Birine başlamak için dokun! ✨';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.surfaceDark.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(PhosphorIcons.booksBold, size: 16, color: theme.textMuted),
+              const SizedBox(width: 8),
+              Text(
+                'OKUMA YOLCULUĞUN',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11, color: theme.textMuted, letterSpacing: 0.5),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: GoogleFonts.inter(fontSize: 12.5, color: theme.textSecondary, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).extension<DraconicTheme>()!;
@@ -535,9 +588,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   ? _buildEmptyLibraryState()
                   : ListView.separated(
                   physics: const BouncingScrollPhysics(),
-                  itemCount: _books.length,
+                  // UI/UX Düzeltme Listesi — Faz E: kısa kitap listelerinde
+                  // ListView'in altında kalan "boş alan" artık çıplak
+                  // bırakılmıyor — listenin son satırı olarak bir "Okuma
+                  // Yolculuğun" özet kartı ekleniyor (bkz.
+                  // _buildLibraryJourneyFooter). Bu, listeyle birlikte
+                  // kayar; uzun listelerde en alta düşer, kısa listelerde
+                  // hemen son kitabın altında görünür — hiçbir zaman
+                  // "yüzen" veya kopuk durmaz.
+                  itemCount: _books.length + 1,
                   separatorBuilder: (context, index) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
+                    if (index == _books.length) {
+                      return _buildLibraryJourneyFooter();
+                    }
                     final book = _books[index];
                     final stats = _bookStatsCache[book.title];
                     final bool isActive = book.id == _mostRecentlyOpenedBook?.id;
