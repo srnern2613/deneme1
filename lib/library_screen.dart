@@ -502,32 +502,43 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ? '$totalBooks kitaptan $startedBooks\'inde ilerliyorsun. Bir sayfa daha oku, seriyi büyüt! 📖'
             : 'Kitaplığında $totalBooks kitap seni bekliyor. Birine başlamak için dokun! ✨';
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: theme.surfaceDark.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: theme.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(PhosphorIcons.booksBold, size: 16, color: theme.textMuted),
-              const SizedBox(width: 8),
-              Text(
-                'OKUMA YOLCULUĞUN',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11, color: theme.textMuted, letterSpacing: 0.5),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            style: GoogleFonts.inter(fontSize: 12.5, color: theme.textSecondary, height: 1.4),
-          ),
-        ],
+    // UI/UX Düzeltme Listesi — Faz E (2. düzeltme): kart artık sadece kalan
+    // alanın İÇİNDE ortalanan küçük bir kutu değil — SizedBox.expand ile
+    // kalan alanın TAMAMINI (arka planı ve çerçevesiyle) kaplıyor, içeriği
+    // ise o büyük kartın kendi içinde dikey ortalanıyor. Önceki sürümde kart
+    // küçük kalıp Scaffold'un çıplak arka planı hâlâ üstünde/altında
+    // görünüyordu — bu artık mümkün değil, kart tüm alanı kaplıyor.
+    return SizedBox.expand(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: theme.surfaceDark.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: theme.borderSubtle),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(PhosphorIcons.booksBold, size: 16, color: theme.textMuted),
+                const SizedBox(width: 8),
+                Text(
+                  'OKUMA YOLCULUĞUN',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11, color: theme.textMuted, letterSpacing: 0.5),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              message,
+              style: GoogleFonts.inter(fontSize: 12.5, color: theme.textSecondary, height: 1.4),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -586,24 +597,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
               Expanded(
                 child: _books.isEmpty
                   ? _buildEmptyLibraryState()
-                  : ListView.separated(
+                  : CustomScrollView(
                   physics: const BouncingScrollPhysics(),
-                  // UI/UX Düzeltme Listesi — Faz E: kısa kitap listelerinde
-                  // ListView'in altında kalan "boş alan" artık çıplak
-                  // bırakılmıyor — listenin son satırı olarak bir "Okuma
-                  // Yolculuğun" özet kartı ekleniyor (bkz.
-                  // _buildLibraryJourneyFooter). Bu, listeyle birlikte
-                  // kayar; uzun listelerde en alta düşer, kısa listelerde
-                  // hemen son kitabın altında görünür — hiçbir zaman
-                  // "yüzen" veya kopuk durmaz.
-                  itemCount: _books.length + 1,
-                  separatorBuilder: (context, index) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    if (index == _books.length) {
-                      return _buildLibraryJourneyFooter();
-                    }
-                    final book = _books[index];
-                    final stats = _bookStatsCache[book.title];
+                  slivers: [
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          if (index.isOdd) return const SizedBox(height: 10);
+                          final book = _books[index ~/ 2];
+                          final stats = _bookStatsCache[book.title];
                     final bool isActive = book.id == _mostRecentlyOpenedBook?.id;
 
                     final int totalPages = book.pages.isEmpty ? 1 : book.pages.length;
@@ -696,7 +698,27 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         ),
                       ),
                     );
-                  },
+                        },
+                        childCount: _books.length * 2 - 1,
+                      ),
+                    ),
+                    // UI/UX Düzeltme Listesi — Faz E (düzeltme): kısa kitap
+                    // listelerinde kalan boşluk artık listenin son satırı
+                    // olarak değil, `SliverFillRemaining` ile ÖLÇÜLEN gerçek
+                    // kalan alanın TAMAMINI kaplayan bir kart olarak
+                    // dolduruluyor (bkz. _buildLibraryJourneyFooter içindeki
+                    // SizedBox.expand) — önceki sürüm kartı sadece o alanın
+                    // ortasına koyuyordu, üstünde/altında hâlâ çıplak
+                    // Scaffold arka planı görünüyordu.
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      fillOverscroll: false,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: _buildLibraryJourneyFooter(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
