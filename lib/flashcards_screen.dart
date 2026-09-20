@@ -539,11 +539,38 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
       backgroundColor: theme.background,
-      // Lobi'deki gibi nefes alan, custom başlık alanı — standart AppBar
-      // sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
-      // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları
-      // dinler; hiçbir yeni state veya iş mantığı eklenmedi.
-      body: SafeArea(
+      // Arena'ya özel atmosferik zemin — diğer sekmelerdeki desenle aynı:
+      // tam ekran görsel + aşağıya doğru koyu zemine eriyen gradyan.
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/calis_kartlar.webp',
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.background.withValues(alpha: 0.15),
+                    theme.background.withValues(alpha: 0.65),
+                    theme.background,
+                  ],
+                  stops: const [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+          ),
+          // Lobi'deki gibi nefes alan, custom başlık alanı — standart AppBar
+          // sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
+          // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları
+          // dinler; hiçbir yeni state veya iş mantığı eklenmedi.
+          SafeArea(
         child: _isLoading
             ? Center(child: CircularProgressIndicator(color: theme.cognitiveIndigo))
             : SingleChildScrollView(
@@ -683,6 +710,8 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                   ],
                 ),
               ),
+      ),
+        ],
       ),
     );
   }

@@ -7,14 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler artık temadan
 
 class DesignLabScreen extends StatelessWidget {
   const DesignLabScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: theme.background,
       body: Stack(
         children: [
           // --- ATMOSFERİK ARKAPLAN IŞIK SIZINTILARI ---
@@ -67,20 +69,20 @@ class DesignLabScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF111827).withValues(alpha: 0.8),
+                              color: theme.surfaceDark.withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4), width: 1.5),
+                              border: Border.all(color: theme.infoTeal.withValues(alpha: 0.4), width: 1.5),
                             ),
                             child: Row(
                               children: [
-                                const Icon(PhosphorIcons.diamondBold, color: Color(0xFF38BDF8), size: 15),
+                                Icon(PhosphorIcons.diamondBold, color: theme.infoTeal, size: 15),
                                 const SizedBox(width: 5),
-                                Text('599', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text('599', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
                                 const SizedBox(width: 4),
                                 Container(
                                   padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.2), shape: BoxShape.circle),
-                                  child: const Icon(PhosphorIcons.plusBold, color: Color(0xFF38BDF8), size: 10),
+                                  decoration: BoxDecoration(color: theme.infoTeal.withValues(alpha: 0.2), shape: BoxShape.circle),
+                                  child: Icon(PhosphorIcons.plusBold, color: theme.infoTeal, size: 10),
                                 ),
                               ],
                             ),
@@ -90,7 +92,7 @@ class DesignLabScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF111827).withValues(alpha: 0.8),
+                              color: theme.surfaceDark.withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(color: Colors.orange.withValues(alpha: 0.5), width: 1.5),
                             ),
@@ -115,11 +117,11 @@ class DesignLabScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF111827).withValues(alpha: 0.8),
+                          color: theme.surfaceDark.withValues(alpha: 0.8),
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFFF59E0B), width: 2),
+                          border: Border.all(color: theme.primaryAmber, width: 2),
                         ),
-                        child: const Icon(PhosphorIcons.trophyBold, color: Color(0xFFF59E0B), size: 18),
+                        child: Icon(PhosphorIcons.trophyBold, color: theme.primaryAmber, size: 18),
                       ),
                     ],
                   ),
@@ -150,9 +152,9 @@ class DesignLabScreen extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                color: theme.primaryAmber.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                                border: Border.all(color: theme.primaryAmber.withValues(alpha: 0.4)),
                               ),
                               child: Text(
                                 'SEZON 3 • 4 GÜN KALDI',
@@ -161,7 +163,7 @@ class DesignLabScreen extends StatelessWidget {
                             ),
                             Row(
                               children: [
-                                const Icon(PhosphorIcons.trendUpBold, color: Color(0xFFEF4444), size: 14),
+                                Icon(PhosphorIcons.trendUpBold, color: theme.dangerRed, size: 14),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Ligde 4. Sıradısın!',
@@ -174,22 +176,22 @@ class DesignLabScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         Text(
                           '12. Arena - Kelime Ustası',
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.3),
+                          style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.3),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           '1. ile aranda 50 XP var, hemen geç!',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12.5),
+                          style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12.5),
                         ),
                         const SizedBox(height: 16),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: const LinearProgressIndicator(
+                          child: LinearProgressIndicator(
                             value: 0.65,
                             minHeight: 10,
-                            backgroundColor: Color(0xFF0F172A),
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)),
+                            backgroundColor: const Color(0xFF0F172A), // hero kart sabit koyu zemin — muaf
+                            valueColor: AlwaysStoppedAnimation<Color>(theme.primaryAmber),
                           ),
                         ),
                       ],
@@ -203,11 +205,11 @@ class DesignLabScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111827).withValues(alpha: 0.85),
+                      color: theme.surfaceDark.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.6), width: 1.5),
+                      border: Border.all(color: theme.successEmerald.withValues(alpha: 0.6), width: 1.5),
                       boxShadow: [
-                        BoxShadow(color: const Color(0xFF10B981).withValues(alpha: 0.12), blurRadius: 16, offset: const Offset(0, 4)),
+                        BoxShadow(color: theme.successEmerald.withValues(alpha: 0.12), blurRadius: 16, offset: const Offset(0, 4)),
                       ],
                     ),
                     child: Column(
@@ -217,10 +219,10 @@ class DesignLabScreen extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(11),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                color: theme.successEmerald.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: const Icon(PhosphorIcons.giftBold, color: Color(0xFF34D399), size: 22)
+                              child: Icon(PhosphorIcons.giftBold, color: theme.successEmerald, size: 22)
                                   .animate(onPlay: (c) => c.repeat(reverse: true))
                                   .rotate(duration: 1000.ms, begin: -0.05, end: 0.05),
                             ),
@@ -231,35 +233,35 @@ class DesignLabScreen extends StatelessWidget {
                                 children: [
                                   Row(
                                     children: [
-                                      Text('Günlük Gizemli Sandık', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                                      Text('Günlük Gizemli Sandık', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w800, fontSize: 14)),
                                       const SizedBox(width: 6),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF10B981),
+                                          color: theme.successEmerald,
                                           borderRadius: BorderRadius.circular(6),
                                         ),
-                                        child: Text('ÖDÜLLÜ', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 9)),
+                                        child: Text('ÖDÜLLÜ', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 9)), // rozet üstü sabit kontrast — muaf
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 2),
-                                  Text('0 / 20 sayfa okundu (Açılmasına az kaldı!)', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11.5)),
+                                  Text('0 / 20 sayfa okundu (Açılmasına az kaldı!)', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11.5)),
                                 ],
                               ),
                             ),
-                            const Icon(PhosphorIcons.lockKeyBold, color: Color(0xFF34D399), size: 20),
+                            Icon(PhosphorIcons.lockKeyBold, color: theme.successEmerald, size: 20),
                           ],
                         ),
                         const SizedBox(height: 12),
                         // Mini İlerleme Barı (Sandığın altındaki merak uyandırıcı detay)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(4),
-                          child: const LinearProgressIndicator(
+                          child: LinearProgressIndicator(
                             value: 0.0,
                             minHeight: 5,
-                            backgroundColor: Color(0xFF1F2937),
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
+                            backgroundColor: theme.borderSubtle,
+                            valueColor: AlwaysStoppedAnimation<Color>(theme.successEmerald),
                           ),
                         ),
                       ],
@@ -275,9 +277,9 @@ class DesignLabScreen extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF111827).withValues(alpha: 0.85),
+                            color: theme.surfaceDark.withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF1F2937)),
+                            border: Border.all(color: theme.borderSubtle),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,7 +290,7 @@ class DesignLabScreen extends StatelessWidget {
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFEC4899).withValues(alpha: 0.15),
+                                      color: const Color(0xFFEC4899).withValues(alpha: 0.15), // düello kartı kimliği — pembe, tabloda yok, muaf
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: const Icon(PhosphorIcons.swordBold, color: Color(0xFFEC4899), size: 20),
@@ -297,18 +299,18 @@ class DesignLabScreen extends StatelessWidget {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                                      color: theme.dangerRed.withValues(alpha: 0.2),
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5)),
+                                      border: Border.all(color: theme.dangerRed.withValues(alpha: 0.5)),
                                     ),
                                     child: Text('CANLI', style: GoogleFonts.outfit(color: const Color(0xFFFCA5A5), fontWeight: FontWeight.w900, fontSize: 8.5)),
                                   ).animate(onPlay: (c) => c.repeat(reverse: true)).fade(duration: 600.ms, begin: 0.5, end: 1.0),
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              Text('Kelime Düellosu', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5)),
+                              Text('Kelime Düellosu', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w800, fontSize: 13.5)),
                               const SizedBox(height: 2),
-                              Text('Hızlı Savaş', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11)),
+                              Text('Hızlı Savaş', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11)),
                             ],
                           ),
                         ),
@@ -318,9 +320,9 @@ class DesignLabScreen extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF111827).withValues(alpha: 0.85),
+                            color: theme.surfaceDark.withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF1F2937)),
+                            border: Border.all(color: theme.borderSubtle),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,15 +330,15 @@ class DesignLabScreen extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                                  color: theme.infoTeal.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Icon(PhosphorIcons.targetBold, color: Color(0xFF38BDF8), size: 20),
+                                child: Icon(PhosphorIcons.targetBold, color: theme.infoTeal, size: 20),
                               ),
                               const SizedBox(height: 12),
-                              Text('Günlük Görev', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5)),
+                              Text('Günlük Görev', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w800, fontSize: 13.5)),
                               const SizedBox(height: 2),
-                              Text('3 / 5 Tamamlandı', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11)),
+                              Text('3 / 5 Tamamlandı', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11)),
                             ],
                           ),
                         ),
@@ -355,10 +357,10 @@ class DesignLabScreen extends StatelessWidget {
                         child: ElevatedButton(
                           onPressed: () {},
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF59E0B),
-                            foregroundColor: const Color(0xFF0F172A),
+                            backgroundColor: theme.primaryAmber,
+                            foregroundColor: const Color(0xFF0F172A), // amber buton üstü sabit kontrast — muaf
                             elevation: 8,
-                            shadowColor: const Color(0xFFF59E0B).withValues(alpha: 0.6),
+                            shadowColor: theme.primaryAmber.withValues(alpha: 0.6),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                           ),
                           child: Row(
@@ -377,7 +379,7 @@ class DesignLabScreen extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         '⚡ Hemen başla, +50 XP ve serini garantile!',
-                        style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),

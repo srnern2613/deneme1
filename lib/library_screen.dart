@@ -548,11 +548,39 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
       backgroundColor: theme.background,
-      // Lobi'deki gibi nefes alan, custom başlık alanı — standart AppBar
-      // sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
-      // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları
-      // dinler; hiçbir yeni state veya iş mantığı eklenmedi.
-      body: SafeArea(
+      // Kitaplık'a özel atmosferik zemin — diğer sekmelerdeki (Ana Sayfa,
+      // Profil) desenle aynı: tam ekran görsel + aşağıya doğru koyu zemine
+      // eriyen gradyan katmanı. Sadece görsel, veri/servis çağrısı yok.
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/kitaplik.webp',
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.background.withValues(alpha: 0.15),
+                    theme.background.withValues(alpha: 0.65),
+                    theme.background,
+                  ],
+                  stops: const [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+          ),
+          // Lobi'deki gibi nefes alan, custom başlık alanı — standart AppBar
+          // sıkışıklığı yerine SafeArea içinde serbest bir Row. Sağdaki
+          // rozetler AppHeader'ın kullandığı AYNI canlı ValueNotifier'ları
+          // dinler; hiçbir yeni state veya iş mantığı eklenmedi.
+          SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
           child: Column(
@@ -724,6 +752,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ],
           ),
         ),
+      ),
+        ],
       ),
     );
   }

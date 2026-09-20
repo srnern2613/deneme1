@@ -244,7 +244,35 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
         ),
         centerTitle: true,
       ),
-      body: SafeArea(
+      // Kitap Yolculuğu'na özel atmosferik zemin — diğer sekmelerdeki
+      // desenle aynı: tam ekran görsel + aşağıya doğru koyu zemine eriyen
+      // gradyan.
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/yolculuk_harita.webp',
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.background.withValues(alpha: 0.15),
+                    theme.background.withValues(alpha: 0.65),
+                    theme.background,
+                  ],
+                  stops: const [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
         child: _isLoading
             ? Center(child: CircularProgressIndicator(color: theme.infoTeal))
             : _journeyData == null
@@ -301,6 +329,8 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
                       ],
                     ),
                   ),
+      ),
+        ],
       ),
     );
   }

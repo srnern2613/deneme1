@@ -463,7 +463,7 @@ class ProfileScreenState extends State<ProfileScreen> {
           // katman, hiçbir veri/servis çağrısını etkilemez.
           Positioned.fill(
             child: Image.asset(
-              'assets/images/profile_background_pic.png',
+              'assets/images/profil.webp',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
             ),

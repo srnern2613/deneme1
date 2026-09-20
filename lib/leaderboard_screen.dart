@@ -194,7 +194,34 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Scaffold(
       backgroundColor: theme.background,
-      body: _isLoading
+      // İlerleme'ye özel atmosferik zemin — diğer sekmelerdeki desenle aynı:
+      // tam ekran görsel + aşağıya doğru koyu zemine eriyen gradyan.
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/basarimlar.webp',
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.background.withValues(alpha: 0.15),
+                    theme.background.withValues(alpha: 0.65),
+                    theme.background,
+                  ],
+                  stops: const [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+          ),
+          _isLoading
           ? Center(child: CircularProgressIndicator(color: theme.infoTeal))
           : SafeArea(
               child: SingleChildScrollView(
@@ -284,6 +311,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 ),
               ),
             ),
+        ],
+      ),
     );
   }
 

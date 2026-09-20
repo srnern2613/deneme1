@@ -28,8 +28,16 @@ planlanıyor.
   `ThemeExtension`, iki eksen taşıyor: `performanceTier` (blur/glow — cihaz gücü)
   ve `isDark` (Karanlık/Zindan ↔ Aydınlık/Parşömen palet). Ekranlar
   `Theme.of(context).extension<DraconicTheme>()!` ile okuyor; ham hex renk
-  YAZMAK yerine token kullanmak proje kuralı (T-1 migrasyonu — devam ediyor).
+  YAZMAK yerine token kullanmak proje kuralı (T-1 migrasyonu — ✅ tamamlandı,
+  Eylül 2026).
 - UI primitifleri: `GlassPanel`, `DungeonCard`, `NeonButton` (`core/design_system/primitives.dart`)
+- Sekme arka planları: her ana sekme/ekran `assets/images/` altında kendi
+  temalı `.webp` görseliyle açılıyor (`ana_sayfa.webp`, `kitaplik.webp`,
+  `calis_kartlar.webp`, `basarimlar.webp`, `profil.webp`, `dukkan.webp`,
+  `sozluk.webp`, `yolculuk_harita.webp`) — hepsi aynı desen: `Stack` içinde
+  `Positioned.fill(Image.asset(..., fit: BoxFit.cover, alignment: Alignment.topCenter))`
+  + üstüne `theme.background`'a erisen bir `LinearGradient` katmanı, en
+  üstte asıl `SafeArea` içeriği.
 
 ## Mimari / iş modeli kararları
 - **Local-First + Serverless Lite**: MVP'de tam backend (Node/Python+Postgres) yok.
@@ -62,24 +70,36 @@ bir yol haritasına bölündü ve cihaz üzerinde teker teker doğrulandı:
   değiştirme/satın alımları geri yükleme/versiyon bilgisi içeren bottom sheet;
   22 rozetlik kalabalık grid yerine 3 rozetlik özet satırı + "Başarı Odası" sheet'i;
   istatistik listesi → 2×2 grid. ✅ Tamam
-- **Faz C** — Ana sayfa ergonomisi: saat bazlı selamlama metni eklendi; sticky CTA
-  bar ve üstteki seri (streak) göstergesi zaten kuralları karşılıyordu. ✅ Tamam
+- **Faz C** — Ana sayfa ergonomisi: saat bazlı selamlama metni eklendi, sonra
+  kullanıcı isteğiyle tekrar kaldırıldı ("İyi günler, Eren" artık yok); sticky
+  CTA bar ve üstteki seri (streak) göstergesi zaten kuralları karşılıyordu. ✅ Tamam
 - **Faz D** — Arena'daki "Zindan Kapalı" boş-havuz banner'ı, hemen üstündeki Word
   Boss banner'ıyla renk çatışması yaratan sert kırmızı/mor "alarm" görünümünden,
   `GlassPanel` tabanlı yumuşak/iOS-tarzı translucent bir karta taşındı; aktif
   "Hafıza Zindanı" amber hero kartı bilinçli olarak dokunulmadı (hero-kart muafiyeti). ✅ Tamam
 - **Faz E** — Kitaplık'ta kısa kitap listelerinde liste altında kalan boş alan;
-  listenin son öğesi olarak kayan bir "Okuma Yolculuğun" özet kartı eklendi (yeni
-  veri kaynağı gerekmedi, mevcut istatistiklerden türetiliyor). ✅ Tamam
+  önce listenin son öğesi olarak küçük bir özet kart denendi (yetersiz kaldı —
+  kart küçük kalıp altında/üstünde hâlâ çıplak Scaffold görünüyordu), sonra
+  `SliverFillRemaining` + `SizedBox.expand` ile "OKUMA YOLCULUĞUN" kartı kalan
+  alanın TAMAMINI kaplayacak şekilde düzeltildi; emülatörde doğrulandı. ✅ Tamam
 - **Faz F** — (henüz başlanmadı) Duolingo tarzı karakter pop-up'ı (streak kaybı /
   kutlama durumları, blur backdrop, 24pt radius, thumb-zone CTA butonları) +
   Profil ayarlarında "Dev/Test Araçları" bölümü (her pop-up'ı elle tetikleyen
   test butonları).
+- **T-1 tema-token migrasyonu** — tüm egzersiz/mini-oyun ekranları (quiz/match/
+  spelling/cloze/reverse-quiz/listening/speed-round/mixed-dungeon/word-boss/
+  flashcards-exercise) ve `design_lab_screen.dart` dahil, tüm dosyalarda
+  tamamlandı. ✅ Tamam
+- **Sekme arka planları** — kullanıcının hazırladığı temalı `.webp` görselleri
+  ilgili ekranlara eklendi: Ana Sayfa, Dersler/Kitaplık, Arena/Kartlar,
+  İlerleme/Sıralama, Profil, Dükkan, Sözlük, Kitap Yolculuğu. Ana Sayfa ve
+  Profil'deki eski görseller (`lobi_arkaplan.png`, `profile_background_pic.png`)
+  yeni setle değiştirildi. ✅ Tamam
 
 ## Kalan/bilinen backlog
-- T-1 tema-token migrasyonu, kalan egzersiz/mini-oyun ekranlarında (quiz/match/
-  spelling/cloze/reverse-quiz/listening/speed-round/mixed-dungeon/word-boss/
-  flashcards-exercise) ve `design_lab_screen.dart`'ta henüz tamamlanmadı.
+- `ayarlar.webp` görseli henüz kullanılmadı — karşılığı Profil ekranındaki
+  "Ayarlar" bottom sheet'i, tam ekran arka plan deseni orada doğal
+  görünmeyebilir; kullanıcıyla netleştirilmeli.
 - İleride: aydınlık temanın önceliklendirilmesi, RPG temasının biraz geri plana
   alınıp eğitim içeriğinin öne çekilmesi (kullanıcının notu, henüz uygulanmıyor),
   Firebase hesap sistemi + buna bağlı lig/liderlik tablosu.

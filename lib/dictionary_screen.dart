@@ -274,7 +274,34 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         ),
         centerTitle: true,
       ),
-      body: SafeArea(
+      // Sözlük'e özel atmosferik zemin — diğer sekmelerdeki desenle aynı:
+      // tam ekran görsel + aşağıya doğru koyu zemine eriyen gradyan.
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/sozluk.webp',
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.background.withValues(alpha: 0.15),
+                    theme.background.withValues(alpha: 0.65),
+                    theme.background,
+                  ],
+                  stops: const [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
           child: Column(
@@ -555,6 +582,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
             ],
           ),
         ),
+      ),
+        ],
       ),
     );
   }

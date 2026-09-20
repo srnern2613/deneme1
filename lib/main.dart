@@ -521,7 +521,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Positioned.fill(
                   child: Image.asset(
-                    'assets/images/lobi_arkaplan.png',
+                    'assets/images/ana_sayfa.webp',
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
                   ),
