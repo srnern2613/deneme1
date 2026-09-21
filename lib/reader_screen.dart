@@ -1192,7 +1192,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
         return Container(
           color: _surfacePanelColor,
           padding: EdgeInsets.fromLTRB(22, 16, 22, MediaQuery.of(context).padding.bottom + 20),
-          child: Column(
+          // BUG ÖNLEME: aşağıdaki tema grid'i yeni bir okuma teması
+          // eklendikçe büyüyor (bu oturumda da büyüdü) — Ayarlar sheet'inde
+          // yaşanan "BOTTOM OVERFLOWED" hatasının aynı kalıbı. Bu proje
+          // genelinde artık standart koruma: yükseklik ekranla sınırlanıyor,
+          // taşan kısım kaydırılabiliyor.
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.9,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Center(
@@ -1268,6 +1278,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ],
               ),
             ],
+              ),
+            ),
           ),
         );
       },

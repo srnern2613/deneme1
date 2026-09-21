@@ -251,6 +251,33 @@ bir yol haritasına bölündü ve cihaz üzerinde teker teker doğrulandı:
     kesin değil — kullanıcı hangi ekran/kartı kastettiğini netleştirirse
     (ekran görüntüsüyle) hedefli bir düzeltme yapılabilir.
 
+- **Faz I — Bottom sheet taşma (overflow) hatası ve genel koruma (Eylül 2026):**
+  - **Hata:** Ayarlar sheet'i (`profile_screen.dart`), Faz H'de eklenen 4 yeni
+    bölümle (Erişilebilirlik/Bildirimler/Veri Yönetimi/Hakkında) büyüdükten
+    sonra gerçek cihazda "BOTTOM OVERFLOWED BY 310 PIXELS" hatası verdi.
+    Kök neden: sheet içeriği sabit bir `Padding(child: Column(...))` idi;
+    `showModalBottomSheet`'teki `isScrollControlled: true` yalnızca sheet'in
+    tam ekran yüksekliğine çıkmasına izin veriyor, İÇERİĞİ kaydırılabilir
+    yapmıyor.
+  - **Düzeltme:** Ayarlar sheet'inin `Column`'ı `ConstrainedBox(maxHeight:
+    ekran_yüksekliği * 0.9)` + `SingleChildScrollView` ile sarmalandı.
+  - **Proaktif tarama:** Aynı riskin olabileceği diğer sheet'ler denetlendi.
+    Büyüyebilir/liste-grid içeren 3 tanesine daha aynı koruma eklendi:
+    `profile_screen.dart` → Avatar Çerçevesi seçici (GridView), 0.85;
+    `flashcards_screen.dart` → Arena Ayarları (kDebugMode dev-test bloğu
+    içeriyor), 0.9; `reader_screen.dart` → Okuma Teması & Mağaza Paletleri
+    seçici (GridView.count, 9 tema), 0.9. İçeriği sabit/sınırlı olduğu için
+    KASITLI OLARAK dokunulmayan iki sheet: `paywall_trigger.dart`'taki
+    Premium bilgilendirme sheet'i ve `book_journey_screen.dart`'taki
+    kelime özeti sheet'i.
+  - **Kalıcı önlem:** `.cursorrules` dosyasına yeni bir bölüm ("0.1. Bottom
+    Sheet'lerde Taşma Koruması") eklendi — bundan sonra eklenen/değiştirilen
+    HER bottom sheet için bu `ConstrainedBox` + `SingleChildScrollView`
+    kalıbının zorunlu olduğunu, özellikle `kDebugMode` bloklu ve `GridView`
+    içeren sheet'lerin bu hataya yatkın olduğunu belirtiyor. Amaç: bu hata
+    sınıfının bir daha, hiçbir AI/geliştirici tarafından tekrar
+    yaşanmaması.
+
 ## Kalan/bilinen backlog
 - İleride: aydınlık temanın önceliklendirilmesi, RPG temasının biraz geri plana
   alınıp eğitim içeriğinin öne çekilmesi (kullanıcının notu, henüz uygulanmıyor).

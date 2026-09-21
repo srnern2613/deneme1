@@ -74,6 +74,41 @@ değiştirmek üzereyim, sebebi şu, onaylıyor musun?" diye sorun — özellikl
 `android/`, `database_helper.dart`, `pubspec.yaml` içindeki sürüm/paket
 kısıtları ve `core/entitlement/` altındaki dosyalar için.
 
+## 0.1. Bottom Sheet'lerde Taşma (Overflow) Koruması — HER YENİ SHEET'TE ZORUNLU
+Gerçek cihazda tekrar tekrar yaşanan bir hata sınıfı: bir `showModalBottomSheet`
+içeriği sabit bir `Padding(child: Column(...))` olarak yazılıyor, ekrana
+sığdığı sürece sorun çıkmıyor, ama zamanla (yeni bir bölüm, yeni bir liste
+öğesi, yeni bir mağaza teması/çerçeve eklendiğinde) içerik ekranın kalan
+yüksekliğini aşıyor ve "BOTTOM OVERFLOWED BY N PIXELS" hatası + kırmızı-sarı
+taşma şeridi ortaya çıkıyor. `isScrollControlled: true` TEK BAŞINA bunu
+ÇÖZMEZ — sadece sheet'in tam ekran yüksekliğine çıkmasına izin verir,
+içeriği kaydırılabilir yapmaz.
+
+**Kural:** Bir bottom sheet'e yeni bir bölüm/satır/liste öğesi eklerken,
+veya sıfırdan yeni bir `showModalBottomSheet` yazarken, içerik şu kalıpla
+sarmalanmalı (bu projede artık standart — profile_screen.dart'taki Ayarlar
+sheet'i, flashcards_screen.dart'taki Arena Ayarları sheet'i,
+reader_screen.dart'taki tema seçici sheet'i bu şekilde düzeltildi):
+
+```dart
+child: ConstrainedBox(
+  constraints: BoxConstraints(
+    maxHeight: MediaQuery.of(context).size.height * 0.9, // sheetContext'i kullan
+  ),
+  child: SingleChildScrollView(
+    child: Column(
+      // ...mevcut children...
+    ),
+  ),
+),
+```
+
+Özellikle şu ikisi bu hataya YATKIN, eklerken dikkat: (1) bir `kDebugMode`
+bloğuyla koşullu olarak uzayan sheet'ler — dev ortamda blok her zaman
+görünür olduğundan orada ekran alanı zaten daha kısıtlı; (2) `GridView`
+içeren seçim panelleri (tema/çerçeve/kozmetik seçiciler gibi) — yeni bir
+öğe eklendikçe grid büyür.
+
 ## 1. Konsept ve Atmosfer
 Uygulama sıkıcı bir "okul ödevi/sınav" uygulaması değildir. Karanlık
 fantezi (dark fantasy) RPG estetiğinde, prestijli ve tatmin edici bir

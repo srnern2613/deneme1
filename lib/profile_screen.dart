@@ -314,7 +314,18 @@ class ProfileScreenState extends State<ProfileScreen> {
       builder: (ctx) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-          child: Column(
+          // BUG ÖNLEME: `_frameOptions` listesi ileride büyürse (yeni
+          // kozmetik çerçeveler eklenirse) aşağıdaki `GridView` taşabilir —
+          // Ayarlar sheet'inde yaşanan overflow bug'ının aynısı. Bu sheet
+          // `isScrollControlled: true` KULLANMIYOR (sabit yükseklik), o
+          // yüzden burada hem yüksekliği ekranla sınırlıyor hem de
+          // kaydırılabilir yapıyoruz.
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -423,6 +434,8 @@ class ProfileScreenState extends State<ProfileScreen> {
                 },
               ),
             ],
+              ),
+            ),
           ),
         );
       },
@@ -634,7 +647,23 @@ class ProfileScreenState extends State<ProfileScreen> {
               builder: (context, setModalState) {
                 return Padding(
               padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(sheetContext).padding.bottom + 28),
-              child: Column(
+              // BUG DÜZELTMESİ: bu sheet'e zamanla (Erişilebilirlik/
+              // Bildirimler/Veri Yönetimi/Hakkında) yeni bölümler eklendikçe
+              // içerik ekran boyunu aştı ve "BOTTOM OVERFLOWED BY N PIXELS"
+              // hatası verdi — sabit `Column` ekranın kalan yüksekliğine
+              // sığmayan içeriği kırpmadan taşırıyordu. `isScrollControlled:
+              // true` zaten sheet'in tam ekran yüksekliğine çıkmasına izin
+              // veriyor; eksik olan, içeriğin kendi içinde KAYDIRILABİLİR
+              // olmasıydı. `ConstrainedBox` ekranın kullanılabilir
+              // yüksekliğini (klavye/çentik payı düşülmüş) üst sınır olarak
+              // veriyor, `SingleChildScrollView` de o sınırı aşan içeriği
+              // taşırma yerine kaydırılabilir yapıyor.
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(sheetContext).size.height * 0.9,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -966,6 +995,8 @@ class ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ],
+                  ),
+                ),
               ),
                 );
               },

@@ -25,9 +25,15 @@ class AuthService {
 
   FirebaseAuth get _auth => FirebaseAuth.instance;
 
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
-  User? get currentUser => _auth.currentUser;
-  bool get isSignedIn => _auth.currentUser != null;
+  // BUG DÜZELTMESİ: Firebase henüz kurulmadıysa (google-services.json
+  // eksikse) `FirebaseAuth.instance`'a erişmek "No Firebase App '[DEFAULT]'
+  // has been created" hatasıyla ÇÖKÜYORDU — çünkü profile_screen.dart'taki
+  // "Hesap" satırı, sheet açılır açılmaz `isSignedIn`/`currentUser`'ı
+  // `isAvailable` kontrolünden ÖNCE, satırın başlığını/ikonunu çizerken
+  // okuyor. Artık bu iki getter de önce `isAvailable`'ı kontrol ediyor.
+  Stream<User?> get authStateChanges => isAvailable ? _auth.authStateChanges() : const Stream<User?>.empty();
+  User? get currentUser => isAvailable ? _auth.currentUser : null;
+  bool get isSignedIn => isAvailable && _auth.currentUser != null;
 
   /// Uygulama açılışında (main.dart) zaten oturum açık bir kullanıcı varsa
   /// RevenueCat kimliğini hesaba tekrar bağlamak için çağrılır. Firebase

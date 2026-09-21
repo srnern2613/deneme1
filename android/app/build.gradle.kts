@@ -22,6 +22,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Ayarlar → Bildirimler: `flutter_local_notifications` bunu şart
+        // koşuyor (eski Java 8 API'lerini desugar/dönüştürüp yeni Java
+        // sürümünde kullanılabilir kılıyor). Aşağıdaki `dependencies{}`
+        // bloğundaki `coreLibraryDesugaring` satırıyla birlikte çalışır.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -60,6 +65,12 @@ kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
+}
+
+dependencies {
+    // Yukarıdaki `isCoreLibraryDesugaringEnabled = true` ayarının
+    // gerektirdiği kütüphane — `flutter_local_notifications` bunu istiyor.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {

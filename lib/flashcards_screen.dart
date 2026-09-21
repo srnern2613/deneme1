@@ -192,7 +192,19 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
           builder: (BuildContext context, StateSetter setModalState) {
             return Padding(
               padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 36),
-              child: Column(
+              // BUG ÖNLEME: Ayarlar sheet'inde yaşanan "BOTTOM OVERFLOWED"
+              // hatasının aynısı burada da olabilir — `kDebugMode` bloğu
+              // devredeyken (geliştirme sırasında hep öyle) içerik uzuyor
+              // ve `isScrollControlled: true` tek başına taşmayı önlemiyor,
+              // sadece sheet'in tam ekran yüksekliğine çıkmasına izin
+              // veriyor. `ConstrainedBox` + `SingleChildScrollView` ikilisi
+              // bu projede artık standart korumamız (bkz. profile_screen.dart).
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -320,6 +332,8 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                     ),
                   ),
                 ],
+                  ),
+                ),
               ),
             );
           },
