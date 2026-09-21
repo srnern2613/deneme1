@@ -31,6 +31,7 @@ import 'core/entitlement/paywall_trigger.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/design_system/platform_tokens.dart';
 import 'mixed_dungeon_session_screen.dart';
+import 'core/design_system/ignis_alert.dart'; // Tema-uyumlu bilgilendirme pop-up'ı (SnackBar yerine)
 
 class FlashcardsScreen extends StatefulWidget {
   final VoidCallback? onNavigateToLibrary;
@@ -493,14 +494,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
   void _startSpellingExerciseWithPaywall() {
     if (!_isTestModeActive && _totalValidPoolCount < 20) {
       HapticFeedback.vibrate();
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Önce okuyarak ${20 - _totalValidPoolCount} kelime daha topla (Şu an: $_totalValidPoolCount/20) 📖', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-          backgroundColor: const Color(0xFFEF4444),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      IgnisAlert.show(context, message: 'Önce okuyarak ${20 - _totalValidPoolCount} kelime daha topla (Şu an: $_totalValidPoolCount/20) 📖', type: IgnisAlertType.error);
       return;
     }
     

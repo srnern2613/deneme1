@@ -31,6 +31,7 @@ import 'ignis_moment_dialog.dart'; // Faz F: Dev/Test tetikleyicileri
 import 'core/auth/auth_service.dart'; // Hesap Sistemi
 import 'auth_screen.dart'; // Hesap Sistemi
 import 'core/notifications/notification_service.dart'; // Ayarlar → Bildirimler
+import 'core/design_system/ignis_alert.dart'; // Tema-uyumlu bilgilendirme pop-up'ı (SnackBar yerine)
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -725,9 +726,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                     onTap: () async {
                       Navigator.pop(sheetContext);
                       if (!AuthService.instance.isAvailable) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Hesap sistemi henüz yapılandırılmadı.')),
-                        );
+                        IgnisAlert.show(context, message: 'Hesap sistemi henüz yapılandırılmadı.', type: IgnisAlertType.info);
                         return;
                       }
                       if (AuthService.instance.isSignedIn) {
@@ -881,9 +880,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                         final granted = await NotificationService.instance.requestPermission();
                         if (!granted) {
                           if (sheetContext.mounted) {
-                            ScaffoldMessenger.of(sheetContext).showSnackBar(
-                              const SnackBar(content: Text('Bildirim izni verilmedi — cihaz ayarlarından açabilirsin.')),
-                            );
+                            IgnisAlert.show(sheetContext, message: 'Bildirim izni verilmedi — cihaz ayarlarından açabilirsin.', type: IgnisAlertType.error);
                           }
                           return;
                         }
@@ -930,9 +927,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                         final granted = await NotificationService.instance.requestPermission();
                         if (!granted) {
                           if (sheetContext.mounted) {
-                            ScaffoldMessenger.of(sheetContext).showSnackBar(
-                              const SnackBar(content: Text('Bildirim izni verilmedi — cihaz ayarlarından açabilirsin.')),
-                            );
+                            IgnisAlert.show(sheetContext, message: 'Bildirim izni verilmedi — cihaz ayarlarından açabilirsin.', type: IgnisAlertType.error);
                           }
                           return;
                         }
@@ -972,9 +967,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                     onTap: () async {
                       await Clipboard.setData(const ClipboardData(text: 'srnern2613@gmail.com'));
                       if (sheetContext.mounted) {
-                        ScaffoldMessenger.of(sheetContext).showSnackBar(
-                          const SnackBar(content: Text('E-posta adresi panoya kopyalandı.')),
-                        );
+                        IgnisAlert.show(sheetContext, message: 'E-posta adresi panoya kopyalandı.', type: IgnisAlertType.success);
                       }
                     },
                   ),
@@ -1077,9 +1070,7 @@ class ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       await _loadProfileData();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('İlerlemen sıfırlandı.')),
-      );
+      IgnisAlert.show(context, message: 'İlerlemen sıfırlandı.', type: IgnisAlertType.success);
     }
   }
 
@@ -1752,11 +1743,10 @@ class ProfileScreenState extends State<ProfileScreen> {
     HapticFeedback.selectionClick();
     final restored = await EntitlementRepository.instance.restorePurchases();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(restored ? 'Satın alımların geri yüklendi.' : 'Geri yüklenecek bir satın alma bulunamadı.'),
-        backgroundColor: const Color(0xFF1F2937),
-      ),
+    IgnisAlert.show(
+      context,
+      message: restored ? 'Satın alımların geri yüklendi.' : 'Geri yüklenecek bir satın alma bulunamadı.',
+      type: restored ? IgnisAlertType.success : IgnisAlertType.info,
     );
   }
 }

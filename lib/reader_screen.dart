@@ -22,6 +22,7 @@ import 'core/design_system/tr_case.dart';
 import 'xp_shop_service.dart';
 import 'celebration_dialog.dart';
 import 'default_books.dart';
+import 'core/design_system/ignis_alert.dart'; // Tema-uyumlu bilgilendirme pop-up'ı (SnackBar yerine)
 
 // Okuma ekranının tema paletleri (Dinamik Mağaza Temaları Dahil)
 enum ReaderTheme { light, sepia, dark, neon, parchment, nordic, espresso, oled, sakura }
@@ -932,13 +933,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                       await DatabaseHelper.instance.demoteToDiscovered(cleanWord);
 
                                       if (!sheetContext.mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          behavior: SnackBarBehavior.floating,
-                                          content: Text('"$cleanWord" koleksiyondan çıkarıldı.'),
-                                          duration: const Duration(seconds: 1),
-                                        ),
-                                      );
+                                      IgnisAlert.show(context, message: '"$cleanWord" koleksiyondan çıkarıldı.', type: IgnisAlertType.success);
                                     },
                                     icon: const Icon(PhosphorIcons.trashBold, size: 18, color: Color(0xFFEF4444)),
                                     label: Text(
@@ -992,13 +987,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                                           if (isLoading) {
                                             if (!sheetContext.mounted) return;
-                                            ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                              const SnackBar(
-                                                behavior: SnackBarBehavior.floating,
-                                                content: Text('Kelime anlamı yüklenirken lütfen bekleyin...'),
-                                                duration: Duration(seconds: 1),
-                                              ),
-                                            );
+                                            IgnisAlert.show(sheetContext, message: 'Kelime anlamı yüklenirken lütfen bekleyin...', type: IgnisAlertType.info);
                                             return;
                                           }
 
@@ -1293,9 +1282,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       onTap: () async {
         if (!isUnlocked) {
           HapticFeedback.vibrate();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bu tema kilitli! Ganimet Dükkanından açabilirsin.')),
-          );
+          IgnisAlert.show(context, message: 'Bu tema kilitli! Ganimet Dükkanından açabilirsin.', type: IgnisAlertType.error);
           return;
         }
         HapticFeedback.selectionClick();

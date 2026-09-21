@@ -18,6 +18,7 @@ import 'xp_shop_service.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/theme/draconic_theme.dart'; // A-7: DevicePerformanceTier.low'da blur denetimi
+import 'core/design_system/ignis_alert.dart'; // Tema-uyumlu bilgilendirme pop-up'ı (SnackBar yerine)
 
 class ShopScreen extends StatefulWidget {
   final VoidCallback? onNavigateToExplore;
@@ -166,13 +167,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
     await _loadShopData();
 
     if (!currentContext.mounted) return;
-    ScaffoldMessenger.of(currentContext).showSnackBar(
-      const SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Color(0xFFEF4444),
-        content: Text('🗑️ Ürün envanterden kaldırıldı.'),
-      ),
-    );
+    IgnisAlert.show(currentContext, message: '🗑️ Ürün envanterden kaldırıldı.', type: IgnisAlertType.error);
   }
 
   void _triggerDualFlyToHudEffect(BuildContext currentContext, {required Offset startPosition, required int addedGems, required int addedXp}) {
@@ -289,13 +284,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                         ),
                         onPressed: () {
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Hemen Lobiye dönüp görevleri tamamla! 🏹', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                              backgroundColor: const Color(0xFF38BDF8),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                          IgnisAlert.show(context, message: 'Hemen Lobiye dönüp görevleri tamamla! 🏹', type: IgnisAlertType.info);
                         },
                         child: Text('Görevlere Git & Kazan', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15)),
                       ),
@@ -375,23 +364,11 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
       if (success) {
         await _loadShopData();
         if (!currentContext.mounted) return;
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-            content: Text(perkText, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-            backgroundColor: const Color(0xFF10B981),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        IgnisAlert.show(currentContext, message: perkText, type: IgnisAlertType.success);
       }
     } catch (e) {
       if (!currentContext.mounted) return;
-      ScaffoldMessenger.of(currentContext).showSnackBar(
-        SnackBar(
-          content: Text('Satın alım başarısız oldu. Elmaslarınız iade edildi.', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-          backgroundColor: const Color(0xFFEF4444),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      IgnisAlert.show(currentContext, message: 'Satın alım başarısız oldu. Elmaslarınız iade edildi.', type: IgnisAlertType.error);
     }
   }
 
@@ -589,7 +566,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                            if (mounted) _loadShopData();
                         } catch(e){
                            if (!currentContext.mounted) return;
-                           ScaffoldMessenger.of(currentContext).showSnackBar(const SnackBar(content: Text('İşlem başarısız.'), backgroundColor: Color(0xFFEF4444)));
+                           IgnisAlert.show(currentContext, message: 'İşlem başarısız.', type: IgnisAlertType.error);
                         }
                       } else {
                         _showInsufficientGemsDialog(30);
@@ -614,7 +591,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                            if (mounted) _loadShopData();
                         } catch(e){
                            if (!currentContext.mounted) return;
-                           ScaffoldMessenger.of(currentContext).showSnackBar(const SnackBar(content: Text('İşlem başarısız.'), backgroundColor: Color(0xFFEF4444)));
+                           IgnisAlert.show(currentContext, message: 'İşlem başarısız.', type: IgnisAlertType.error);
                         }
                       } else {
                         _showInsufficientGemsDialog(50);

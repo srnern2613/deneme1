@@ -109,6 +109,39 @@ görünür olduğundan orada ekran alanı zaten daha kısıtlı; (2) `GridView`
 içeren seçim panelleri (tema/çerçeve/kozmetik seçiciler gibi) — yeni bir
 öğe eklendikçe grid büyür.
 
+## 0.2. Kullanıcı Uyarı/Bilgilendirme Mesajları — SnackBar YASAK, IgnisAlert KULLAN
+Eskiden kısa bilgilendirme/uyarı mesajları (`"Hesap sistemi henüz
+yapılandırılmadı."`, `"Bildirim izni verilmedi."`, `"İşlem başarısız."` gibi)
+`ScaffoldMessenger.of(context).showSnackBar(...)` ile ekranın altında sönük,
+gri bir şerit olarak gösteriliyordu — bu, uygulamanın karanlık fantezi
+"Zindan/Macera Lobisi" estetiğine uymuyordu ve kullanıcı tarafından fark
+edilmesi zordu.
+
+**Kural:** Yeni kod ASLA doğrudan `ScaffoldMessenger.of(context).
+showSnackBar(...)` çağırmamalı. Bunun yerine HER ZAMAN
+`lib/core/design_system/ignis_alert.dart`'taki `IgnisAlert.show(...)`
+kullanılmalı — bu, `DraconicTheme` token'larını (ham hex DEĞİL) kullanan,
+ortalanmış, yuvarlak köşeli bir pop-up gösterir:
+
+```dart
+import 'core/design_system/ignis_alert.dart'; // veya doğru göreli yol
+
+IgnisAlert.show(context, message: 'Bildirim izni verilmedi.'); // type: IgnisAlertType.info (varsayılan)
+IgnisAlert.show(context, message: 'İşlem başarısız.', type: IgnisAlertType.error);
+IgnisAlert.show(context, message: 'Kaydedildi!', type: IgnisAlertType.success);
+```
+
+Bir SnackBar'da olduğu gibi "Geri Al" tarzı ikinci bir eylem butonu
+gerekiyorsa (ör. bir öğeyi sildikten sonra geri getirme), `actionLabel`/
+`onAction` parametrelerini kullanın — bkz. `habit_tracker_screen.dart`'taki
+alışkanlık silme akışı, örnek kullanım için.
+
+Bu değişiklik Eylül 2026'da, uygulama genelindeki 18 SnackBar çağrısının
+(profile_screen.dart, shop_screen.dart, reader_screen.dart,
+flashcards_screen.dart, dictionary_screen.dart, habit_tracker_screen.dart)
+tamamı `IgnisAlert`'e taşınarak yapıldı — bundan sonra eklenen HİÇBİR
+ekranda SnackBar'a geri dönülmemeli.
+
 ## 1. Konsept ve Atmosfer
 Uygulama sıkıcı bir "okul ödevi/sınav" uygulaması değildir. Karanlık
 fantezi (dark fantasy) RPG estetiğinde, prestijli ve tatmin edici bir

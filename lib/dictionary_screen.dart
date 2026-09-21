@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'core/theme/draconic_theme.dart';
 import 'database_helper.dart';
+import 'core/design_system/ignis_alert.dart'; // Tema-uyumlu bilgilendirme pop-up'ı (SnackBar yerine)
 
 class DictionaryScreen extends StatefulWidget {
   final String? initialBookFilter;
@@ -173,12 +174,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       if (!mounted) return;
       _loadData(_searchController.text);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('"$word" koleksiyondan çıkarıldı.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      IgnisAlert.show(context, message: '"$word" koleksiyondan çıkarıldı.', type: IgnisAlertType.success);
     }
   }
 

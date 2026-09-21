@@ -18,6 +18,7 @@ import 'xp_shop_service.dart';
 import 'streak_freeze_service.dart';
 import 'shop_screen.dart';
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
+import 'core/design_system/ignis_alert.dart'; // Tema-uyumlu bilgilendirme pop-up'ı (SnackBar yerine)
 
 class HabitTrackerScreen extends StatefulWidget {
   const HabitTrackerScreen({super.key});
@@ -541,22 +542,17 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                       setState(() {
                         _habits.removeAt(index);
                       });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          duration: const Duration(seconds: 4),
-                          backgroundColor: const Color(0xFF1F2937),
-                          content: Text('"${removedHabit['title']}" silindi.', style: GoogleFonts.inter(color: Colors.white)),
-                          action: SnackBarAction(
-                            label: 'Geri Al',
-                            textColor: const Color(0xFFF59E0B),
-                            onPressed: () {
-                              setState(() {
-                                final insertAt = removedIndex.clamp(0, _habits.length);
-                                _habits.insert(insertAt, removedHabit);
-                              });
-                            },
-                          ),
-                        ),
+                      IgnisAlert.show(
+                        context,
+                        message: '"${removedHabit['title']}" silindi.',
+                        type: IgnisAlertType.info,
+                        actionLabel: 'Geri Al',
+                        onAction: () {
+                          setState(() {
+                            final insertAt = removedIndex.clamp(0, _habits.length);
+                            _habits.insert(insertAt, removedHabit);
+                          });
+                        },
                       );
                     },
     child: Container(
