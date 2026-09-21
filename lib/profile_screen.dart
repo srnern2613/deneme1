@@ -28,6 +28,9 @@ import 'core/entitlement/entitlement_repository.dart';
 import 'core/design_system/platform_tokens.dart';
 import 'core/theme/theme_controller.dart'; // T-6: Görünüm anahtarı
 import 'ignis_moment_dialog.dart'; // Faz F: Dev/Test tetikleyicileri
+import 'core/auth/auth_service.dart'; // Hesap Sistemi
+import 'auth_screen.dart'; // Hesap Sistemi
+import 'core/notifications/notification_service.dart'; // Ayarlar → Bildirimler
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -605,8 +608,17 @@ class ProfileScreenState extends State<ProfileScreen> {
   // kendisi bu sheet'in İÇİNDE olduğu için sheet'in kendisini tema tokenına
   // bağlamak döngüsel bir bağımlılık yaratır, bu yüzden bilinçli olarak
   // sabit-koyu bırakıldı (diğer sheet'lerle tutarlı).
-  void _openProfileSettingsSheet() {
+  Future<void> _openProfileSettingsSheet() async {
     HapticFeedback.lightImpact();
+    // Bildirimler bölümü bu sheet açılmadan ÖNCE tek seferlik yükleniyor —
+    // switch/saat seçici local StatefulBuilder state'i olarak tutulacak.
+    final prefs = await SharedPreferences.getInstance();
+    bool dailyReminderEnabled = prefs.getBool('notif_daily_reminder_enabled') ?? false;
+    int reminderHour = prefs.getInt('notif_reminder_hour') ?? 20;
+    int reminderMinute = prefs.getInt('notif_reminder_minute') ?? 0;
+    bool streakLossAlertEnabled = prefs.getBool('notif_streak_loss_enabled') ?? true;
+
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF111827),
@@ -617,7 +629,10 @@ class ProfileScreenState extends State<ProfileScreen> {
           animation: ThemeController.instance,
           builder: (context, _) {
             final isDark = ThemeController.instance.isDark;
-            return Padding(
+            final reducedMotion = ThemeController.instance.reducedMotion;
+            return StatefulBuilder(
+              builder: (context, setModalState) {
+                return Padding(
               padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(sheetContext).padding.bottom + 28),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -672,6 +687,29 @@ class ProfileScreenState extends State<ProfileScreen> {
                   Text('HESAP VE VERİ', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                   const SizedBox(height: 10),
                   _buildSheetRow(
+                    icon: AuthService.instance.isSignedIn ? PhosphorIcons.signOutBold : PhosphorIcons.userBold,
+                    iconColor: const Color(0xFF34D399),
+                    title: AuthService.instance.isSignedIn
+                        ? (AuthService.instance.currentUser?.email ?? 'Hesabım')
+                        : 'Giriş Yap / Kayıt Ol',
+                    trailingValue: AuthService.instance.isSignedIn ? 'Çıkış Yap' : null,
+                    onTap: () async {
+                      Navigator.pop(sheetContext);
+                      if (!AuthService.instance.isAvailable) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Hesap sistemi henüz yapılandırılmadı.')),
+                        );
+                        return;
+                      }
+                      if (AuthService.instance.isSignedIn) {
+                        await AuthService.instance.signOut();
+                      } else {
+                        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
+                      }
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                  _buildSheetRow(
                     icon: PhosphorIcons.arrowClockwiseBold,
                     iconColor: const Color(0xFF818CF8),
                     title: 'Satın Alımları Geri Yükle',
@@ -680,15 +718,9 @@ class ProfileScreenState extends State<ProfileScreen> {
                       _handleRestorePurchases();
                     },
                   ),
-                  const SizedBox(height: 22),
-                  Text('UYGULAMA BİLGİSİ', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-                  const SizedBox(height: 10),
-                  _buildSheetRow(
-                    icon: PhosphorIcons.infoBold,
-                    iconColor: const Color(0xFF64748B),
-                    title: 'Sürüm',
-                    trailingValue: '1.0.0',
-                  ),
+                  // "UYGULAMA BİLGİSİ" (Sürüm) aşağıdaki yeni "HAKKINDA" bölümüne
+                  // taşındı (Geri Bildirim/Gizlilik ile birlikte) — burada tekrar
+                  // yok.
                   // Gerçek cihaz testinde "Dev/Test Araçları" bölümünün son
                   // kullanıcı sürümünde (release build) hiç görünmemesi
                   // gerekiyor — artık sadece debug build'de render ediliyor
@@ -796,12 +828,262 @@ class ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                   ],
+                  const SizedBox(height: 22),
+                  Text('ERİŞİLEBİLİRLİK', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  const SizedBox(height: 10),
+                  _buildSheetSwitchRow(
+                    icon: PhosphorIcons.waveSineBold,
+                    iconColor: const Color(0xFF38BDF8),
+                    title: 'Azaltılmış Hareket/Animasyon',
+                    subtitle: 'Cam/glow efektlerini kapatır, daha sade bir görünüm.',
+                    value: reducedMotion,
+                    onChanged: (v) => ThemeController.instance.setReducedMotion(v),
+                  ),
+                  const SizedBox(height: 22),
+                  Text('BİLDİRİMLER', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  const SizedBox(height: 10),
+                  _buildSheetSwitchRow(
+                    icon: PhosphorIcons.bellRingingBold,
+                    iconColor: const Color(0xFFF59E0B),
+                    title: 'Günlük Hatırlatma',
+                    value: dailyReminderEnabled,
+                    onChanged: (v) async {
+                      if (v) {
+                        final granted = await NotificationService.instance.requestPermission();
+                        if (!granted) {
+                          if (sheetContext.mounted) {
+                            ScaffoldMessenger.of(sheetContext).showSnackBar(
+                              const SnackBar(content: Text('Bildirim izni verilmedi — cihaz ayarlarından açabilirsin.')),
+                            );
+                          }
+                          return;
+                        }
+                        await NotificationService.instance.scheduleDailyReminder(hour: reminderHour, minute: reminderMinute);
+                      } else {
+                        await NotificationService.instance.cancelDailyReminder();
+                      }
+                      setModalState(() => dailyReminderEnabled = v);
+                      await prefs.setBool('notif_daily_reminder_enabled', v);
+                    },
+                  ),
+                  if (dailyReminderEnabled)
+                    _buildSheetRow(
+                      icon: PhosphorIcons.clockBold,
+                      iconColor: const Color(0xFFF59E0B),
+                      title: 'Hatırlatma Saati',
+                      trailingValue: '${reminderHour.toString().padLeft(2, '0')}:${reminderMinute.toString().padLeft(2, '0')}',
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: sheetContext,
+                          initialTime: TimeOfDay(hour: reminderHour, minute: reminderMinute),
+                        );
+                        if (picked != null) {
+                          setModalState(() {
+                            reminderHour = picked.hour;
+                            reminderMinute = picked.minute;
+                          });
+                          await prefs.setInt('notif_reminder_hour', picked.hour);
+                          await prefs.setInt('notif_reminder_minute', picked.minute);
+                          // Saat değiştiyse zaten kurulu olan alarmı yeni
+                          // saate göre yeniden kur.
+                          await NotificationService.instance.scheduleDailyReminder(hour: picked.hour, minute: picked.minute);
+                        }
+                      },
+                    ),
+                  _buildSheetSwitchRow(
+                    icon: PhosphorIcons.fireBold,
+                    iconColor: const Color(0xFFEF4444),
+                    title: 'Seri Kaybı Uyarısı',
+                    subtitle: 'Akşam 21:30\'da, o gün pratik yapmadıysan hatırlatır.',
+                    value: streakLossAlertEnabled,
+                    onChanged: (v) async {
+                      if (v) {
+                        final granted = await NotificationService.instance.requestPermission();
+                        if (!granted) {
+                          if (sheetContext.mounted) {
+                            ScaffoldMessenger.of(sheetContext).showSnackBar(
+                              const SnackBar(content: Text('Bildirim izni verilmedi — cihaz ayarlarından açabilirsin.')),
+                            );
+                          }
+                          return;
+                        }
+                        await NotificationService.instance.scheduleStreakLossAlert();
+                      } else {
+                        await NotificationService.instance.cancelStreakLossAlert();
+                      }
+                      setModalState(() => streakLossAlertEnabled = v);
+                      await prefs.setBool('notif_streak_loss_enabled', v);
+                    },
+                  ),
+                  const SizedBox(height: 22),
+                  Text('VERİ YÖNETİMİ', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  const SizedBox(height: 10),
+                  _buildSheetRow(
+                    icon: PhosphorIcons.trashBold,
+                    iconColor: const Color(0xFFEF4444),
+                    title: 'İlerlemeyi Sıfırla',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _confirmResetProgress();
+                    },
+                  ),
+                  const SizedBox(height: 22),
+                  Text('HAKKINDA', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  const SizedBox(height: 10),
+                  _buildSheetRow(
+                    icon: PhosphorIcons.infoBold,
+                    iconColor: const Color(0xFF64748B),
+                    title: 'Sürüm',
+                    trailingValue: '1.0.0',
+                  ),
+                  _buildSheetRow(
+                    icon: PhosphorIcons.chatCircleTextBold,
+                    iconColor: const Color(0xFF34D399),
+                    title: 'Geri Bildirim Gönder',
+                    onTap: () async {
+                      await Clipboard.setData(const ClipboardData(text: 'srnern2613@gmail.com'));
+                      if (sheetContext.mounted) {
+                        ScaffoldMessenger.of(sheetContext).showSnackBar(
+                          const SnackBar(content: Text('E-posta adresi panoya kopyalandı.')),
+                        );
+                      }
+                    },
+                  ),
+                  Opacity(
+                    opacity: 0.45,
+                    child: _buildSheetRow(
+                      icon: PhosphorIcons.fileTextBold,
+                      iconColor: const Color(0xFF64748B),
+                      title: 'Gizlilik Politikası (yakında)',
+                    ),
+                  ),
+                  Opacity(
+                    opacity: 0.45,
+                    child: _buildSheetRow(
+                      icon: PhosphorIcons.fileTextBold,
+                      iconColor: const Color(0xFF64748B),
+                      title: 'Kullanım Şartları (yakında)',
+                    ),
+                  ),
                 ],
               ),
+                );
+              },
             );
           },
         );
       },
+    );
+  }
+
+  Future<void> _confirmResetProgress() async {
+    // Yanlışlıkla dokunmaya karşı ikinci bir kilit: "Evet, Sıfırla" butonu,
+    // kullanıcı aşağıdaki onay kutucuğunu işaretleyene kadar devre dışı
+    // (gri/pasif) kalıyor. Tek bir AlertDialog'da iki adım gibi davranır —
+    // ayrı bir ekran/adım eklemeden kazara silmeyi pratik olarak imkansız
+    // hale getirir.
+    bool understood = false;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF111827),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: Color(0xFF1F2937))),
+          title: Text('İlerlemeni Sıfırla', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Öğrendiğin tüm kelimeler, vurgulamalar, kitap ilerlemen ve günlük istatistiklerin KALICI olarak silinecek. Bu işlem geri alınamaz.',
+                style: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => setDialogState(() => understood = !understood),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Checkbox(
+                        value: understood,
+                        activeColor: const Color(0xFFEF4444),
+                        onChanged: (v) => setDialogState(() => understood = v ?? false),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(
+                            'Bunun geri alınamayacağını anlıyorum, tüm ilerlemem silinsin.',
+                            style: GoogleFonts.inter(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Vazgeç', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8)))),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444),
+                disabledBackgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.25),
+              ),
+              onPressed: understood ? () => Navigator.pop(ctx, true) : null,
+              child: Text('Evet, Sıfırla', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed == true) {
+      await DatabaseHelper.instance.resetAllProgress();
+      if (!mounted) return;
+      await _loadProfileData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İlerlemen sıfırlandı.')),
+      );
+    }
+  }
+
+  Widget _buildSheetSwitchRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    String? subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 34, height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: iconColor, size: 17),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                if (subtitle != null)
+                  Text(subtitle, style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 11)),
+              ],
+            ),
+          ),
+          Switch(value: value, onChanged: onChanged, activeThumbColor: const Color(0xFFF59E0B)),
+        ],
+      ),
     );
   }
 

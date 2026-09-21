@@ -276,7 +276,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       children: [
                         Flexible(
                           child: Text(
-                            '12. Arena Sıralaması',
+                            // Ertelenen tasarım kararı: "Arena" kelimesi
+                            // buradan kaldırıldı — o isim zaten pratik/dövüş
+                            // sekmesine ait; burada tekrar kullanmak "Arena"
+                            // ile "Sıralama" ekranlarının aynı yer sanılması
+                            // sorununu geri getiriyordu.
+                            '12. Lig Sıralaması',
                             style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: theme.textPrimary),
                             overflow: TextOverflow.ellipsis,
                           ),

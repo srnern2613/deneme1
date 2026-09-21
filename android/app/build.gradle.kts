@@ -4,6 +4,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Hesap Sistemi — Firebase. google-services.json henüz eklenmedi (Firebase
+// Console kurulumu sonraya bırakıldı) — bu yüzden plugin'i plugins{} bloğunda
+// SABİT uygulamak yerine, dosya gerçekten var olduğunda koşullu olarak
+// uyguluyoruz. Böylece proje bugün, Firebase olmadan da normal derlenir;
+// google-services.json bu klasöre (android/app/) eklendiği an otomatik
+// devreye girer, ekstra bir kod değişikliği gerekmez.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.example.deneme1"
     compileSdk = flutter.compileSdkVersion
@@ -15,8 +25,16 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.deneme1"
+        // Play Store / Firebase Console'un gördüğü GERÇEK, kalıcı kimlik bu —
+        // Flutter'ın varsayılan placeholder'ından değiştirildi. NOT:
+        // `namespace` (yukarıda) ve MainActivity.kt'nin gerçek Kotlin paket
+        // klasörü kasıtlı olarak "com.example.deneme1" bırakıldı — bu, cihaz
+        // köprüsünün derinlik sınırı yüzünden o dosyaya ulaşılamamasından
+        // kaynaklanıyor, AMA `applicationId`in `namespace`'ten farklı olması
+        // Android Gradle Plugin'de tamamen desteklenen, yaygın bir kurulum;
+        // Play Store/Firebase sadece applicationId'yi görür, hiçbir işlevsel
+        // sorun yaratmaz.
+        applicationId = "com.draconiclingua.ignis"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

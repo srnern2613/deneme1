@@ -22,15 +22,30 @@ class ThemeController extends ChangeNotifier {
   static final ThemeController instance = ThemeController._();
 
   static const _prefsKey = 'app_theme_is_dark';
+  // Erişilebilirlik — Ayarlar'daki "Azaltılmış Hareket/Animasyon" anahtarı.
+  // DraconicTheme'in zaten var olan performanceTier/glassBlurSigma/
+  // enableHeavyGlow alanları (şu ana kadar sadece isDark'a bağlıydı) burada
+  // kullanıcı tercihiyle EZİLİYOR — cam efekti/glow kapanıyor, tema rengi
+  // (isDark) değişmiyor.
+  static const _prefsReducedMotionKey = 'app_reduced_motion';
 
   bool _isDark = true; // Varsayılan: Karanlık (Zindan)
+  bool _reducedMotion = false;
   bool _initialized = false;
 
   bool get isDark => _isDark;
+  bool get reducedMotion => _reducedMotion;
   bool get initialized => _initialized;
 
-  DraconicTheme get current =>
-      _isDark ? DraconicTheme.highEnd() : DraconicTheme.parchment();
+  DraconicTheme get current {
+    final base = _isDark ? DraconicTheme.highEnd() : DraconicTheme.parchment();
+    if (!_reducedMotion) return base;
+    return base.copyWith(
+      performanceTier: DevicePerformanceTier.low,
+      glassBlurSigma: 0.0,
+      enableHeavyGlow: false,
+    );
+  }
 
   /// main.dart'ta runApp'ten ÖNCE çağrılmalı — ilk kare doğru temayla
   /// çizilsin diye (T-6: "açılışta tema sıçraması olmaz").
@@ -38,8 +53,10 @@ class ThemeController extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _isDark = prefs.getBool(_prefsKey) ?? true;
+      _reducedMotion = prefs.getBool(_prefsReducedMotionKey) ?? false;
     } catch (_) {
       _isDark = true;
+      _reducedMotion = false;
     }
     _initialized = true;
   }
@@ -53,6 +70,18 @@ class ThemeController extends ChangeNotifier {
       await prefs.setBool(_prefsKey, value);
     } catch (_) {
       // Kalıcılık başarısız olsa bile mevcut oturumda tema değişikliği geçerli kalır.
+    }
+  }
+
+  Future<void> setReducedMotion(bool value) async {
+    if (_reducedMotion == value) return;
+    _reducedMotion = value;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefsReducedMotionKey, value);
+    } catch (_) {
+      // Kalıcılık başarısız olsa bile mevcut oturumda tercih geçerli kalır.
     }
   }
 

@@ -119,18 +119,151 @@ bir yol haritasına bölündü ve cihaz üzerinde teker teker doğrulandı:
   İlerleme/Sıralama, Profil, Dükkan, Sözlük, Kitap Yolculuğu. Ana Sayfa ve
   Profil'deki eski görseller (`lobi_arkaplan.png`, `profile_background_pic.png`)
   yeni setle değiştirildi. ✅ Tamam
+- **Faz G — gerçek cihaz testi sonrası hızlı teknik düzeltmeler** (kullanıcının
+  15 ekran görüntüsü + ChatGPT'nin P0/P1/P2 değerlendirmesinden, kullanıcının
+  onayladığı "hızlı/net teknik hatalar" kapsamı; Arena/İlerleme adlandırması,
+  bottom sheet standardizasyonu, kart renk paleti birleştirme kasıtlı olarak
+  ERTELENDİ — ayrı bir konuşma bekliyor):
+  - `ayarlar.webp` kullanılmaması kullanıcı kararıyla netleşti — Profil'deki
+    Ayarlar sheet'i o görseli hiç kullanmıyor, backlog'dan kapatıldı.
+  - Rozet/başarım sistemi artık gerçekten çalışıyor: `library_screen.dart`'a
+    eksik olan `stats_total_pages_read` ve `daily_pages_<tarih>` yazımları
+    eklendi, `profile_screen.dart` artık her yüklemede
+    `AchievementService.checkAndUnlockAchievements()`'ı çağırıp yeni rozeti
+    `IgnisMomentDialog` ile kutluyor.
+  - `flashcards_screen.dart`'taki "Geliştirici Test Modu" ve `profile_screen.dart`'taki
+    "Dev/Test Araçları" artık `kDebugMode` arkasında — release APK'da hiç
+    görünmüyor; eskiden `SharedPreferences`'ta kalıcı `dev_test_mode=true`
+    kalıp release'de sonsuza dek Premium açabilen ciddi bir hata da (kullanıcının
+    kendi test cihazında karşılaştığı) bu düzeltmeyle kapatıldı.
+  - `primitives.dart`'taki `RuneTitle`/`EmptyWordPoolState` artık
+    `Colors.white`/sabit gri yerine `DraconicTheme` tokenlarını okuyor —
+    parşömen temada her ekranın üst başlığının/boş durum metninin
+    görünmez olma şikayetinin kök nedeniydi.
+  - `main.dart`'a `SystemUiMode.edgeToEdge` eklendi, sistem çubuğu
+    renkleri/ikon parlaklığı artık tema değiştikçe (statik değil) yeniden
+    uygulanıyor — "alt nav şeridi kopuk gri bant gibi duruyor" şikayeti.
+  - Splash "kutu görünüyor" şikayeti kök nedeniyle çözüldü: PIL ile piksel
+    analizi, hem `ignis_splash.png` hem Android 12+'ta kullanılan
+    `app_icon.png`'nin düz `#0f172a` fonundan belirgin koyu kenar tonlarına
+    sahip olduğunu gösterdi; `pubspec.yaml`'daki `flutter_native_splash.color`
+    (→`#06070f`) ve `android_12.icon_background_color` (→`#030c1e`) görsellerin
+    gerçek kenar tonuyla eşleştirildi. Ayrıca `ignis_splash.png` ortadan ~%25
+    yakınlaştırılıp büyütüldü (kullanıcının "figür küçük" notu).
+    **Kullanıcı tarafında kalan adım:** `dart run flutter_native_splash:create`
+    çalıştırılmalı (Android kaynak dosyaları bu config'den otomatik üretiliyor,
+    elle değiştirilmedi ki generator'la çakışmasın).
+  - `flashcards_screen.dart`'ta Arena mod açıklamaları (`desc:`) `maxLines: 1`
+    yüzünden cümle ortasında kesiliyordu ("4 seçenek arasından doğr...") —
+    `maxLines: 2` yapıldı.
+  - Ana Sayfa'daki "Hedef: X" yazısının ejderha görseliyle çakışıp
+    kapanması: eksik genişlik kısıtı `SizedBox`+ellipsis ile giderildi
+    (kullanıcının "ignis yazıları kapatıyor" notuyla aynı kök neden).
+  - `DraconicTheme`'e yeni, bağımsız bir `tabLabel` tokeni eklendi (parşömen
+    `#3B2F1F`, zindan `#EDE9FE`) — Dükkan'daki kategori sekmeleri ve
+    Sözlük'teki filtre çiplerinin "açık temada okunamıyor" şikayeti için;
+    mevcut `textSecondary` teknik olarak yeterli kontrasta sahipti ama bu
+    özel bağlamda (küçük punto + çip zemini) yetersiz kaldığı bildirildi.
+  - Ayarlar'daki "Dev/Test Araçları"na, bu fazda eklenen yeni Ignis
+    poz/pop-up'larını (günlük hedef/loving, boss yenilgi/angry, savaştan
+    çıkış/worried, rozet kutlaması/celebrating) test edebilmek için 4 yeni
+    önizleme satırı eklendi.
+  - Hesap Sistemi'nin temeli atıldı: `firebase_core`+`firebase_auth`
+    eklendi, `lib/core/auth/auth_service.dart` + `lib/auth_screen.dart`
+    (Giriş Yap/Kayıt Ol) yazıldı, `EntitlementRepository`'ye
+    `linkToAccount`/`unlinkAccount` eklenerek RevenueCat kimliği hesaba
+    bağlanacak şekilde kuruldu, Ayarlar'a "Hesap" satırı eklendi.
+    `android/app/build.gradle.kts`'teki google-services Gradle eklentisi
+    `google-services.json` dosyası VARSA uygulanacak şekilde KOŞULLU
+    yapıldı — yani Firebase Console kurulumu tamamlanana kadar proje
+    normal derlenmeye devam ediyor, hesap özellikleri o ana kadar sadece
+    "henüz yapılandırılmadı" mesajı gösteriyor.
+    **Kullanıcı tarafında kalan adım:** Firebase Console'da proje açma +
+    Android app ekleme (paket adı artık `com.draconiclingua.ignis` — bkz.
+    Faz H) + `google-services.json`'ı `android/app/` içine koyma +
+    Email/Password sağlayıcısını Console'da açma.
+
+- **Faz H — applicationId, 4 yeni Ayarlar bölümü, gerçek bildirimler,
+  Arena/İlerleme adlandırması** (Faz G'de ertelenen kararların kullanıcı
+  onayıyla uygulanması + bir sonraki mesajda "şimdi hallet" denen kalan üç
+  madde):
+  - `android/app/build.gradle.kts`'teki `applicationId`,
+    `com.example.deneme1`'den gerçek `com.draconiclingua.ignis`'e
+    değiştirildi. `namespace` (aynı dosyada) ve `MainActivity.kt`'nin
+    gerçek Kotlin paket klasörü BİLEREK `com.example.deneme1` bırakıldı —
+    o dosya, cihaz köprüsünün 7 klasör derinlik sınırı yüzünden hâlâ
+    ulaşılamaz durumda (8 klasör derin). Bu sorun değil: Android Gradle
+    Plugin'de `applicationId` ile `namespace`'in farklı olması resmî olarak
+    desteklenir, Play Store/Firebase sadece `applicationId`'yi görür.
+  - Ayarlar sheet'ine (`profile_screen.dart`) 4 yeni bölüm eklendi:
+    **Erişilebilirlik** (Azaltılmış Hareket/Animasyon — `ThemeController`'a
+    `reducedMotion` eklendi, açıkken cam/glow efektleri kapanıp
+    `DevicePerformanceTier.low`'a düşüyor), **Bildirimler** (aşağıya bkz.),
+    **Veri Yönetimi** ("İlerlemeyi Sıfırla" — `database_helper.dart`'a
+    `resetAllProgress()` eklendi: flashcards/highlights/book_progress/
+    daily_stats siliniyor, `dictionary` ve `cacheObject` BİLEREK
+    dokunulmuyor), **Hakkında** (Sürüm, e-posta kopyalayan "Geri Bildirim
+    Gönder", pasif "yakında" ibaresiyle Gizlilik/Kullanım Şartları
+    placeholder'ları — eski tekrar eden "UYGULAMA BİLGİSİ" bölümü
+    kaldırıldı).
+  - **Bildirimler artık GERÇEK:** `flutter_local_notifications` +
+    `timezone` + `flutter_timezone` eklendi,
+    `lib/core/notifications/notification_service.dart` yazıldı. "Günlük
+    Hatırlatma" kullanıcının seçtiği saatte, "Seri Kaybı Uyarısı" sabit
+    21:30'da zamanlanmış yerel bildirim gönderiyor. Android 13+ çalışma
+    zamanı izni, anahtar ilk açıldığında (veya "Seri Kaybı Uyarısı"
+    varsayılan açık geldiği için uygulamanın ilk açılışında) isteniyor.
+    `main.dart` her açılışta kayıtlı tercihlere göre bildirimleri yeniden
+    kuruyor (`rearmFromPrefs`) — bu, Android'in reboot sonrası temizlediği
+    alarmları da telafi ediyor. **Bilinen sınırlama:** "Seri Kaybı Uyarısı"
+    kullanıcının o gün gerçekten pratik yapıp yapmadığını kontrol eden
+    "akıllı" bir sistem DEĞİL, sabit saatli bir hatırlatma — gerçek koşullu
+    kontrol için ayrı bir arka plan iş yöneticisi (WorkManager) kurulumu
+    gerekir, bugünkü kapsamın dışında bırakıldı. Ayrıca reboot sonrası
+    otomatik yeniden kurulum için BOOT_COMPLETED receiver'ı henüz
+    eklenmedi (manifest izni hazır, ama receiver kodu yok) — pratikte
+    kullanıcı uygulamayı bir kez açtığında hatırlatmalar kendiliğinden
+    yeniden kuruluyor.
+  - "İlerlemeyi Sıfırla" onayı güçlendirildi: kullanıcı artık "Bunun geri
+    alınamayacağını anlıyorum..." kutucuğunu işaretlemeden "Evet, Sıfırla"
+    butonu pasif/gri kalıyor — yanlışlıkla dokunmaya karşı ikinci bir kilit.
+  - **Arena/İlerleme adlandırması netleştirildi:** alt bar etiketi
+    "İlerleme"den "Sıralama"ya çevrildi (ekranın kendi başlığı zaten
+    "Sıralama"ydı, etiket uyuşmuyordu); `leaderboard_screen.dart`'taki
+    "12. Arena Sıralaması" başlığı "12. Lig Sıralaması"na çevrildi (Arena
+    kelimesi zaten pratik/dövüş sekmesine ait, burada tekrarı aynı
+    kafa karışıklığını geri getiriyordu).
+  - **Bottom sheet standardizasyonu — denetlendi, ek değişikliğe gerek
+    yoktu:** `profile_screen.dart`, `flashcards_screen.dart`,
+    `reader_screen.dart`, `paywall_trigger.dart`, `book_journey_screen.dart`
+    içindeki TÜM `showModalBottomSheet` çağrıları zaten aynı köşe yarıçapı
+    (28), aynı arka plan (`#111827`) ve aynı tutamaç stilini (40×4,
+    `#334155`) kullanıyor — tutarsızlık bulunamadı.
+  - **Kart renk paleti — denetlendi, kasıtlı olmayan bir "pastel/krem"
+    uyumsuzluğu bulunamadı:** kod taramasında bulunan tek pastel-dışı
+    renkler (1) `reader_screen.dart`'taki okuma temaları (Sepya/Nordik/
+    Espresso/Sakura) — bunlar kullanıcının kendi seçtiği, KASITLI çeşitli
+    temalar, ve (2) `shop_screen.dart`'taki "Destansı Sandık" kartının
+    indigo/pembe (`#1E1B4B`/`#EC4899`) renkleri — bu da RPG'lerdeki
+    "epic/legendary nadir eşya" renk kodlamasına (mor/pembe = epik)
+    benzeyen KASITLI bir vurgu gibi duruyor. Ekran görüntüsü olmadan bunun
+    gerçekten "kullanıcının şikayet ettiği pastel kart" olup olmadığı
+    kesin değil — kullanıcı hangi ekran/kartı kastettiğini netleştirirse
+    (ekran görüntüsüyle) hedefli bir düzeltme yapılabilir.
 
 ## Kalan/bilinen backlog
-- `ayarlar.webp` görseli henüz kullanılmadı — karşılığı Profil ekranındaki
-  "Ayarlar" bottom sheet'i, tam ekran arka plan deseni orada doğal
-  görünmeyebilir; kullanıcıyla netleştirilmeli.
-- `achievement_service.dart`'taki `checkAndUnlockAchievements()` hiçbir
-  ekrandan ÇAĞRILMIYOR — rozet sistemi kodda var ama hiçbir yerde
-  tetiklenmiyor/gösterilmiyor gibi görünüyor; ayrı bir iş olarak ele alınmalı
-  (bu oturumun kapsamı dışında bırakıldı, riskli/büyük bir refactor gerektirir).
 - İleride: aydınlık temanın önceliklendirilmesi, RPG temasının biraz geri plana
-  alınıp eğitim içeriğinin öne çekilmesi (kullanıcının notu, henüz uygulanmıyor),
-  Firebase hesap sistemi + buna bağlı lig/liderlik tablosu.
+  alınıp eğitim içeriğinin öne çekilmesi (kullanıcının notu, henüz uygulanmıyor).
+- "Seri Kaybı Uyarısı" şu an sabit saatli bir hatırlatma; kullanıcının o gün
+  gerçekten pratik yapıp yapmadığını kontrol eden koşullu/akıllı bir sistem
+  DEĞİL (bkz. Faz H notu) — istenirse ayrı bir oturumda WorkManager tabanlı
+  bir çözüm eklenebilir.
+- Bildirimlerin reboot sonrası otomatik yeniden kurulması için
+  BOOT_COMPLETED receiver'ı eklenmedi (manifest izni hazır) — şu an için
+  uygulamanın bir kez açılması yeterli.
+- Kart renk paletiyle ilgili kullanıcının asıl kastettiği ekran/kart hâlâ
+  netleşmedi (bkz. Faz H notu) — ekran görüntüsü paylaşılırsa hedefli
+  düzeltme yapılabilir.
 
 ## Geliştirme süreci notu
 - Kod C:\src\ignis altında, Windows makinede; değişiklikler bir cihaz köprüsü

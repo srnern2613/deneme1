@@ -35,6 +35,15 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
   final Color cognitiveIndigo;
   final Color dangerRed;
 
+  // Sekme/filtre etiketi rengi (Dükkan üst kategori sekmeleri, Sözlük filtre
+  // çipleri gibi seçili OLMAYAN yatay sekme yazıları için) — bilerek ayrı bir
+  // token: textSecondary hem koyu hem parşömen temada teknik olarak yeterli
+  // kontrasta sahip olsa da, gerçek cihazda bu özel bağlamda (küçük punto +
+  // çip zemini) okunmadığı bildirildi. tabLabel, her iki temada da o
+  // bağlam için özel olarak seçilmiş, en yüksek okunabilirliği hedefleyen
+  // bağımsız bir renk taşır.
+  final Color tabLabel;
+
   // Performansa Bağlı Değişkenler
   final double glassBlurSigma;
   final bool enableHeavyGlow;
@@ -54,6 +63,7 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
     required this.infoTeal,
     required this.cognitiveIndigo,
     required this.dangerRed,
+    required this.tabLabel,
     required this.glassBlurSigma,
     required this.enableHeavyGlow,
   });
@@ -74,6 +84,9 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
       infoTeal: Color(0xFF38BDF8),
       cognitiveIndigo: Color(0xFF6366F1),
       dangerRed: Color(0xFFEF4444),
+      // Açık lavanta-beyaz — mevcut indigo vurgu ailesiyle uyumlu, koyu
+      // zeminde/çip yüzeyinde net okunuyor.
+      tabLabel: Color(0xFFEDE9FE),
       glassBlurSigma: 18.0,
       enableHeavyGlow: true,
     );
@@ -118,6 +131,9 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
       infoTeal: Color(0xFF0369A1),
       cognitiveIndigo: Color(0xFF4338CA),
       dangerRed: Color(0xFFB91C1C),
+      // Koyu, sıcak kahve/mürekkep tonu — krem/bej sekme zemininde en
+      // yüksek okunabilirlik, parşömen hissiyle de uyumlu.
+      tabLabel: Color(0xFF3B2F1F),
       glassBlurSigma: 0.0,
       enableHeavyGlow: false,
     );
@@ -139,6 +155,7 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
     Color? infoTeal,
     Color? cognitiveIndigo,
     Color? dangerRed,
+    Color? tabLabel,
     double? glassBlurSigma,
     bool? enableHeavyGlow,
   }) {
@@ -157,6 +174,7 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
       infoTeal: infoTeal ?? this.infoTeal,
       cognitiveIndigo: cognitiveIndigo ?? this.cognitiveIndigo,
       dangerRed: dangerRed ?? this.dangerRed,
+      tabLabel: tabLabel ?? this.tabLabel,
       glassBlurSigma: glassBlurSigma ?? this.glassBlurSigma,
       enableHeavyGlow: enableHeavyGlow ?? this.enableHeavyGlow,
     );
@@ -185,6 +203,7 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
       infoTeal: Color.lerp(infoTeal, other.infoTeal, t)!,
       cognitiveIndigo: Color.lerp(cognitiveIndigo, other.cognitiveIndigo, t)!,
       dangerRed: Color.lerp(dangerRed, other.dangerRed, t)!,
+      tabLabel: Color.lerp(tabLabel, other.tabLabel, t)!,
       glassBlurSigma: _lerpD(glassBlurSigma, other.glassBlurSigma, t),
       enableHeavyGlow: t < 0.5 ? enableHeavyGlow : other.enableHeavyGlow,
     );

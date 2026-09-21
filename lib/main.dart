@@ -10,7 +10,10 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
 
+import 'core/auth/auth_service.dart';
+import 'core/notifications/notification_service.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/storage/book_storage_service.dart';
@@ -34,6 +37,17 @@ import 'core/theme/draconic_theme.dart'; // T-1: Lobi yapısal renkleri temadan
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Hesap Sistemi — Firebase. google-services.json eklenmeden bu satır hata
+  // fırlatır. BİLEREK ayrı bir try/catch içinde: aşağıdaki asıl servis
+  // başlatma zincirini (kitaplar/XP/entitlement/tema) bu yüzden atlamak
+  // istemiyoruz — Firebase kurulana kadar sadece hesap özellikleri
+  // (Giriş Yap/Kayıt Ol) çalışmaz, uygulamanın geri kalanı etkilenmez.
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase başlatma hatası (google-services.json eksik olabilir): $e');
+  }
+
   try {
     await DefaultBooksManager.seedDefaultBooksIfNeeded();
     await XpShopService.instance.init();
@@ -41,10 +55,34 @@ void main() async {
     // her açılışta bunu önce kurmalı ki PaywallTrigger'lar doğru premium
     // durumuyla render edilsin.
     await EntitlementRepository.instance.init();
+    // Zaten oturum açık bir hesap varsa (uygulama yeniden açıldıysa)
+    // RevenueCat kimliğini tekrar o hesaba bağla.
+    await AuthService.instance.restoreAccountLinkIfNeeded();
     // UI/UX Düzeltme Listesi — T-6: tema tercihi runApp'ten ÖNCE yüklenmeli
     // ki ilk kare doğru temayla çizilsin (açılışta karanlık→aydınlık
     // sıçraması olmasın).
     await ThemeController.instance.init();
+    // Ayarlar → Bildirimler: bildirim eklentisini kur ve kullanıcının daha
+    // önce kaydettiği tercihlere göre (varsa) zamanlanmış hatırlatmaları
+    // yeniden kur. Bu, reboot sonrası Android'in temizlediği alarmları da
+    // telafi eder (bkz. NotificationService dosya başı notu).
+    await NotificationService.instance.init();
+    final prefs = await SharedPreferences.getInstance();
+    final dailyReminderEnabled = prefs.getBool('notif_daily_reminder_enabled') ?? false;
+    final streakLossAlertEnabled = prefs.getBool('notif_streak_loss_enabled') ?? true;
+    // "Seri Kaybı Uyarısı" varsayılan olarak AÇIK geliyor — kullanıcı hiç
+    // Ayarlar'ı açmasa bile bu bildirimi alabilsin diye, Android 13+ izni
+    // burada, uygulamanın ilk açılışında bir kez istenir. Kullanıcı isterse
+    // Ayarlar → Bildirimler'den anahtarı kapatıp izni reddedebilir.
+    if (dailyReminderEnabled || streakLossAlertEnabled) {
+      await NotificationService.instance.requestPermission();
+    }
+    await NotificationService.instance.rearmFromPrefs(
+      dailyReminderEnabled: dailyReminderEnabled,
+      reminderHour: prefs.getInt('notif_reminder_hour') ?? 20,
+      reminderMinute: prefs.getInt('notif_reminder_minute') ?? 0,
+      streakLossAlertEnabled: streakLossAlertEnabled,
+    );
   } catch (e) {
     debugPrint('Servis başlatma hatası: $e');
   }
@@ -240,7 +278,13 @@ class _RootScreenState extends State<RootScreen> {
             // Karar #8: bu sekmenin ekran başlığı zaten "Arena" (flashcards_screen)
             // — alt bar etiketi de eşleşsin.
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.swordBold)), label: 'Arena'),
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.chartBarBold)), label: 'İlerleme'),
+            // Ertelenen tasarım kararı — Arena/İlerleme adlandırma netliği:
+            // bu sekmenin ekranı (leaderboard_screen.dart) kendi başlığını
+            // zaten "Sıralama" olarak kullanıyordu ama alt bar etiketi hâlâ
+            // "İlerleme" kalmıştı — ekrana girince başlığın değişmesi kafa
+            // karıştırıyordu. Artık ikisi de "Sıralama"; "Arena" (pratik/
+            // dövüş) ile "Sıralama" (lig/rank) artık net şekilde ayrışıyor.
+            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.chartBarBold)), label: 'Sıralama'),
             BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(PhosphorIcons.userBold)), label: 'Profil'),
           ],
         ),

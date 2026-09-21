@@ -758,6 +758,21 @@ class DatabaseHelper {
     await db.delete('book_progress', where: 'book_id = ?', whereArgs: [bookId]);
   }
 
+  /// Ayarlar → Veri Yönetimi → "İlerlemeyi Sıfırla". Kullanıcının ÖĞRENME
+  /// İLERLEMESİNİ siler: öğrenilen kelimeler (flashcards), vurgulamalar,
+  /// kitap okuma ilerlemesi, günlük istatistikler. BİLEREK silmediklerimiz:
+  /// `dictionary` (statik kelime tanımları — kullanıcı verisi değil, referans
+  /// veri) ve `cacheObject` (ilgisiz bir önbellek tablosu). Bu, "mevcut
+  /// sistemleri bozma" kuralı gereği yalnızca gerçekten "ilerleme" sayılan
+  /// tabloları hedefliyor.
+  Future<void> resetAllProgress() async {
+    final db = await database;
+    await db.delete('flashcards');
+    await db.delete('highlights');
+    await db.delete('book_progress');
+    await db.delete('daily_stats');
+  }
+
   Future<Map<String, dynamic>> getBookJourneyData({
     required String bookTitle,
     String? bookId,

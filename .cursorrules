@@ -1,28 +1,128 @@
-# VocabRPG Proje Anayasası & Geliştirme Kuralları
+# Ignis (Draconic Lingua) — Proje Anayasası & Geliştirme Kuralları
 
-Sen VocabRPG (İngilizce Kitap Okuma ve RPG Oyunlaştırma) uygulamasının Baş Geliştiricisi ve UX/UI Tasarımcısısın. Yazdığın her kod ve sunduğun her tasarım önerisi aşağıdaki katı kurallara uymak ZORUNDADIR:
+Bu dosya, bu projede çalışan HERHANGİ bir AI asistanına (Cursor, ChatGPT,
+Gemini, Claude vb. fark etmez) yöneliktir. Aşağıdaki kurallar, özellikle
+**onay almadan değiştirilirse uygulamayı gözle görülmeden bozacak** teknik
+detayları korumak içindir — proje sahibi bu dosyayı başka bir AI'ya
+atarken "neyi bozabileceğini önceden bil" amacıyla hazırlamıştır.
+
+**Güncel, canlı proje bağlamı için önce `docs/IGNIS_PROJE_BAGLAMI.md`
+dosyasını oku** — tamamlanan fazlar, mimari kararlar ve bilinen
+sınırlamaların en güncel hâli orada tutulur. Bu dosya (`.cursorrules`)
+sadece davranış/stil kurallarını ve aşağıdaki kritik korumaları taşır.
+(Eski bir sürümde burada `PROJECT_RULES.md` diye bir dosyaya atıf vardı —
+böyle bir dosya projede YOK, o referans hataydı, artık kaldırıldı.)
+
+## 0. KRİTİK — ONAY ALMADAN ASLA DEĞİŞTİRME
+
+Bunlardan herhangi biri "geliştirme/temizlik/refactor" gerekçesiyle bile
+olsa, kullanıcıya AÇIKÇA sorup net bir "evet" almadan değiştirilmez.
+Çoğu görünüşte zararsız/gereksiz durur ama kasıtlı bir nedenle böyle —
+nedeni yanında yazılı:
+
+- **`android/app/build.gradle.kts` → `applicationId` ile aynı dosyadaki
+  `namespace`'in FARKLI olması** (`applicationId = com.draconiclingua.ignis`,
+  `namespace = com.example.deneme1`) VE `MainActivity.kt`'nin gerçek Kotlin
+  paket klasörünün hâlâ `com.example.deneme1` olması: bilinçli bir seçim.
+  `namespace`'i `applicationId` ile eşleştirmek, `MainActivity.kt`'yi başka
+  bir klasöre taşımayı gerektirir — bunu "tutarlılık" adına yapmayın,
+  gerekçesi olmayan bir dosya taşıma riskiyle build'i bozabilir.
+- **`android/app/build.gradle.kts`'teki `if (file("google-services.json").exists()) { apply(plugin = "com.google.gms.google-services") }`
+  koşullu bloğu**: bilerek koşullu. `google-services.json` henüz Firebase
+  Console'dan indirilip eklenmedi; bunu koşulsuz `plugins{}` bloğuna
+  taşımak, o dosya eklenene kadar HER build'i kırar.
+- **`main.dart`'taki `Firebase.initializeApp()` çağrısının KENDİ ayrı
+  try/catch'i içinde olması**, diğer servis başlatmalarıyla (kitaplar/XP/
+  entitlement/tema/bildirimler) AYNI try/catch'e birleştirilmemeli —
+  birleştirilirse Firebase henüz kurulu değilken (yukarıdaki madde) TÜM
+  diğer servisler de sessizce başlamaz.
+- **`database_helper.dart`'taki `resetAllProgress()`**: SADECE
+  `flashcards`, `highlights`, `book_progress`, `daily_stats` tablolarını
+  siler. `dictionary` (statik referans veri, kullanıcı verisi DEĞİL) ve
+  `cacheObject` (ilgisiz önbellek) kasıtlı olarak dokunulmuyor — bu iki
+  tabloyu silme listesine eklemek kullanıcı verisini değil, uygulamanın
+  kendi kelime veritabanını siler.
+- **RevenueCat**: yeni kod ASLA doğrudan `Purchases.*` çağırmamalı, her
+  zaman `EntitlementRepository.instance` üzerinden okumalı/yazmalı.
+- **`kDebugMode` ile korunan Dev/Test araçları** (`flashcards_screen.dart`
+  "Geliştirici Test Modu", `profile_screen.dart` "Dev/Test Araçları"):
+  bu kapıyı kaldırmayın veya `SharedPreferences`'a kalıcı bir
+  `dev_test_mode=true` gibi bir anahtarla değiştirmeyin — geçmişte tam da
+  bu yüzden release APK'da sonsuza dek Premium açan ciddi bir hata
+  yaşandı.
+- **`database_helper.dart`'taki tablo yapıları** (`learning_state`,
+  `repetitions`, `interval`) ve **`shared_preferences`'taki
+  `daily_learned_words_YYYY-MM-DD` gibi anahtar formatları**: FSRS/seri
+  hesaplamaları bu isimlere/şekle bağımlı.
+- **`shop_screen.dart`'taki `_ChestOpeningDialog` / `_RuneSealPainter` /
+  `_ShatterBurstPainter` animasyon kodu**: elle ayarlanmış, kırılgan.
+- **`reader_screen`'den çıkışta `Navigator.pop(context, ReadingSessionResult(...))`
+  zorunlu** — kaldırılırsa okuma oturumu ilerlemesi kaydedilmez.
+- **`flashcards_exercise`'daki sahte şık (dummy) fallback mantığı**.
+- **Async işlem sonrası `if (!mounted) return;`** her zaman zorunlu —
+  atlanan bir tanesi bile release'de rastgele crash'e yol açabilir.
+- **Cihaz köprüsü sınırlaması (bilgi amaçlı, kod kuralı değil):**
+  `android/app/src/main/kotlin/com/example/deneme1/MainActivity.kt`, bu
+  projede kullanılan dosya-düzenleme köprüsünün derinlik sınırı yüzünden
+  (8 klasör derin, sınır 7) doğrudan düzenlenemiyor. Başka bir AI/araç bu
+  sınırlamaya tabi değilse bu madde onu ilgilendirmez, ama yukarıdaki
+  `namespace`/`applicationId` ayrımının GERÇEK nedeninin bu olduğunu
+  bilmesi önemli.
+
+Bunların DIŞINDA bir değişiklik önerecekseniz bile, önce kullanıcıya "şunu
+değiştirmek üzereyim, sebebi şu, onaylıyor musun?" diye sorun — özellikle
+`android/`, `database_helper.dart`, `pubspec.yaml` içindeki sürüm/paket
+kısıtları ve `core/entitlement/` altındaki dosyalar için.
 
 ## 1. Konsept ve Atmosfer
-- Uygulama sıkıcı bir "okul ödevi/sınav" uygulaması değildir. Prestijli, sakin ve tatmin edici bir "RPG Oyun Lobisi" hissiyatı vermelidir.
+Uygulama sıkıcı bir "okul ödevi/sınav" uygulaması değildir. Karanlık
+fantezi (dark fantasy) RPG estetiğinde, prestijli ve tatmin edici bir
+"Zindan/Macera Lobisi" hissiyatı vermelidir. Rehber maskot: "Ignis" adında
+bir ejderha.
 
-## 2. Kesin Renk Paleti (Asla Dışına Çıkma)
-- Ana Zemin (Arka plan): #070B14 (Derin Gece Siyahı)
-- Yüzeyler (Kartlar, paneller): #0F172A
-- Vurgu 1 (Başarı, Seviye, Altın): #F59E0B (Kehribar Altın)
-- Vurgu 2 (Doğru, Tamamlanmış): #10B981 (Zümrüt Yeşili)
-- Vurgu 3 (Büyü, Özel Güç): #6366F1 veya #818CF8 (İndigo Moru)
-- Çizgiler ve Kenarlıklar: Kırmızı, pembe gibi agresif uyarı renkleri YASAKTIR. Sınırlar için `Colors.white.withOpacity(0.05)` gibi Glassmorphism (cam efekti) kullanılacaktır.
+## 2. Renk Sistemi — ARTIK TOKEN TABANLI (sabit hex YAZMA)
+Eskiden burada sabit bir hex paleti vardı; proje o aşamayı geçti. Artık
+TÜM renkler `core/theme/draconic_theme.dart`'taki `DraconicTheme`
+(`ThemeExtension`) üzerinden okunuyor — `Theme.of(context).extension<DraconicTheme>()!`.
+İki eksen taşır: `performanceTier` (cihaz gücüne göre blur/glow) ve
+`isDark` (Karanlık/Zindan ↔ Aydınlık/Parşömen). Yeni bir ekran/bileşen
+yazarken ham `Color(0xFF...)` hardcode etmek yerine ilgili tema tokenini
+kullanın (yoksa `DraconicTheme`'e yeni bir token eklemek, var olanı
+zorlamaktan iyidir — bkz. bu yaklaşımla eklenen `tabLabel` tokeni).
+Kırmızı/pembe gibi agresif "uyarı" renkleri genel arayüzde YASAK (sadece
+gerçekten yıkıcı/tehlikeli aksiyonlarda — "İlerlemeyi Sıfırla" gibi —
+bilinçli olarak kullanılır).
 
 ## 3. UX/UI Felsefesi (Sıfır Sürtünme)
-- "Vegas Kumarhanesi" Tuzağı: Ekranda göz yoran, çok fazla iç içe geçmiş dikey kutu, neon karmaşası veya gereksiz kalabalıklar OLAMAZ. Hiyerarşi sade ve nefes alan boşluklara (padding/margin) sahip olmalıdır.
-- Suçlayıcı Dil Yasaktır: Yeni başlayan kullanıcıya asla "0 Kelime", "%0 Tamamlandı", "0 dk okundu" gibi başarısızlık hissettiren veriler gösterilemez. 
-- Akıllı Boş Durumlar (Smart Empty States): Veri sıfırsa (veya kitap henüz okunmamışsa), o istatistik gizlenir; yerine "İlk macerana başla", "İlk kelime avı seni bekliyor" gibi pozitif, oyunlaştırılmış kanca (hook) metinleri ve rozetleri konur.
-- Dikey Yığılma: Uzun dikey listeler yerine yatay kaydırılabilir sekmeler (tabs) veya grid (ızgara) yapıları tercih edilmelidir.
+- "Vegas Kumarhanesi" Tuzağı: Ekranda göz yoran, çok fazla iç içe geçmiş
+  dikey kutu, neon karmaşası veya gereksiz kalabalıklar OLAMAZ. Hiyerarşi
+  sade ve nefes alan boşluklara (padding/margin) sahip olmalıdır.
+- Suçlayıcı Dil Yasaktır: Yeni başlayan kullanıcıya asla "0 Kelime",
+  "%0 Tamamlandı", "0 dk okundu" gibi başarısızlık hissettiren veriler
+  gösterilemez.
+- Akıllı Boş Durumlar (Smart Empty States): Veri sıfırsa, o istatistik
+  gizlenir; yerine "İlk macerana başla" gibi pozitif, oyunlaştırılmış
+  kanca (hook) metinleri ve rozetleri konur.
+- Dikey Yığılma: Uzun dikey listeler yerine yatay kaydırılabilir sekmeler
+  (tabs) veya grid (ızgara) yapıları tercih edilmelidir.
+- Bottom sheet'ler: proje genelinde zaten tutarlı bir stil var — köşe
+  yarıçapı 28, arka plan `#111827`, tutamaç 40×4 `#334155`. Yeni bir
+  bottom sheet eklerken bu deseni koruyun.
 
 ## 4. Mimari ve Veri Güvenliği
-- `PROJECT_RULES.md` içindeki mimari kurallara kesinlikle uyulacaktır.
-- Kullanıcıdan özel onay almadan SQLite tablolarına, SharedPreferences anahtarlarına veya Singleton Provider yapılarına ASLA dokunma. Yalnızca UI/UX tarafını düzenle.
+- Kullanıcıdan özel onay almadan SQLite tablolarına, SharedPreferences
+  anahtarlarına veya Singleton/Repository yapılarına ASLA dokunma —
+  yukarıdaki "KRİTİK" bölümüne bakın. Yalnızca onay alınan kapsamda
+  düzenleme yapın.
+- Local-First + Serverless Lite: Premium doğrulama tamamen RevenueCat'e
+  devredilmiş; kendi backend'inde fatura doğrulama YOK.
 
 ## 5. İnsan Psikolojisi ve Büyüme (Growth) Odaklılık
-- Sadece kod veya standart bir UI yazmakla yetinme. Eğer yeni bir özellik, buton veya ekran tasarımı söz konusuysa; bunu her zaman "İnsan Psikolojisi (Dopamin döngüsü, kayıptan kaçınma, özerklik hissi)", "Modern Mobil Uygulama Standartları" ve "Tutundurma (Retention) Stratejileri" süzgecinden geçir.
-- Sadece uygun ve gerekli olduğu durumlarda (sürekli ve zorlama yapmadan), kullanıcının uygulamaya bağlanmasını sağlayacak ince tasarım dokunuşlarını (ödül hissi veren mikro metinler, akıllı bildirimler, dikkat çekici call-to-action yapıları) koda ve tasarıma entegre et. Eğer daha iyi bir pazarlama kancası fikrin varsa bunu geliştiriciye öner.
+Sadece kod veya standart bir UI yazmakla yetinme. Yeni bir özellik, buton
+veya ekran tasarımı söz konusuysa; bunu "İnsan Psikolojisi (dopamin
+döngüsü, kayıptan kaçınma, özerklik hissi)", "Modern Mobil Uygulama
+Standartları" ve "Tutundurma (Retention) Stratejileri" süzgecinden geçir.
+Sürekli ve zorlama yapmadan, kullanıcının uygulamaya bağlanmasını
+sağlayacak ince tasarım dokunuşları (ödül hissi veren mikro metinler,
+akıllı bildirimler, dikkat çekici call-to-action yapıları) öner —
+zorlayıcı/manipülatif ("dark pattern") olmayan, dürüst tutundurma.

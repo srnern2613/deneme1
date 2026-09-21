@@ -116,4 +116,30 @@ class EntitlementRepository {
       return false;
     }
   }
+
+  /// Hesap sistemi (Firebase Auth) girişinde çağrılır: RevenueCat'in cihaza
+  /// bağlı anonim kimliğini, hesabın kalıcı kimliğine (Firebase UID) taşır
+  /// — böylece Premium durumu cihaza değil, hesaba bağlı olur ve başka bir
+  /// cihazda aynı hesapla girişte otomatik görünür. Bu dosyanın "yeni kod
+  /// asla doğrudan Purchases.* çağırmamalı" kuralı gereği AuthService bunu
+  /// doğrudan değil, buradan çağırır.
+  Future<void> linkToAccount(String appUserId) async {
+    try {
+      final result = await Purchases.logIn(appUserId);
+      _onCustomerInfoUpdated(result.customerInfo);
+    } catch (e) {
+      debugPrint('RevenueCat hesap bağlama hatası: $e');
+    }
+  }
+
+  /// Hesaptan çıkışta çağrılır: RevenueCat kimliğini tekrar cihaza bağlı
+  /// anonim kimliğe döndürür.
+  Future<void> unlinkAccount() async {
+    try {
+      final info = await Purchases.logOut();
+      _onCustomerInfoUpdated(info);
+    } catch (e) {
+      debugPrint('RevenueCat hesap ayırma hatası: $e');
+    }
+  }
 }

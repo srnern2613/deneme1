@@ -737,12 +737,12 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isSelected ? Colors.white : theme.textSecondary, size: 15),
+            Icon(icon, color: isSelected ? Colors.white : theme.tabLabel, size: 15),
             const SizedBox(width: 6),
             Text(
               label,
               style: GoogleFonts.outfit(
-                color: isSelected ? Colors.white : theme.textSecondary,
+                color: isSelected ? Colors.white : theme.tabLabel,
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
               ),

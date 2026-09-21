@@ -614,7 +614,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       avatar: Icon(
         icon,
         size: 14,
-        color: isSelected ? Colors.white : (isBoss ? const Color(0xFFEF4444) : theme.textSecondary),
+        color: isSelected ? Colors.white : (isBoss ? const Color(0xFFEF4444) : theme.tabLabel),
       ),
       label: Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
       selected: isSelected,
@@ -627,7 +627,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       },
       selectedColor: activeColor,
       backgroundColor: theme.surfaceLight,
-      labelStyle: TextStyle(color: isSelected ? Colors.white : theme.textSecondary),
+      labelStyle: TextStyle(color: isSelected ? Colors.white : theme.tabLabel),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(

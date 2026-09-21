@@ -32,6 +32,26 @@ dependencies:
   purchases_flutter: ^10.12.0
   purchases_ui_flutter: ^10.12.0
 
+  # Hesap Sistemi — Firebase Authentication (e-posta/şifre girişi). Bu
+  # çalışması için `android/app/google-services.json` dosyasının Firebase
+  # Console'dan indirilip projeye eklenmesi ZORUNLU — o dosya olmadan build
+  # başarısız olur (bkz. docs).
+  firebase_core: ^3.8.0
+  firebase_auth: ^5.3.3
+
+  # Ayarlar → Bildirimler: "Günlük Hatırlatma" ve "Seri Kaybı Uyarısı"
+  # anahtarlarının GERÇEK bildirim göndermesi için. `timezone` paketi,
+  # zamanlanan bildirimin cihaz saat dilimine göre doğru saatte
+  # tetiklenmesi için `flutter_local_notifications`'ın kendisi tarafından
+  # gerekli kılınıyor.
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
+  # Cihazın gerçek saat dilimini (ör. "Europe/Istanbul") okumak için —
+  # bu olmadan `timezone` paketi varsayılan olarak UTC kullanır ve
+  # zamanlanan bildirim, kullanıcının seçtiği saatten farklı bir saatte
+  # tetiklenir.
+  flutter_timezone: ^3.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

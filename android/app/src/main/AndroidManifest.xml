@@ -12,6 +12,15 @@
     <!-- Android 13+ Bildirim Çubuğu ve Kilit Ekranı İzni -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Ayarlar → Bildirimler: zamanlanmış "Günlük Hatırlatma" / "Seri Kaybı
+         Uyarısı" bildirimleri AlarmManager ile kuruluyor. Android, cihaz
+         yeniden başlatıldığında bekleyen tüm alarmları temizler; bu izin,
+         ileride eklenebilecek bir BOOT_COMPLETED receiver'ının bunları
+         otomatik yeniden kurabilmesi için şimdiden tanımlandı (receiver
+         henüz eklenmedi — bkz. NotificationService dosya başı notu; şu an
+         için tercihler her uygulama açılışında yeniden kuruluyor). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
     <!-- Arka Plan ve Medya Oynatma İzinleri -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
