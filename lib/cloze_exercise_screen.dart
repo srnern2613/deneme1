@@ -255,6 +255,8 @@ class _ClozeExerciseScreenState extends State<ClozeExerciseScreen> {
       title: feedback.title,
       subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
+      correctCount: _score,
+      wrongCount: _questions.length - _score,
       ignisMomentTitle: ignisMoment?.title,
       ignisMomentMessage: ignisMoment?.message,
       ignisMomentPose: ignisMoment?.pose,

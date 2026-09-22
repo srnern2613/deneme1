@@ -209,13 +209,33 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 40, height: 4,
-                      decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(2)),
+                  // P0-D: "üstten tutup aşağı kaydırınca kapansın" — tutamaç
+                  // (handle) çubuğu önceden sadece görseldi, herhangi bir
+                  // dokunma/sürükleme davranışı yoktu. isScrollControlled +
+                  // SingleChildScrollView kombinasyonunda Flutter'ın
+                  // varsayılan "sheet'i sürükleyerek kapatma" davranışı
+                  // güvenilir çalışmıyor (sürükleme önce scroll'a gidiyor);
+                  // bu yüzden tutamacın kendisine açıkça bir aşağı-sürükleme
+                  // algılayıcısı eklendi — dokunma alanı da (dikey padding
+                  // ile) büyütüldü.
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragUpdate: (details) {
+                      if ((details.primaryDelta ?? 0) > 6) {
+                        Navigator.of(context).maybePop();
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Center(
+                        child: Container(
+                          width: 40, height: 4,
+                          decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(2)),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       const Icon(PhosphorIcons.gearSixBold, color: Color(0xFFF59E0B), size: 22),

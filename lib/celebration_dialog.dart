@@ -7,6 +7,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/branding/app_branding.dart';
 
@@ -21,6 +22,15 @@ class CelebrationDialog extends StatefulWidget {
   final int? strengthenedWords;
   final int? needsReviewWords;
   final int masteredWordsCount; // Bu oturumda ustalaşılan yeni kelime sayısı
+  // P0-D: SRS dışındaki modların (quiz/eşleştirme/imla/boşluk doldurma/
+  // dinleme/ters test/hız turu) basit doğru/yanlış özeti. totalWordsReviewed
+  // ile aynı anda kullanılmaz (SRS zaten kendi zengin panelini gösteriyor) —
+  // sadece correctCount null değilse gösterilir; gerçek kelimeyle veya
+  // örnek kelime havuzuyla yapılan pratikte AYNI şekilde çalışır, çünkü
+  // doğru/yanlış sayacı veritabanından değil oturumun kendi state'inden
+  // geliyor.
+  final int? correctCount;
+  final int? wrongCount;
   final String? actionLabel;
   final VoidCallback? onAction;
   final String? secondaryActionLabel;
@@ -43,6 +53,8 @@ class CelebrationDialog extends StatefulWidget {
     this.strengthenedWords,
     this.needsReviewWords,
     this.masteredWordsCount = 0,
+    this.correctCount,
+    this.wrongCount,
     this.actionLabel,
     this.onAction,
     this.secondaryActionLabel,
@@ -64,6 +76,8 @@ class CelebrationDialog extends StatefulWidget {
     int? strengthenedWords,
     int? needsReviewWords,
     int masteredWordsCount = 0,
+    int? correctCount,
+    int? wrongCount,
     String? actionLabel,
     VoidCallback? onAction,
     String? secondaryActionLabel,
@@ -73,6 +87,17 @@ class CelebrationDialog extends StatefulWidget {
     String? ignisMomentPose,
   }) {
     HapticFeedback.heavyImpact();
+    // P0-D: örnek kelime havuzuyla yapılan pratik daily_stats/XP/SRS'e hiç
+    // dokunmuyor (bkz. database_helper.dart recordMultiModalResult — cardId
+    // <= 0 ise sessizce no-op) — bu yüzden Ana Sayfa "Günlük Durum" kartı
+    // "Bugün henüz pratik yapmadın" mesajında takılı kalıyordu, kullanıcı
+    // aslında bir seans TAMAMLAMIŞ olsa bile. Bu popup her seans sonunda
+    // (gerçek kelime VEYA örnek havuz, hepsinde) tetiklendiği için "bugün
+    // pratik yapıldı" sinyalini burada, ayrı ve hafif bir bayrakla
+    // işaretliyoruz — gerçek sayılar (yeni kelime/tekrar) hâlâ sadece
+    // veritabanından geliyor, bu bayrak SADECE "aktivite var mı" sorusuna
+    // cevap veriyor.
+    _markPracticedToday();
     return showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -90,6 +115,8 @@ class CelebrationDialog extends StatefulWidget {
         strengthenedWords: strengthenedWords,
         needsReviewWords: needsReviewWords,
         masteredWordsCount: masteredWordsCount,
+        correctCount: correctCount,
+        wrongCount: wrongCount,
         actionLabel: actionLabel,
         onAction: onAction,
         secondaryActionLabel: secondaryActionLabel,
@@ -108,6 +135,18 @@ class CelebrationDialog extends StatefulWidget {
         );
       },
     );
+  }
+
+  // P0-D: fire-and-forget — dialog'un açılışını bloklamıyor, hata olursa
+  // sessizce yutuluyor (bu sadece Ana Sayfa'daki bilgilendirici bir kart,
+  // kritik bir veri yolu değil).
+  static void _markPracticedToday() {
+    SharedPreferences.getInstance().then((prefs) {
+      final now = DateTime.now();
+      final dateKey =
+          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+      prefs.setBool('ignis_practiced_today_$dateKey', true);
+    }).catchError((_) {});
   }
 
   @override
@@ -341,6 +380,29 @@ class _CelebrationDialogState extends State<CelebrationDialog> with TickerProvid
                               color: widget.masteredWordsCount > 0 ? Colors.amber : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // P0-D: SRS dışındaki modlar için basit doğru/yanlış
+                  // özeti — kullanıcının kendi eklediği kelimelerle de,
+                  // henüz hiç kelime eklemeden (örnek kelime havuzuyla)
+                  // yapılan deneme pratiğiyle de AYNI şekilde çalışır.
+                  if (widget.correctCount != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatItem('Doğru', '${widget.correctCount}', const Color(0xFF10B981)),
+                          _buildStatItem('Yanlış', '${widget.wrongCount ?? 0}', const Color(0xFFEF4444)),
                         ],
                       ),
                     ),

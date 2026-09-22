@@ -47,6 +47,7 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
   List<Map<String, dynamic>> _questions = [];
   int _currentIndex = 0;
   int _score = 0;
+  int _wrongCount = 0; // P0-D: bitiş pop-up'ında doğru/yanlış göstermek için
   int _streak = 0;
   int _bestStreak = 0;
   int _totalEarnedXp = 0;
@@ -254,6 +255,7 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
     } else {
       HapticFeedback.heavyImpact();
       _streak = 0;
+      _wrongCount++;
     }
 
     Future.delayed(const Duration(milliseconds: 500), () {
@@ -285,6 +287,8 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
           ? 'En uzun serin: $_bestStreak 🔥 — ${feedback.subtitle}'
           : feedback.subtitle,
       earnedXp: _totalEarnedXp,
+      correctCount: _score,
+      wrongCount: _wrongCount,
       ignisMomentTitle: ignisMoment?.title,
       ignisMomentMessage: ignisMoment?.message,
       ignisMomentPose: ignisMoment?.pose,
@@ -294,6 +298,7 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
         setState(() {
           _currentIndex = 0;
           _score = 0;
+          _wrongCount = 0;
           _streak = 0;
           _bestStreak = 0;
           _totalEarnedXp = 0;

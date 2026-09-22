@@ -45,15 +45,26 @@ class IgnisDailyStatus {
   final int reviewsToday;
   final int dueTomorrow;
   final int weeklyProjection;
+  // P0-D: örnek kelime havuzuyla yapılan pratik daily_stats tablosuna hiç
+  // yazmıyor (recordMultiModalResult cardId<=0 için no-op) — bu yüzden
+  // newWordsToday/reviewsToday sıfır kalabilir. celebration_dialog.dart
+  // her seans sonunda (gerçek VEYA örnek) ayrı, hafif bir "bugün pratik
+  // yapıldı" bayrağı işaretliyor; bu alan o bayrağı taşıyor ki kullanıcı
+  // örnek kelimelerle pratik yaptığında bile "Bugün henüz pratik
+  // yapmadın" mesajında takılı kalınmasın. Sayısal alanlar (newWordsToday
+  // vb.) bu bayraktan ETKİLENMEZ — hâlâ sadece gerçek veritabanı verisi.
+  final bool practicedToday;
 
   IgnisDailyStatus({
     required this.newWordsToday,
     required this.reviewsToday,
     required this.dueTomorrow,
     required this.weeklyProjection,
+    this.practicedToday = false,
   });
 
-  bool get hasActivityToday => newWordsToday > 0 || reviewsToday > 0;
+  bool get hasActivityToday =>
+      newWordsToday > 0 || reviewsToday > 0 || practicedToday;
 }
 
 class IgnisMomentsEngine {
@@ -216,11 +227,19 @@ class IgnisMomentsEngine {
     );
     final weeklyProjection = ((totalNewLast7Days / 7.0) * 7).round();
 
+    // P0-D: örnek kelime havuzuyla yapılan pratik yukarıdaki reviews/newWords
+    // sayaçlarına hiç dokunmuyor (bkz. IgnisDailyStatus.practicedToday
+    // yorumu) — celebration_dialog.dart'ın her seans sonunda işaretlediği
+    // tarihe-özel bayrağı burada okuyoruz.
+    final prefs = await SharedPreferences.getInstance();
+    final practicedToday = prefs.getBool('ignis_practiced_today_${_todayKey()}') ?? false;
+
     return IgnisDailyStatus(
       newWordsToday: newWords,
       reviewsToday: reviews,
       dueTomorrow: dueTomorrow,
       weeklyProjection: weeklyProjection,
+      practicedToday: practicedToday,
     );
   }
 }

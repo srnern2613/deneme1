@@ -59,6 +59,11 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
 
   MatchItem? _selectedItem;
   int _score = 0;
+  // P0-D: bitiş pop-up'ında doğru/yanlış göstermek için — _score'un
+  // hesaplama formülü (kombo bonusu vb.) değişse bile bu sayaçlar ham
+  // eşleştirme/yanlış deneme sayısını birebir tutar.
+  int _correctMatches = 0;
+  int _wrongAttempts = 0;
   int _combo = 0;
   int _totalEarnedXp = 0;
   int _timeLeft = 45;
@@ -104,6 +109,8 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       setState(() {
         _pool = filteredCards;
         _score = 0;
+        _correctMatches = 0;
+        _wrongAttempts = 0;
         _combo = 0;
         _totalEarnedXp = 0;
         _timeLeft = 45;
@@ -210,6 +217,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       HapticFeedback.mediumImpact();
       _combo++;
       _score += 2;
+      _correctMatches++;
 
       if (item.cardId > 0) {
         await DatabaseHelper.instance.recordMultiModalResult(
@@ -258,6 +266,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
     } else {
       HapticFeedback.heavyImpact();
       _combo = 0;
+      _wrongAttempts++;
       _triggerCheer(CoachMessages.getWrongAnswerEncouragement());
 
       if (_selectedItem!.cardId > 0) {
@@ -292,6 +301,8 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       title: feedback.title,
       subtitle: feedback.subtitle,
       earnedXp: _totalEarnedXp,
+      correctCount: _correctMatches,
+      wrongCount: _wrongAttempts,
       ignisMomentTitle: ignisMoment?.title,
       ignisMomentMessage: ignisMoment?.message,
       ignisMomentPose: ignisMoment?.pose,
