@@ -31,7 +31,7 @@ import 'core/entitlement/paywall_trigger.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/design_system/platform_tokens.dart';
 import 'mixed_dungeon_session_screen.dart';
-import 'core/design_system/ignis_alert.dart'; // Tema-uyumlu bilgilendirme pop-up'ı (SnackBar yerine)
+import 'core/practice/sample_practice_words.dart'; // P0-D: soğuk başlangıç — örnek kelime havuzu
 
 class FlashcardsScreen extends StatefulWidget {
   final VoidCallback? onNavigateToLibrary;
@@ -452,17 +452,36 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     });
   }
 
+  // P0-D — SOĞUK BAŞLANGIÇ DÜZELTMESİ: kullanıcının bir mod için yeterli
+  // gerçek kelimesi (eşik) yoksa, o modu KİLİTLEMEK yerine ortak örnek
+  // kelime havuzunu (kSamplePracticeWords) kullanıyoruz — kullanıcı
+  // uygulamayı hiç kelime eklemeden de deneyebiliyor. Gerçek/örnek KARIŞMAZ:
+  // eşik karşılanana kadar oturum tamamen örnek kelimelerle, karşılandıktan
+  // sonra tamamen gerçek kelimelerle çalışır. Örnek kartların id'si negatif
+  // olduğu için (bkz. sample_practice_words.dart) egzersiz ekranlarındaki
+  // mevcut "cardId > 0 ise DB'ye yaz" koruması bu oturumları otomatik olarak
+  // SRS/istatistiklerin dışında tutuyor.
+  List<Map<String, dynamic>> _sessionOrSampleCards(int threshold) {
+    if (_isTestModeActive || _totalValidPoolCount >= threshold) return _cards;
+    return kSamplePracticeWords;
+  }
+
   void _startSrsExercise() async {
     HapticFeedback.mediumImpact();
     final multiplier = _dailyDoubleXpIndex == 1 ? 2 : 1;
+    final bool useSamples = !_isTestModeActive && _totalValidPoolCount < 1;
     // EJDERHA ROTASI V2 — FAZ 3: Hafıza Zindanı artık FSRS'in vadesi gelmiş
     // kart sıralamasını kullanıyor. FSRS henüz boş dönerse (ör. hiçbir kart
     // FSRS ile incelenmemişse) eski _cards havuzuna düşüyoruz — kırılma yok.
+    // P0-D: havuz tamamen boşsa FSRS'e hiç sormadan doğrudan örnek havuzuna
+    // düşüyoruz (negatif id'ler zaten FSRS'te kaydı yok, gereksiz sorgu).
     List<Map<String, dynamic>> dueCards = [];
-    try {
-      dueCards = await FsrsRepository.instance.getDueCards(limit: _cards.isNotEmpty ? _cards.length : 20);
-    } catch (_) {}
-    final sessionCards = dueCards.isNotEmpty ? dueCards : _cards;
+    if (!useSamples) {
+      try {
+        dueCards = await FsrsRepository.instance.getDueCards(limit: _cards.isNotEmpty ? _cards.length : 20);
+      } catch (_) {}
+    }
+    final sessionCards = useSamples ? kSamplePracticeWords : (dueCards.isNotEmpty ? dueCards : _cards);
     if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => FlashcardsExerciseScreen(cards: sessionCards, xpMultiplier: multiplier)
@@ -475,7 +494,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     HapticFeedback.mediumImpact();
     final multiplier = _dailyDoubleXpIndex == 0 ? 2 : 1;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => QuizExerciseScreen(cards: _cards, xpMultiplier: multiplier, onNavigateToLibrary: _navigateToLibraryRoot)
+      builder: (context) => QuizExerciseScreen(cards: _sessionOrSampleCards(4), xpMultiplier: multiplier, onNavigateToLibrary: _navigateToLibraryRoot)
     )).then((_) {
       if (mounted) _loadCardsAndStats();
     });
@@ -485,23 +504,17 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
     HapticFeedback.mediumImpact();
     final multiplier = _dailyDoubleXpIndex == 2 ? 2 : 1;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => MatchExerciseScreen(cards: _cards, xpMultiplier: multiplier, onNavigateToLibrary: _navigateToLibraryRoot)
+      builder: (context) => MatchExerciseScreen(cards: _sessionOrSampleCards(4), xpMultiplier: multiplier, onNavigateToLibrary: _navigateToLibraryRoot)
     )).then((_) {
       if (mounted) _loadCardsAndStats();
     });
   }
 
   void _startSpellingExerciseWithPaywall() {
-    if (!_isTestModeActive && _totalValidPoolCount < 20) {
-      HapticFeedback.vibrate();
-      IgnisAlert.show(context, message: 'Önce okuyarak ${20 - _totalValidPoolCount} kelime daha topla (Şu an: $_totalValidPoolCount/20) 📖', type: IgnisAlertType.error);
-      return;
-    }
-    
     HapticFeedback.mediumImpact();
     final multiplier = _dailyDoubleXpIndex == 3 ? 2 : 1;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => SpellingExerciseScreen(cards: _cards, xpMultiplier: multiplier, onNavigateToLibrary: _navigateToLibraryRoot)
+      builder: (context) => SpellingExerciseScreen(cards: _sessionOrSampleCards(20), xpMultiplier: multiplier, onNavigateToLibrary: _navigateToLibraryRoot)
     )).then((_) {
       if (mounted) _loadCardsAndStats();
     });
@@ -636,9 +649,10 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         // beş farklı sistem-dışı renk yerine indigo ailesinde
                         // beş ton, ayrım tonla yapılıyor.
                         accentColor: const Color(0xFFA5B4FC),
-                        onTap: (_isTestModeActive || _totalValidPoolCount >= 4) ? _startQuizExercise : null,
-                        isLocked: !_isTestModeActive && _totalValidPoolCount < 4,
-                        lockMessage: '4 Kelime Gerekli',
+                        // P0-D: artık kilit yok — kelime havuzu yetersizse
+                        // örnek kelime havuzuyla deneme pratiği yapılıyor
+                        // (bkz. _sessionOrSampleCards).
+                        onTap: _startQuizExercise,
                       ),
                       _buildPracticeRow(
                         icon: PhosphorIcons.brainBold,
@@ -647,9 +661,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         reward: _dailyDoubleXpIndex == 1 ? '2X XP' : '+5 XP',
                         fomoLabel: _dailyDoubleXpIndex == 1 ? 'Son $_fomoTimeLeft' : null,
                         accentColor: const Color(0xFF818CF8),
-                        onTap: (_isTestModeActive || _totalValidPoolCount >= 1) ? _startSrsExercise : null,
-                        isLocked: !_isTestModeActive && _totalValidPoolCount < 1,
-                        lockMessage: '1 Kelime Gerekli',
+                        // P0-D: artık kilit yok — havuz boşsa örnek
+                        // kelimelerle deneme pratiği yapılıyor.
+                        onTap: _startSrsExercise,
                       ),
                       _buildPracticeRow(
                         icon: PhosphorIcons.puzzlePieceBold,
@@ -658,9 +672,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         reward: _dailyDoubleXpIndex == 2 ? '2X XP' : '+10 XP',
                         fomoLabel: _dailyDoubleXpIndex == 2 ? 'Son $_fomoTimeLeft' : null,
                         accentColor: const Color(0xFF6366F1),
-                        onTap: (_isTestModeActive || _totalValidPoolCount >= 4) ? _startMatchExercise : null,
-                        isLocked: !_isTestModeActive && _totalValidPoolCount < 4,
-                        lockMessage: '4 Kelime Gerekli',
+                        // P0-D: artık kilit yok — havuz yetersizse örnek
+                        // kelimelerle deneme pratiği yapılıyor.
+                        onTap: _startMatchExercise,
                       ),
                       _buildPracticeRow(
                         icon: PhosphorIcons.waveformBold,
@@ -669,9 +683,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
                         reward: _dailyDoubleXpIndex == 3 ? '2X XP' : '+15 XP',
                         fomoLabel: _dailyDoubleXpIndex == 3 ? 'Son $_fomoTimeLeft' : null,
                         accentColor: const Color(0xFF4F46E5),
+                        // P0-D: artık kilit yok — havuz yetersizse örnek
+                        // kelimelerle deneme pratiği yapılıyor.
                         onTap: _startSpellingExerciseWithPaywall,
-                        isLocked: !_isTestModeActive && _totalValidPoolCount < 20,
-                        lockMessage: '20 Kelime Gerekli',
                       ),
                       _buildPracticeRow(
                         icon: PhosphorIcons.pencilSimpleBold,

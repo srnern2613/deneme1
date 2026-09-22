@@ -222,9 +222,13 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       if (!mounted) return;
 
       final comboMultiplier = _combo >= 6 ? 2 : 1;
-      final earnedXp = (4 * comboMultiplier) * widget.xpMultiplier; 
-      _totalEarnedXp += earnedXp;
-      await XpShopService.instance.addXp(earnedXp);
+      final earnedXp = (4 * comboMultiplier) * widget.xpMultiplier;
+      // P0-D: örnek kelime havuzuyla (negatif cardId) yapılan deneme
+      // pratiği XP kazandırmasın — sadece gerçek kelimeler XP verir.
+      if (item.cardId > 0) {
+        _totalEarnedXp += earnedXp;
+        await XpShopService.instance.addXp(earnedXp);
+      }
 
       if (!mounted) return;
 

@@ -256,9 +256,13 @@ class _QuizExerciseScreenState extends State<QuizExerciseScreen> {
 
       final baseXp = _timeRemaining > 4.5 ? 8 : 6;
       final earnedXp = baseXp * widget.xpMultiplier;
-      
-      _totalEarnedXp += earnedXp;
-      await XpShopService.instance.addXp(earnedXp);
+
+      // P0-D: örnek kelime havuzuyla (negatif cardId) yapılan deneme
+      // pratiği XP kazandırmasın — sadece gerçek kelimeler XP verir.
+      if (cardId > 0) {
+        _totalEarnedXp += earnedXp;
+        await XpShopService.instance.addXp(earnedXp);
+      }
 
       if (!mounted) return;
 

@@ -262,9 +262,13 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       
       final baseXp = _hintsUsedInWord > 0 ? 5 : 8;
       final earnedXp = baseXp * widget.xpMultiplier;
-      
-      _totalEarnedXp += earnedXp;
-      await XpShopService.instance.addXp(earnedXp);
+
+      // P0-D: örnek kelime havuzuyla (negatif cardId) yapılan deneme
+      // pratiği XP kazandırmasın — sadece gerçek kelimeler XP verir.
+      if (cardId > 0) {
+        _totalEarnedXp += earnedXp;
+        await XpShopService.instance.addXp(earnedXp);
+      }
 
       if (!mounted) return; 
 

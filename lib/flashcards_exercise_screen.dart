@@ -173,7 +173,9 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     }
 
     if (!widget.isReviewOnly) {
-      if (xpGain > 0) {
+      // P0-D: örnek kelime havuzuyla (negatif cardId) yapılan deneme
+      // pratiği XP kazandırmasın — sadece gerçek kelimeler XP verir.
+      if (xpGain > 0 && cardId > 0) {
         _totalEarnedXp += xpGain;
         XpShopService.instance.addXp(xpGain).catchError((_) => 0);
       }
