@@ -201,7 +201,9 @@ class ProfileScreenState extends State<ProfileScreen> {
 
       // Ignis Önerisi kartı — salt okunur, seans-sonu popup kotasını
       // tüketmez, profil her açıldığında güncel içgörüyü gösterir.
-      final ignisInsight = await IgnisMomentsEngine.instance.getProfileInsightPreview();
+      final ignisInsight = await IgnisMomentsEngine.instance.getProfileInsightPreview(
+        precomputedStreakResult: streakResult,
+      );
 
       if (!mounted) return;
       setState(() {
@@ -596,14 +598,23 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Ignis Önerisi kartı — bugün pratik yoksa hiç gösterilmez (null insight).
-  // "Daha Fazla Bilgi" Premium olmayan kullanıcıya kısa bir bilgi + geçiş
-  // butonu gösterir, Premium kullanıcıya ise anlık genişletilmiş verileri.
+  // Ignis Önerisi kartı — bugün pratik yoksa bile bir teşvik mesajıyla
+  // görünür kalır (bkz. getProfileInsightPreview), asistan sessizce
+  // kaybolmaz. "Daha Fazla Bilgi" Premium olmayan kullanıcıya kısa bir
+  // bilgi + geçiş butonu gösterir, Premium kullanıcıya ise anlık
+  // genişletilmiş verileri.
   Widget _buildIgnisInsightCard() {
     final insight = _ignisInsight;
     if (insight == null) return const SizedBox.shrink();
     final theme = Theme.of(context).extension<DraconicTheme>()!;
-    return Container(
+    // Tüm kart dokunulabilir — sadece "Daha Fazla Bilgi" metnine değil,
+    // kartın herhangi bir yerine dokununca da aynı akış açılır.
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: _onIgnisInsightMoreInfoTap,
+        child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: theme.surfaceLight,
@@ -639,17 +650,18 @@ class ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 3),
                 Text(insight.message, style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12, height: 1.4)),
                 const SizedBox(height: 6),
-                InkWell(
-                  onTap: _onIgnisInsightMoreInfoTap,
-                  child: Text(
-                    'Daha Fazla Bilgi →',
-                    style: GoogleFonts.inter(color: theme.infoTeal, fontSize: 11.5, fontWeight: FontWeight.w700),
-                  ),
+                // Kartın tamamı zaten dokunulabilir (bkz. dıştaki InkWell) —
+                // bu sadece bir görsel ipucu/affordance.
+                Text(
+                  'Daha Fazla Bilgi →',
+                  style: GoogleFonts.inter(color: theme.infoTeal, fontSize: 11.5, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }

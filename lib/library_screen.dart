@@ -26,6 +26,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/entitlement/paywall_trigger.dart';
 import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler artık temadan
+import 'core/design_system/ignis_alert.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -195,7 +196,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (!mounted) return;
       _openReader(newBook);
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        // P0: hata artık sessizce yutulmuyor — kullanıcı yükleme
+        // döndürücünün neden durduğunu görüyor (ör. bozuk/şifreli PDF,
+        // dosya okuma hatası).
+        IgnisAlert.show(
+          context,
+          message: 'Dosya içeri aktarılamadı. Dosyanın bozuk olmadığından emin olup tekrar dener misin?',
+          type: IgnisAlertType.error,
+        );
+      }
     }
   }
 
@@ -211,14 +222,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
             book.lastReadDate = DateTime.now();
             _saveBooksToStorage();
 
-            final safeTotal = book.pages.isEmpty ? 1 : book.pages.length;
-            DatabaseHelper.instance.updateBookReadingProgress(
-              bookId: book.id,
-              bookTitle: book.title,
-              currentPage: newPage,
-              totalPages: safeTotal,
-              chapterInfo: 'Sayfa ${newPage + 1}',
-            );
+            // P0: updateBookReadingProgress burada TEKRAR çağrılmıyordu
+            // düzeltildi — reader_screen.dart kendi PageView.onPageChanged
+            // içinde AYNI parametrelerle zaten yazıyor (bkz. reader_screen.dart
+            // ~1362-1369). İki ayrı, senkronize olmayan yazım aynı sayfa için
+            // yarışıp birbirini eskitebiliyordu (son biten kazanıyordu, son
+            // çağrılan değil).
           },
         ),
       ),
@@ -231,9 +240,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
       final int addedPages = actualMinutes > 0 ? result.pagesRead : 0;
       
       if (actualMinutes > 0 && addedPages > 0) {
-        final earnedXp = actualMinutes * 10;
-        await XpShopService.instance.addXp(earnedXp);
-
+        // P0: XP burada TEKRAR verilmiyor — reader_screen.dart _handleExit()
+        // zaten (sayfa+kelime bazlı, daha doğru formülle) XP'yi verip
+        // ReadingSessionResult.earnedXp içinde taşıyor. Burada ikinci kez
+        // addXp çağırmak aynı seans için ÇİFT ödül veriyordu (düzeltildi).
         setState(() {
           book.currentPage = result.lastPage;
           book.lastReadDate = DateTime.now();

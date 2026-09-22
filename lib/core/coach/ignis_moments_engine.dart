@@ -197,14 +197,22 @@ class IgnisMomentsEngine {
       final yesterdayKey =
           "${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}";
       final yesterdayRow = range.where((r) => r['stat_date'] == yesterdayKey).toList();
-      final yesterdayNewWords = yesterdayRow.isNotEmpty ? ((yesterdayRow.first['new_words_count'] as int?) ?? 0) : 0;
+      // "hasYesterdayData": dün gerçekten bir kayıt var mı, yoksa (yeni
+      // kullanıcı / dünkü boşluk) 0'a mı düşüyoruz? İkincisinde karşılaştırma
+      // göstermiyoruz — hiç geçmişi olmayan bir kullanıcıya "dünden iyisin"
+      // demek olmayan bir momentumu ima eder.
+      final hasYesterdayData = yesterdayRow.isNotEmpty;
+      final yesterdayNewWords = hasYesterdayData ? ((yesterdayRow.first['new_words_count'] as int?) ?? 0) : 0;
 
       await _markImportantMomentShown();
 
-      // Dünden belirgin bir sıçrama varsa, yarı yarıya ihtimalle karşılaştırma
-      // anını göster — aynı pace-insight bilgisini farklı bir açıdan sunar,
-      // her seferinde aynı "bu hızla..." cümlesini görmemek için.
-      if (newWords > yesterdayNewWords && _rand.nextBool()) {
+      // Dünden belirgin bir sıçrama varsa karşılaştırma anını göster —
+      // getProfileInsightPreview() İLE AYNI kuralı (deterministik) kullanır,
+      // aksi halde seans sonunda görülen popup ile profildeki kart FARKLI
+      // türde bir an gösterebilir (kafa karıştırıcı olur). Çeşitlilik
+      // ihtiyacı zaten mesaj havuzlarındaki (_pickVariant) rastgelelikle
+      // karşılanıyor — tür seçimi rastgele OLMAMALI.
+      if (hasYesterdayData && newWords > yesterdayNewWords) {
         return IgnisMoment(
           type: IgnisMomentType.comparison,
           // "happy" — streak kilometre taşının (celebrating/excited) tuttuğu
@@ -243,17 +251,37 @@ class IgnisMomentsEngine {
   /// bağımsızdır. Aynı öncelik sırasını (seri kilometre taşı → dünle
   /// karşılaştırma → hız içgörüsü → günlük özet) kullanarak, profil her
   /// açıldığında en güncel içgörüyü yeniden hesaplayıp döner. Bugün hiç
-  /// pratik yoksa null döner (kart o zaman gizlenir).
-  Future<IgnisMoment?> getProfileInsightPreview() async {
+  /// pratik yoksa kart GİZLENMEZ — bunun yerine kısa bir teşvik mesajı
+  /// döner (kullanıcı geri bildirimi: kart bazen hiç görünmüyormuş gibi
+  /// hissettiriyordu, bir asistan sessizce kaybolmamalı).
+  ///
+  /// [precomputedStreakResult]: çağıran taraf (ör. profile_screen.dart)
+  /// zaten aynı yükleme turunda StreakFreezeService.checkAndUpdateStreak()
+  /// çağırdıysa onu buraya verebilir — bu metod checkAndUpdateStreak()'i
+  /// TEKRAR çağırmaz (bkz. getStreakLossMoment'taki aynı uyarı: aynı turda
+  /// iki kez çağırmak gereksiz iş + tutarsızlık riski taşır).
+  Future<IgnisMoment?> getProfileInsightPreview({Map<String, dynamic>? precomputedStreakResult}) async {
     final db = DatabaseHelper.instance;
     final today = await db.getTodayStatsSummary();
     final newWords = today['new_words_count'] ?? 0;
     final reviews = today['review_count'] ?? 0;
-    if (newWords == 0 && reviews == 0) return null;
+
+    final streakResult = precomputedStreakResult ?? await StreakFreezeService.instance.checkAndUpdateStreak();
+    final streakDays = streakResult['streakDays'] as int? ?? 0;
+
+    if (newWords == 0 && reviews == 0) {
+      return IgnisMoment(
+        type: IgnisMomentType.dailySummary,
+        pose: 'greeting',
+        title: 'Henüz Başlamadın',
+        message: _pickVariant([
+          'Bugün henüz pratik yapmadın. Hazır olduğunda kısa bir tur atalım, ilerlemeni burada takip ederim.',
+          'Bu sayfa seni bekliyor — bugünkü ilk pratiğini tamamlayınca burada gerçek bir içgörü göreceksin.',
+        ]),
+      );
+    }
 
     final dueTomorrow = await db.getDueTomorrowCount();
-    final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
-    final streakDays = streakResult['streakDays'] as int? ?? 0;
     if (_streakMilestones.contains(streakDays)) {
       return IgnisMoment(
         type: IgnisMomentType.streakMilestone,
@@ -274,9 +302,10 @@ class IgnisMomentsEngine {
     final yesterdayKey =
         "${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}";
     final yesterdayRow = range.where((r) => r['stat_date'] == yesterdayKey).toList();
-    final yesterdayNewWords = yesterdayRow.isNotEmpty ? ((yesterdayRow.first['new_words_count'] as int?) ?? 0) : 0;
+    final hasYesterdayData = yesterdayRow.isNotEmpty;
+    final yesterdayNewWords = hasYesterdayData ? ((yesterdayRow.first['new_words_count'] as int?) ?? 0) : 0;
 
-    if (newWords > yesterdayNewWords) {
+    if (hasYesterdayData && newWords > yesterdayNewWords) {
       return IgnisMoment(
         type: IgnisMomentType.comparison,
         pose: 'happy',

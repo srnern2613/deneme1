@@ -170,11 +170,22 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
     if (confirm == true && mounted) {
       HapticFeedback.mediumImpact();
-      await DatabaseHelper.instance.removeFlashcardByWord(word);
-      if (!mounted) return;
-      _loadData(_searchController.text);
-
-      IgnisAlert.show(context, message: '"$word" koleksiyondan çıkarıldı.', type: IgnisAlertType.success);
+      // P0: silme işlemi artık try/catch içinde — veritabanı hatası (kilitli
+      // DB, disk hatası vb.) kullanıcıya görünmeden yutulmuyordu, uygulama
+      // hataya rağmen "çıkarıldı" izlenimi verebiliyordu.
+      try {
+        await DatabaseHelper.instance.removeFlashcardByWord(word);
+        if (!mounted) return;
+        _loadData(_searchController.text);
+        IgnisAlert.show(context, message: '"$word" koleksiyondan çıkarıldı.', type: IgnisAlertType.success);
+      } catch (e) {
+        if (!mounted) return;
+        IgnisAlert.show(
+          context,
+          message: '"$word" kaldırılamadı. Lütfen tekrar dener misin?',
+          type: IgnisAlertType.error,
+        );
+      }
     }
   }
 

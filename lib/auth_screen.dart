@@ -82,10 +82,16 @@ class _AuthScreenState extends State<AuthScreen> {
               Icon(PhosphorIcons.userBold, size: 56, color: theme.primaryAmber),
               const SizedBox(height: 12),
               Text(
+                // P0: yanıltıcı vaat düzeltildi — hesap sistemi şu an SADECE
+                // Premium üyelik durumunu cihazlar arasında taşıyor (bkz.
+                // auth_service.dart: signUp/signIn yalnızca
+                // EntitlementRepository.linkToAccount çağırıyor). Kelime
+                // ilerlemesi, seri, rozetler vb. henüz cihaza özel — bunları
+                // da senkronize ediyormuş gibi bir metin gerçek dışı bir
+                // beklenti yaratıyordu.
                 _isSignUpMode
-                    ? 'İlerlemen bu hesaba bağlansın, başka cihazlarda da seni bulsun.'
-                    : 'Hesabınla giriş yap, ilerlemen ve Premium'
-                        ' durumun senin peşinden gelsin.',
+                    ? 'Premium üyeliğin bu hesaba bağlansın, başka cihazlarda da seni bulsun.'
+                    : 'Hesabınla giriş yap, Premium durumun senin peşinden gelsin.',
                 style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 28),

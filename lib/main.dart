@@ -809,15 +809,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     constraints: const BoxConstraints(minHeight: 190),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [const Color(0xFF161B2E).withValues(alpha: 0.9), const Color(0xFF0F172A).withValues(alpha: 0.95)],
+                        colors: [theme.surfaceLight.withValues(alpha: 0.9), theme.surfaceDark.withValues(alpha: 0.95)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.3), width: 1.2),
+                      border: Border.all(color: theme.primaryAmber.withValues(alpha: 0.3), width: 1.2),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                          color: theme.primaryAmber.withValues(alpha: 0.08),
                           blurRadius: 20,
                           spreadRadius: 2,
                           offset: const Offset(0, 8),
@@ -833,7 +833,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Positioned(
                           top: 14,
                           left: 14,
-                          child: Icon(PhosphorIcons.compassBold, size: 20, color: const Color(0xFFFDE68A).withValues(alpha: 0.15)),
+                          child: Icon(PhosphorIcons.compassBold, size: 20, color: theme.primaryAmber.withValues(alpha: 0.15)),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(20),
@@ -843,11 +843,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             children: [
                               Row(
                                 children: [
-                                  Icon(PhosphorIcons.scrollBold, size: 13, color: const Color(0xFFFDE68A).withValues(alpha: 0.8)),
+                                  Icon(PhosphorIcons.scrollBold, size: 13, color: theme.primaryAmber.withValues(alpha: 0.8)),
                                   const SizedBox(width: 6),
                                   Text(
                                     'GÜNÜN GÖREVİ',
-                                    style: GoogleFonts.outfit(color: const Color(0xFFFDE68A).withValues(alpha: 0.85), fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1.4),
+                                    style: GoogleFonts.outfit(color: theme.primaryAmber.withValues(alpha: 0.85), fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1.4),
                                   ),
                                 ],
                               ),
@@ -858,7 +858,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   _activeBook != null ? _activeBook!.title : 'Kelime Egzersizi', 
                                   maxLines: 1, 
                                   overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.lora(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)
+                                  style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 24, fontWeight: FontWeight.bold)
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -875,7 +875,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       : 'Günlük Hedef • $_todayLearnedCards/$_dailyTargetCards Kelime',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12),
+                                  style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12),
                                 ),
                               ),
                               const SizedBox(height: 18),
@@ -887,8 +887,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       child: LinearProgressIndicator(
                                         value: goalProgress,
                                         minHeight: 8,
-                                        backgroundColor: const Color(0xFF334155), // Boş kısım için açık kontrast zemin[cite: 4]
-                                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)), // Dolu kısım doygun altın[cite: 4]
+                                        backgroundColor: theme.borderSubtle, // Boş kısım için açık kontrast zemin[cite: 4]
+                                        valueColor: AlwaysStoppedAnimation<Color>(theme.primaryAmber), // Dolu kısım doygun altın[cite: 4]
                                       ),
                                     ),
                                   ),
@@ -902,18 +902,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
                                   decoration: BoxDecoration(
-                                    gradient: const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)]),
+                                    gradient: LinearGradient(colors: [theme.primaryAmber.withValues(alpha: 0.75), theme.primaryAmber]),
                                     borderRadius: BorderRadius.circular(24),
                                     boxShadow: [
-                                      BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4)),
+                                      BoxShadow(color: theme.primaryAmber.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4)),
                                     ],
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(PhosphorIcons.playFill, size: 14, color: Color(0xFF070B14)),
+                                      Icon(PhosphorIcons.playFill, size: 14, color: theme.background),
                                       const SizedBox(width: 8),
-                                      Text('Derse Başla', style: GoogleFonts.outfit(color: const Color(0xFF070B14), fontWeight: FontWeight.w900, fontSize: 13.5)),
+                                      Text('Derse Başla', style: GoogleFonts.outfit(color: theme.background, fontWeight: FontWeight.w900, fontSize: 13.5)),
                                     ],
                                   ),
                                 ),
@@ -944,9 +944,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: theme.surfaceLight,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.45)),
+                              border: Border.all(color: theme.primaryAmber.withValues(alpha: 0.45)),
                               boxShadow: [
                                 BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 2)),
                               ],
@@ -954,11 +954,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(PhosphorIcons.sealCheckBold, size: 11, color: Color(0xFFFDE68A)),
+                                Icon(PhosphorIcons.sealCheckBold, size: 11, color: theme.primaryAmber),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Sen yaparsın!',
-                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 10, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),

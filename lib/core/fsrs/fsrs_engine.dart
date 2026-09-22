@@ -122,14 +122,24 @@ class FsrsEngine {
       lapses = current.lapses + (rating == FsrsRating.again ? 1 : 0);
     }
 
-    final intervalDays = _nextIntervalDays(stability);
-    final dueAt = DateTime(now.year, now.month, now.day).add(Duration(days: intervalDays));
-
     final FsrsState state;
     if (rating == FsrsRating.again) {
       state = (current == null || current.reps == 0) ? FsrsState.learning : FsrsState.relearning;
     } else {
       state = FsrsState.review;
+    }
+
+    // P0 (Faz 1, #9): "Again" (yanlış cevap) için gün-bazlı _nextIntervalDays
+    // formülü minimum 1 gün clamp'i içeriyor — bu, yanlış cevaplanan bir
+    // kelimeyi YANLIŞLIKLA yarına erteliyordu (FSRS'in standart davranışı
+    // "relearning" adımını kısa sürede, aynı gün içinde tekrar sormaktır).
+    // Doğru cevaplarda (Hard/Good/Easy) gün-bazlı aralık aynen korunuyor.
+    final DateTime dueAt;
+    if (rating == FsrsRating.again) {
+      dueAt = now.add(const Duration(minutes: 10));
+    } else {
+      final intervalDays = _nextIntervalDays(stability);
+      dueAt = DateTime(now.year, now.month, now.day).add(Duration(days: intervalDays));
     }
 
     return FsrsReviewResult(
