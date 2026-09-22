@@ -14,8 +14,19 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import 'core/ai_coach/ai_coach_repository.dart';
 import 'core/ai_coach/ai_coach_models.dart';
+import 'core/ai_coach/local_faq_responder.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/theme/draconic_theme.dart';
+
+// Sık sorulan sorular — dokunulunca yerel katmandan (kota harcamadan)
+// anında cevap gelir. Sadece sohbet henüz başlamamışken (ilk karşılama
+// mesajından sonra) gösterilir, ekranı kalabalıklaştırmaz.
+const List<String> _quickReplyQuestions = [
+  'Bugün kaç kelime öğrendim?',
+  'Serimi nasıl korurum?',
+  'Rozetler nasıl açılır?',
+  'Premium ne katıyor?',
+];
 
 class AiCoachScreen extends StatefulWidget {
   const AiCoachScreen({super.key});
@@ -66,8 +77,8 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
     });
   }
 
-  Future<void> _sendMessage() async {
-    final text = _inputController.text.trim();
+  Future<void> _sendMessage([String? presetText]) async {
+    final text = (presetText ?? _inputController.text).trim();
     if (text.isEmpty || _isSending) return;
 
     HapticFeedback.selectionClick();
@@ -77,6 +88,21 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
       _isSending = true;
     });
     _scrollToBottom();
+
+    // Önce YEREL katmana bak — eşleşirse gerçek AI'a hiç gidilmez, kota
+    // harcanmaz. Küçük bir "yazıyor" gecikmesi eklenir ki cevap anında
+    // belirmesin (doğal/canlı hissettirir); ağ hatası riski de yok.
+    final localReply = await LocalFaqResponder.instance.tryAnswer(text);
+    if (localReply != null) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      setState(() {
+        _messages.add(AiCoachMessage(role: AiCoachRole.assistant, content: localReply));
+        _isSending = false;
+      });
+      _scrollToBottom();
+      return;
+    }
 
     try {
       final reply = await AiCoachRepository.instance.sendMessage(
@@ -161,9 +187,41 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
                 },
               ),
             ),
+            if (_messages.length <= 1 && !_isSending) _buildQuickReplyChips(),
             _buildInputBar(),
           ],
         ),
+      ),
+    );
+  }
+
+  // Sohbet başlamadan önce görünen, dokununca yerel katmandan anında
+  // (kota harcamadan) cevap getiren hazır soru çipleri.
+  Widget _buildQuickReplyChips() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: _quickReplyQuestions.map((q) {
+          return InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => _sendMessage(q),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.surfaceLight,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: theme.borderSubtle),
+              ),
+              child: Text(
+                q,
+                style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

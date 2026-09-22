@@ -34,6 +34,7 @@ import 'core/auth/auth_service.dart'; // Hesap Sistemi
 import 'auth_screen.dart'; // Hesap Sistemi
 import 'core/notifications/notification_service.dart'; // Ayarlar → Bildirimler
 import 'core/design_system/ignis_alert.dart'; // Tema-uyumlu bilgilendirme pop-up'ı (SnackBar yerine)
+import 'core/branding/app_branding.dart'; // Ignis Önerisi kartındaki poz görseli için
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -50,6 +51,10 @@ class ProfileScreenState extends State<ProfileScreen> {
   int _masteredFlashcardsCount = 0;
   int _streakDays = 1;
   bool _hasFreezeShield = false;
+
+  // Profildeki "Ignis Önerisi" kartı — seans-sonu popup kotasını tüketmeyen
+  // salt-okunur önizleme (bkz. IgnisMomentsEngine.getProfileInsightPreview).
+  IgnisMoment? _ignisInsight;
 
   // Lig kartı artık leaderboard_screen.dart'taki GERÇEK sıralama algoritmasının
   // (kullanıcının gerçek XP'sinden türetilen simülasyon) burada yeniden
@@ -194,6 +199,10 @@ class ProfileScreenState extends State<ProfileScreen> {
         }
       }
 
+      // Ignis Önerisi kartı — salt okunur, seans-sonu popup kotasını
+      // tüketmez, profil her açıldığında güncel içgörüyü gösterir.
+      final ignisInsight = await IgnisMomentsEngine.instance.getProfileInsightPreview();
+
       if (!mounted) return;
       setState(() {
         _totalReadMinutes = totalReadMinutes;
@@ -208,6 +217,7 @@ class ProfileScreenState extends State<ProfileScreen> {
         _leagueRank = leagueRank;
         _leagueXpGap = leagueXpGap;
         _leagueRivalName = leagueRivalName;
+        _ignisInsight = ignisInsight;
       });
 
       // Yeni açılan rozet(ler) varsa — build tamamlandıktan sonra, Ignis
@@ -560,6 +570,8 @@ class ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 18),
                   _buildMasteryProgressBanner(),
                   const SizedBox(height: 16),
+                  _buildIgnisInsightCard(),
+                  const SizedBox(height: 16),
                   _buildLeagueRankCard(),
                   const SizedBox(height: 22),
                   // EJDERHA ROTASI V2 — FAZ 6: Apple tarzı minimal Profil —
@@ -581,6 +593,92 @@ class ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // Ignis Önerisi kartı — bugün pratik yoksa hiç gösterilmez (null insight).
+  // "Daha Fazla Bilgi" Premium olmayan kullanıcıya kısa bir bilgi + geçiş
+  // butonu gösterir, Premium kullanıcıya ise anlık genişletilmiş verileri.
+  Widget _buildIgnisInsightCard() {
+    final insight = _ignisInsight;
+    if (insight == null) return const SizedBox.shrink();
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.surfaceLight,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.borderSubtle),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.asset(
+              AppBranding.poseAsset(insight.pose),
+              width: 42,
+              height: 42,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(color: theme.infoTeal.withValues(alpha: 0.15), shape: BoxShape.circle),
+                child: Icon(PhosphorIcons.sparkleBold, color: theme.infoTeal, size: 20),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('IGNIS ÖNERİSİ', style: GoogleFonts.outfit(color: theme.infoTeal, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                const SizedBox(height: 3),
+                Text(insight.title, style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 3),
+                Text(insight.message, style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12, height: 1.4)),
+                const SizedBox(height: 6),
+                InkWell(
+                  onTap: _onIgnisInsightMoreInfoTap,
+                  child: Text(
+                    'Daha Fazla Bilgi →',
+                    style: GoogleFonts.inter(color: theme.infoTeal, fontSize: 11.5, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onIgnisInsightMoreInfoTap() {
+    HapticFeedback.selectionClick();
+    if (EntitlementRepository.instance.isPremium) {
+      _showIgnisInsightPremiumDetail();
+    } else {
+      IgnisAlert.show(
+        context,
+        message: 'Haftalık projeksiyon, ustalaşma oranı ve daha fazla detaylı içgörü Premium\'da. '
+            'Şu an sadece en güncel özet gösteriliyor.',
+        type: IgnisAlertType.info,
+        actionLabel: 'Premium\'a Geç',
+        onAction: () => EntitlementRepository.instance.presentPaywall(),
+      );
+    }
+  }
+
+  Future<void> _showIgnisInsightPremiumDetail() async {
+    final status = await IgnisMomentsEngine.instance.getDailyStatusSnapshot();
+    if (!mounted) return;
+    IgnisAlert.show(
+      context,
+      message: 'Bugün ${status.newWordsToday} yeni kelime + ${status.reviewsToday} tekrar yaptın. '
+          'Haftalık projeksiyon: ${status.weeklyProjection} kelime. '
+          'Serin: $_streakDays gün, ustalaşılan kelime: $_masteredFlashcardsCount.',
+      type: IgnisAlertType.success,
     );
   }
 
@@ -961,6 +1059,60 @@ class ProfileScreenState extends State<ProfileScreen> {
                           actionLabel: 'Kapat',
                           onAction: () {},
                         );
+                      },
+                    ),
+                    // Yukarıdaki gerçek-motor butonu veri/rastgelelik
+                    // koşullarına bağlı (dünden fazla kelime + %50 ihtimal)
+                    // — bu yüzden "Dünden Daha İyisin" türünü sabit
+                    // örnek verilerle deterministik olarak önizlemek için
+                    // ayrı bir buton.
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.trendUpBold,
+                      iconColor: const Color(0xFF34D399),
+                      title: 'Ignis Anı: Dünle Karşılaştırma Önizle',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        CelebrationDialog.show(
+                          context,
+                          emoji: '✨',
+                          title: 'Ignis Anı Önizlemesi',
+                          subtitle: 'Örnek veriyle sabit önizleme (dün: 3, bugün: 6 kelime).',
+                          earnedXp: 0,
+                          earnedGems: 0,
+                          ignisMomentTitle: 'Dünden Daha İyisin!',
+                          ignisMomentMessage: 'Dün 3 yeni kelime öğrenmiştin, bugün 6 — güzel bir sıçrama!',
+                          ignisMomentPose: 'happy',
+                          actionLabel: 'Kapat',
+                          onAction: () {},
+                        );
+                      },
+                    ),
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.lockKeyBold,
+                      iconColor: const Color(0xFF94A3B8),
+                      title: 'Profil Önerisi: Premium-Dışı Bilgi Önizle',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        IgnisAlert.show(
+                          context,
+                          message: 'Haftalık projeksiyon, ustalaşma oranı ve daha fazla detaylı içgörü Premium\'da. '
+                              'Şu an sadece en güncel özet gösteriliyor.',
+                          type: IgnisAlertType.info,
+                          actionLabel: 'Premium\'a Geç',
+                          onAction: () => EntitlementRepository.instance.presentPaywall(),
+                        );
+                      },
+                    ),
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.crownBold,
+                      iconColor: const Color(0xFFFBBF24),
+                      title: 'Profil Önerisi: Premium Detay Önizle',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _showIgnisInsightPremiumDetail();
                       },
                     ),
                   ],

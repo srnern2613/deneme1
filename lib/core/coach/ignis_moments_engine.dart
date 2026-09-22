@@ -5,10 +5,13 @@
 // AI YOK, SUNUCU YOK, HESAP YOK — tamamen database_helper.dart'taki
 // daily_stats / flashcards verisinden ve StreakFreezeService'ten besleniyor.
 //
-// SIKLIK KURALI (kullanıcı kararı: "ölçülü"): günde en fazla 1 "önemli an"
-// (seri kilometre taşı, kişisel rekor vb.) + her seans sonu basit bir özet.
-// Egzersizin ortasında ASLA çağrılmaz — sadece seans/oturum bittiğinde.
+// SIKLIK KURALI (güncellendi — kullanıcı kararı: "biraz daha arttıralım"):
+// günde en fazla 2 "önemli an" (seri kilometre taşı, kişisel rekor, dünle
+// karşılaştırma vb.) + her seans sonu basit bir özet. Egzersizin ortasında
+// ASLA çağrılmaz — sadece seans/oturum bittiğinde.
 // ============================================================================
+
+import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,6 +24,9 @@ enum IgnisMomentType {
   dailySummary,
   streakLost,
   dailyGoalCompleted,
+  // Dünle karşılaştırma anı — paceInsight'ın bir varyasyonu, aynı öncelik
+  // kademesinde, önceden zaten çekilen 7 günlük veriden (ek DB sorgusu yok).
+  comparison,
 }
 
 class IgnisMoment {
@@ -71,7 +77,12 @@ class IgnisMomentsEngine {
   IgnisMomentsEngine._();
   static final IgnisMomentsEngine instance = IgnisMomentsEngine._();
 
-  static const _prefsLastImportantDateKey = 'ignis_last_important_moment_date';
+  // Eskiden tek bir tarih string'i tutuluyordu (günde en fazla 1). Artık
+  // "gün + o günkü sayaç" birlikte tutuluyor, böylece günde 2'ye kadar
+  // önemli an gösterilebiliyor — gün değişince sayaç doğal olarak sıfırlanır.
+  static const _prefsImportantMomentDateKey = 'ignis_last_important_moment_date';
+  static const _prefsImportantMomentCountKey = 'ignis_important_moment_count';
+  static const int _maxImportantMomentsPerDay = 2;
   // Faz F: seri-kaybı anı ayrı bir tetikleyici noktada (uygulama açılışı)
   // gösteriliyor — seans-sonu "önemli an" sıklık kuralıyla PAYLAŞMIYOR,
   // kendi günlük kilidini kullanıyor.
@@ -82,19 +93,63 @@ class IgnisMomentsEngine {
   static const _prefsLastDailyGoalDateKey = 'ignis_last_daily_goal_moment_date';
   static const List<int> _streakMilestones = [7, 30, 100];
 
+  final Random _rand = Random();
+
+  String _pickVariant(List<String> variants) => variants[_rand.nextInt(variants.length)];
+
+  // Mesaj varyasyon havuzları — hem seans-sonu popup'ı hem de profildeki
+  // salt-okunur önizleme AYNI havuzları kullanır, tek yerden yönetilir.
+  List<String> _streakMilestoneMessages(int streakDays) => [
+        '$streakDays gündür kesintisiz pratik yapıyorsun. Bu disiplin kalıcı hafızanın temeli.',
+        '$streakDays gün! Bu istikrarı sürdürmek gerçek bir güç — devam et.',
+        '$streakDays günlük seri... Bu artık bir alışkanlık haline geldi, tebrikler!',
+        '$streakDays gün boyunca hiç aksatmadın. Zindanın en disiplinli maceracılarından birisin.',
+      ];
+
+  List<String> _comparisonMessages(int yesterdayNewWords, int newWords) => [
+        'Dün $yesterdayNewWords yeni kelime öğrenmiştin, bugün $newWords — güzel bir sıçrama!',
+        'Bugün dünden $newWords kelime ile daha güçlü bir gün geçirdin (dün: $yesterdayNewWords).',
+        'Dünle kıyaslayınca bugün daha iyisin: $yesterdayNewWords → $newWords kelime.',
+        'Bu ivmeyi seviyorum — dün $yesterdayNewWords, bugün $newWords kelime!',
+      ];
+
+  List<String> _paceInsightMessages(int weeklyProjection, int dueTomorrow) => [
+        'Bu hızla bir haftada yaklaşık $weeklyProjection kelime öğrenmiş olacaksın. Yarın $dueTomorrow kelimenin tekrar vakti geliyor.',
+        'Böyle devam edersen bir haftada $weeklyProjection kelimeye ulaşırsın. $dueTomorrow kelime yarın seni bekliyor.',
+        'Bu tempoyla haftalık projeksiyonun $weeklyProjection kelime. Yarına $dueTomorrow tekrar kaldı.',
+        'Gidişat çok iyi: bu hızla haftada $weeklyProjection kelime. Yarın $dueTomorrow kelimeyi tekrar edeceksin.',
+      ];
+
+  // Günün saatine göre kısa bir selamlama öneki — aynı "günlük özet"
+  // mesajının her zaman aynı hissettirmemesi için. Ek state/DB sorgusu
+  // gerektirmiyor, sadece DateTime.now().hour.
+  String _timeOfDayGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 6) return 'Bu saatte bile buradasın, etkileyici!';
+    if (hour < 12) return 'Güne güzel başladın.';
+    if (hour < 18) return 'Günün ortasında bile pratik yapmayı unutmadın.';
+    return 'Günü güzel bir pratikle kapatıyorsun.';
+  }
+
   String _todayKey() {
     final now = DateTime.now();
     return "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
   }
 
-  Future<bool> _importantMomentAlreadyShownToday() async {
+  Future<int> _importantMomentCountToday() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_prefsLastImportantDateKey) == _todayKey();
+    if (prefs.getString(_prefsImportantMomentDateKey) != _todayKey()) return 0;
+    return prefs.getInt(_prefsImportantMomentCountKey) ?? 0;
   }
 
   Future<void> _markImportantMomentShown() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsLastImportantDateKey, _todayKey());
+    final today = _todayKey();
+    final currentCount = prefs.getString(_prefsImportantMomentDateKey) == today
+        ? (prefs.getInt(_prefsImportantMomentCountKey) ?? 0)
+        : 0;
+    await prefs.setString(_prefsImportantMomentDateKey, today);
+    await prefs.setInt(_prefsImportantMomentCountKey, currentCount + 1);
   }
 
   /// Seans sonunda (SRS/quiz/spelling/match bitişinde) çağrılır — asla
@@ -111,9 +166,9 @@ class IgnisMomentsEngine {
     if (newWords == 0 && reviews == 0) return null;
 
     final dueTomorrow = await db.getDueTomorrowCount();
-    final alreadyShown = await _importantMomentAlreadyShownToday();
+    final shownCount = await _importantMomentCountToday();
 
-    if (!alreadyShown) {
+    if (shownCount < _maxImportantMomentsPerDay) {
       // Öncelik 1: seri kilometre taşı (7/30/100 gün) — en güçlü an.
       final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
       final streakDays = streakResult['streakDays'] as int? ?? 0;
@@ -123,12 +178,13 @@ class IgnisMomentsEngine {
           type: IgnisMomentType.streakMilestone,
           pose: 'celebrating',
           title: '$streakDays Günlük Seri!',
-          message: '$streakDays gündür kesintisiz pratik yapıyorsun. Bu disiplin kalıcı hafızanın temeli.',
+          message: _pickVariant(_streakMilestoneMessages(streakDays)),
         );
       }
 
       // Öncelik 2: hız/projeksiyon içgörüsü (kullanıcının asıl istediği
-      // özellik: "bu gidişle 1 haftada şu kadar öğrenirsin").
+      // özellik: "bu gidişle 1 haftada şu kadar öğrenirsin"). Aynı sorguyla
+      // dünle karşılaştırma da hesaplanabiliyor — ek DB maliyeti yok.
       final range = await db.getDailyStatsRange(7);
       final totalNewLast7Days = range.fold<int>(
         0,
@@ -137,27 +193,112 @@ class IgnisMomentsEngine {
       final avgPerDay = totalNewLast7Days / 7.0;
       final weeklyProjection = (avgPerDay * 7).round();
 
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterdayKey =
+          "${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}";
+      final yesterdayRow = range.where((r) => r['stat_date'] == yesterdayKey).toList();
+      final yesterdayNewWords = yesterdayRow.isNotEmpty ? ((yesterdayRow.first['new_words_count'] as int?) ?? 0) : 0;
+
       await _markImportantMomentShown();
+
+      // Dünden belirgin bir sıçrama varsa, yarı yarıya ihtimalle karşılaştırma
+      // anını göster — aynı pace-insight bilgisini farklı bir açıdan sunar,
+      // her seferinde aynı "bu hızla..." cümlesini görmemek için.
+      if (newWords > yesterdayNewWords && _rand.nextBool()) {
+        return IgnisMoment(
+          type: IgnisMomentType.comparison,
+          // "happy" — streak kilometre taşının (celebrating/excited) tuttuğu
+          // büyük kutlama ile karıştırılmasın diye daha hafif bir ifade.
+          pose: 'happy',
+          title: 'Dünden Daha İyisin!',
+          message: _pickVariant(_comparisonMessages(yesterdayNewWords, newWords)),
+        );
+      }
 
       if (weeklyProjection > 0) {
         return IgnisMoment(
           type: IgnisMomentType.paceInsight,
           pose: 'teacher',
           title: 'Bugün $newWords Kelime Öğrendin!',
-          message: 'Bu hızla bir haftada yaklaşık $weeklyProjection kelime öğrenmiş olacaksın. '
-              'Yarın $dueTomorrow kelimenin tekrar vakti geliyor.',
+          message: _pickVariant(_paceInsightMessages(weeklyProjection, dueTomorrow)),
         );
       }
     }
 
     // Bugün zaten bir "önemli an" gösterildi ya da hiçbiri tetiklenmedi —
     // sade günlük özet (her seans sonunda gösterilebilir, ölçülü kuralı
-    // dışında çünkü bu bir kutlama değil, bilgi satırı).
+    // dışında çünkü bu bir kutlama değil, bilgi satırı). Saate göre kısa
+    // bir selamlama öneki ekleniyor ki her zaman aynı hissetmesin.
     return IgnisMoment(
       type: IgnisMomentType.dailySummary,
       pose: 'teacher',
       title: 'Bugünkü İlerlemen',
-      message: 'Bugün $newWords yeni kelime, $reviews tekrar yaptın. '
+      message: '${_timeOfDayGreeting()} Bugün $newWords yeni kelime, $reviews tekrar yaptın. '
+          'Yarın $dueTomorrow kelimenin tekrar vakti geliyor.',
+    );
+  }
+
+  /// Profil ekranındaki "Ignis Önerisi" kartı için — SALT OKUNUR, seans-sonu
+  /// popup'ının günlük kotasını (en fazla 2) HİÇ TÜKETMEZ ve o kotadan
+  /// bağımsızdır. Aynı öncelik sırasını (seri kilometre taşı → dünle
+  /// karşılaştırma → hız içgörüsü → günlük özet) kullanarak, profil her
+  /// açıldığında en güncel içgörüyü yeniden hesaplayıp döner. Bugün hiç
+  /// pratik yoksa null döner (kart o zaman gizlenir).
+  Future<IgnisMoment?> getProfileInsightPreview() async {
+    final db = DatabaseHelper.instance;
+    final today = await db.getTodayStatsSummary();
+    final newWords = today['new_words_count'] ?? 0;
+    final reviews = today['review_count'] ?? 0;
+    if (newWords == 0 && reviews == 0) return null;
+
+    final dueTomorrow = await db.getDueTomorrowCount();
+    final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
+    final streakDays = streakResult['streakDays'] as int? ?? 0;
+    if (_streakMilestones.contains(streakDays)) {
+      return IgnisMoment(
+        type: IgnisMomentType.streakMilestone,
+        pose: 'celebrating',
+        title: '$streakDays Günlük Seri!',
+        message: _pickVariant(_streakMilestoneMessages(streakDays)),
+      );
+    }
+
+    final range = await db.getDailyStatsRange(7);
+    final totalNewLast7Days = range.fold<int>(
+      0,
+      (sum, row) => sum + ((row['new_words_count'] as int?) ?? 0),
+    );
+    final weeklyProjection = ((totalNewLast7Days / 7.0) * 7).round();
+
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final yesterdayKey =
+        "${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}";
+    final yesterdayRow = range.where((r) => r['stat_date'] == yesterdayKey).toList();
+    final yesterdayNewWords = yesterdayRow.isNotEmpty ? ((yesterdayRow.first['new_words_count'] as int?) ?? 0) : 0;
+
+    if (newWords > yesterdayNewWords) {
+      return IgnisMoment(
+        type: IgnisMomentType.comparison,
+        pose: 'happy',
+        title: 'Dünden Daha İyisin!',
+        message: _pickVariant(_comparisonMessages(yesterdayNewWords, newWords)),
+      );
+    }
+
+    if (weeklyProjection > 0) {
+      return IgnisMoment(
+        type: IgnisMomentType.paceInsight,
+        pose: 'teacher',
+        title: 'Bugün $newWords Kelime Öğrendin!',
+        message: _pickVariant(_paceInsightMessages(weeklyProjection, dueTomorrow)),
+      );
+    }
+
+    return IgnisMoment(
+      type: IgnisMomentType.dailySummary,
+      pose: 'teacher',
+      title: 'Bugünkü İlerlemen',
+      message: '${_timeOfDayGreeting()} Bugün $newWords yeni kelime, $reviews tekrar yaptın. '
           'Yarın $dueTomorrow kelimenin tekrar vakti geliyor.',
     );
   }
