@@ -306,12 +306,21 @@ class ScreenHeaderBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    // P0-D: bu rozet ekranın en üstünde, kendi temalı arkaplan .webp
+    // görselinin üzerinde duruyor. Eski kod sadece %16 alfa'lı bir renk
+    // katmanı çiziyordu — arkasındaki görsel o noktada koyu olduğunda
+    // (çoğu ekranda öyle), rozet temadan bağımsız olarak siyaha yakın bir
+    // daire gibi görünüyordu ("her sekmede üstte beyaz temada siyah kalan
+    // kutucuklar" şikayeti). Önce opak bir tema-zemini (header stat pill'lerle
+    // aynı `surfaceDark` katmanı) çizilip üstüne aksan rengi bindirilerek
+    // arkadaki görselden bağımsız, temayla tutarlı bir rozet elde edildi.
     final badge = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: color.withValues(alpha: 0.16),
+        color: theme.surfaceDark.withValues(alpha: 0.88),
         border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.55), width: 1.5),
         boxShadow: [
           BoxShadow(color: const Color(0xFFFDE68A).withValues(alpha: 0.18), blurRadius: 10, spreadRadius: 0.5),
@@ -320,6 +329,13 @@ class ScreenHeaderBadge extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
+          // Opak zeminin üstünde aksan rengi tonu — artık arkadaki görselden
+          // değil, sadece opak `surfaceDark` zemininden besleniyor.
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.22)),
+            ),
+          ),
           Center(child: Icon(icon, color: color, size: size * 0.43)),
           if (showAffordanceDot)
             Positioned(
@@ -410,6 +426,11 @@ class IgnisCharacterPortrait extends StatelessWidget {
       child: Image.asset(
         'assets/images/ignis_avatar.png',
         fit: BoxFit.contain,
+        // P0-D: kaynak 1.1MB'lık yüksek çözünürlüklü PNG — gösterilen
+        // boyuta (size) göre cache verilerek gereksiz tam-çözünürlük
+        // decode'u önlendi.
+        cacheWidth: (size * MediaQuery.of(context).devicePixelRatio).round(),
+        cacheHeight: (size * MediaQuery.of(context).devicePixelRatio).round(),
       ),
     ).animate(onPlay: (controller) => controller.repeat(reverse: true))
      .scale(

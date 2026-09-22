@@ -98,10 +98,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   /// Kullanıcı XP'sini çeker ve sıralamayı oluşturur
   Future<void> _loadLeagueData() async {
     try {
-      // P0-C: liderlik artık toplam XP'yi değil, gerçekten haftalık sıfırlanan
-      // sezon sayacını okuyor — "SEZON XP · haftalık sıfırlanır" etiketi
-      // şimdi doğru veriye karşılık geliyor.
-      final xp = await XpShopService.instance.getSeasonXp();
+      // P0-D: kullanıcı geri bildirimi — "xp heryerde aynı sezon xp desede
+      // normal xp desede aynı bunlar" — header pill ile bu listenin farklı
+      // sayaçlardan (toplam XP vs. haftalık sıfırlanan sezon XP) beslenmesi
+      // P0-C'nin çözmeye çalıştığı "iki sayı senkron değil" şikayetini aslında
+      // çözmüyordu, sadece etiketliyordu. Artık ikisi de AYNI kaynağı (toplam
+      // XP) okuyor; "SEZON XP" ayrımı kaldırıldı.
+      final xp = await XpShopService.instance.getTotalXp();
       final userCurrentXp = xp;
 
       final List<Map<String, dynamic>> simulatedLeague = [
@@ -301,13 +304,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    // P0-4: header'daki XP pill'i her sekmede TOPLAM XP gösteriyor
-                    // (bkz. XpShopService.instance.xpNotifier); bu listedeki sayılar
-                    // ise sezonluk/lig XP'si — aynı ekranda iki farklı XP sayısı yan
-                    // yana durunca "XP'm gitti" izlenimi veriyordu. Karar: header
-                    // toplam XP'de sabit kalıyor, burası açıkça "Sezon XP" etiketleniyor.
+                    // P0-D: header pill ve bu liste artık aynı kaynağı (toplam XP)
+                    // okuyor — eski "SEZON XP · haftalık sıfırlanır" etiketi yanlış
+                    // bilgi vermeye başlardı (sayı artık haftalık sıfırlanmıyor).
                     Text(
-                      'SEZON XP · haftalık sıfırlanır',
+                      'XP',
                       style: GoogleFonts.outfit(color: theme.textMuted, fontWeight: FontWeight.w700, fontSize: 10.5, letterSpacing: 0.3),
                     ),
                     const SizedBox(height: 8),
@@ -337,30 +338,46 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         const Expanded(
           child: RuneTitle(title: 'Sıralama', subtitle: 'Günlük Görevler & Lig'),
         ),
-        _buildHeaderStatPill(icon: PhosphorIcons.lightningBold, color: theme.infoTeal, listenable: XpShopService.instance.xpNotifier),
+        // P0-D: header pill ve listedeki "XP" etiketi artık aynı sayıyı
+        // (toplam XP) gösteriyor — "Toplam" etiketi doğru ve gereksiz değil,
+        // korunuyor.
+        _buildHeaderStatPill(icon: PhosphorIcons.lightningBold, color: theme.infoTeal, listenable: XpShopService.instance.xpNotifier, label: 'Toplam'),
       ],
     );
   }
 
-  Widget _buildHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable}) {
+  Widget _buildHeaderStatPill({required IconData icon, required Color color, required ValueListenable<int> listenable, String? label}) {
     final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: theme.surfaceDark.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(13),
         border: Border.all(color: theme.borderSubtle, width: 1),
       ),
-      child: ValueListenableBuilder<int>(
-        valueListenable: listenable,
-        builder: (context, value, _) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: color),
-            const SizedBox(width: 4),
-            Text('$value', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (label != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                label.toUpperCase(),
+                style: GoogleFonts.outfit(color: theme.textMuted, fontWeight: FontWeight.w700, fontSize: 8, letterSpacing: 0.3),
+              ),
+            ),
+          ValueListenableBuilder<int>(
+            valueListenable: listenable,
+            builder: (context, value, _) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: color),
+                const SizedBox(width: 4),
+                Text('$value', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

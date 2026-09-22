@@ -209,6 +209,11 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
         width: size,
         height: size,
         fit: BoxFit.cover,
+        // P0-D: kaynak dosya 2MB'ın üzerinde (yüksek çözünürlüklü);
+        // cacheWidth/cacheHeight vermeden gereksiz tam-çözünürlük decode'u
+        // yapılıyordu — gösterilen boyuta (size) göre cache verildi.
+        cacheWidth: (size * MediaQuery.of(context).devicePixelRatio).round(),
+        cacheHeight: (size * MediaQuery.of(context).devicePixelRatio).round(),
       ),
     );
   }

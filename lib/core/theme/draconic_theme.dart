@@ -111,25 +111,33 @@ class DraconicTheme extends ThemeExtension<DraconicTheme> {
   // UI/UX Düzeltme Listesi — Faz A1: parşömen paleti kullanıcı geri
   // bildirimine göre kalibre edildi. textPrimary artık saf siyaha yakın
   // (#1C1917) değil, sıcak koyu kahve (#2C221E) — "tema geçişinde siyah
-  // kalan metin/ikon" şikayetinin köküydü. surfaceLight artık düz beyaz
-  // değil, tok kağıt dokusu tonu (#E6DEC9) — buton/kart arka planları
-  // parşömen zeminden görsel olarak ayrışsın diye. borderSubtle bu yeni
-  // surfaceLight'a karşı hâlâ görünür kalsın diye biraz koyulaştırıldı.
+  // kalan metin/ikon" şikayetinin köküydü.
+  // P0-D — 2. tur kalibrasyon: kullanıcı "arka plan çok cırtlak, uygulamanın
+  // geri kalanıyla uyumsuz" geri bildirimini verdi. İki değişiklik birlikte
+  // uygulandı: (1) background/surfaceLight/borderSubtle'daki hardal/haki
+  // tonu törpülenip daha nötr, soluk bir kağıt hissine çekildi; (2) soğuk ve
+  // canlı duran infoTeal/cognitiveIndigo, sıcak kremle çatışmasın diye daha
+  // sakin/sıcak tonlara kaydırıldı — primaryAmber (marka rengi) ve
+  // successEmerald zaten yeterince sakin olduğu için dokunulmadı.
   factory DraconicTheme.parchment() {
     return const DraconicTheme(
       performanceTier: DevicePerformanceTier.low,
       isDark: false,
-      background: Color(0xFFF4EEDC),
-      surfaceDark: Color(0xFFFDFAF3),
-      surfaceLight: Color(0xFFE6DEC9),
-      borderSubtle: Color(0xFFD6C7A8),
+      background: Color(0xFFF7F3E8),
+      surfaceDark: Color(0xFFFDFBF5),
+      surfaceLight: Color(0xFFEDE6D3),
+      borderSubtle: Color(0xFFDCD0B4),
       textPrimary: Color(0xFF2C221E),
       textSecondary: Color(0xFF57534E),
       textMuted: Color(0xFF78716C),
       primaryAmber: Color(0xFFB45309),
       successEmerald: Color(0xFF047857),
-      infoTeal: Color(0xFF0369A1),
-      cognitiveIndigo: Color(0xFF4338CA),
+      // Eski 0xFF0369A1 (doygun mavi) sıcak kremle çatışıyordu — daha sakin,
+      // yeşile yakın bir teal'e çekildi.
+      infoTeal: Color(0xFF0F766E),
+      // Eski 0xFF4338CA (canlı mor-mavi) aynı sebeple, tozlu/sakin bir
+      // erguvan tonuna çekildi.
+      cognitiveIndigo: Color(0xFF6D5A8C),
       dangerRed: Color(0xFFB91C1C),
       // Koyu, sıcak kahve/mürekkep tonu — krem/bej sekme zemininde en
       // yüksek okunabilirlik, parşömen hissiyle de uyumlu.

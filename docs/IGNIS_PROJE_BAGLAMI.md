@@ -278,19 +278,73 @@ bir yol haritasına bölündü ve cihaz üzerinde teker teker doğrulandı:
     sınıfının bir daha, hiçbir AI/geliştirici tarafından tekrar
     yaşanmaması.
 
+- **Faz J — Merkezi uyarı bileşeni (`IgnisAlert`) ve XP kaynağı birleştirme
+  (Eylül 2026):**
+  - **SnackBar → IgnisAlert:** Kullanıcı, "Hesap sistemi henüz
+    yapılandırılmadı." gibi standart gri Flutter `SnackBar` uyarılarının
+    uygulamanın görsel kimliğine uymadığını belirtti; bundan sonra
+    eklenecek HER uyarı için de aynı standardın kullanılmasını istedi.
+    Yeni `lib/core/design_system/ignis_alert.dart` eklendi: `DraconicTheme`
+    tokenlarını kullanan (`surfaceLight` zemin, `borderSubtle` çerçeve,
+    24pt radius), tipe göre ikon/renk değişen (`info`/`success`/`error`)
+    ortalanmış bir dialog (`IgnisAlert.show(...)`), isteğe bağlı
+    `actionLabel`/`onAction` ile geri al (undo) butonu destekli. Uygulama
+    genelinde 6 dosyada (`profile_screen.dart`, `shop_screen.dart`,
+    `reader_screen.dart`, `flashcards_screen.dart`,
+    `dictionary_screen.dart`, `habit_tracker_screen.dart`) toplam 18
+    `showSnackBar` çağrısı `IgnisAlert.show(...)`'a çevrildi. `.cursorrules`'a
+    kalıcı kural olarak eklendi (bölüm 0.2) — bundan sonra hiçbir ekranda
+    SnackBar'a geri dönülmemeli.
+    **Bilinen UX ödünü (kullanıcıya iletildi, henüz karar alınmadı):**
+    `habit_tracker_screen.dart`'taki alışkanlık silme "Geri Al" akışı
+    eskiden 4 saniyede kendiliğinden kapanan, dokunmadan devam edilebilen
+    bir SnackBar'dı; artık dokunmayı bekleyen bir modal — istenirse
+    otomatik kapanma eklenebilir.
+  - **XP kaynağı birleştirildi:** Kullanıcı, sıralama listesindeki XP ile
+    üst bardaki XP pill'inin görsel olarak "senkron değilmiş" gibi
+    durmasına önce bir "TOPLAM" etiketiyle çözüm arandı (bkz. eski P0-4/
+    P0-C kararları — kasıtlı olarak iki farklı sayaç: toplam XP vs.
+    haftalık sıfırlanan sezon XP). Kullanıcı daha sonra net bir şekilde bu
+    ayrımı REDDETTİ: "xp heryerde aynı sezon xp desede normal xp desede
+    aynı bunlar" — yani iki farklı sayı değil, TEK bir XP değeri
+    istiyor. `leaderboard_screen.dart`'taki `_loadLeagueData()` artık
+    `XpShopService.getSeasonXp()` yerine `getTotalXp()` okuyor; liste
+    etiketi "SEZON XP · haftalık sıfırlanır"dan sade "XP"ye çevrildi.
+    Header pill'deki "Toplam" etiketi artık doğru ve tutarlı olduğu için
+    korundu. `getSeasonXp()` metodu `xp_shop_service.dart`'ta hâlâ duruyor
+    (başka bir yerde kullanılmıyor, silinmedi — ileride haftalık lig
+    konsepti geri istenirse kullanılabilir). **Not:** "İlk 3 Üst Lige Çıkar"
+    rozeti ve YÜKSELME/DÜŞME HATTI çizgileri kavramsal olarak haftalık
+    sıfırlanan bir lig sistemine dayanıyordu; XP artık sıfırlanmadığı için
+    bu haftalık lig konsepti sadece göreceli sıralamaya (kim kimin önünde)
+    dayalı kalıyor — bu tutarsızlık kullanıcıya ayrıca iletildi, gerekirse
+    ayrı bir kararla ele alınabilir.
+
 ## Kalan/bilinen backlog
-- İleride: aydınlık temanın önceliklendirilmesi, RPG temasının biraz geri plana
-  alınıp eğitim içeriğinin öne çekilmesi (kullanıcının notu, henüz uygulanmıyor).
-- "Seri Kaybı Uyarısı" şu an sabit saatli bir hatırlatma; kullanıcının o gün
-  gerçekten pratik yapıp yapmadığını kontrol eden koşullu/akıllı bir sistem
-  DEĞİL (bkz. Faz H notu) — istenirse ayrı bir oturumda WorkManager tabanlı
-  bir çözüm eklenebilir.
+- Aydınlık (parşömen) temanın önceliklendirilmesi ve renk/görsel uyumu
+  yeniden ele alınıyor — kullanıcı, parşömen temanın ARKA PLAN renk
+  paletinin "çok cırtlak" olduğunu ve uygulamanın geri kalanıyla
+  uyumsuz durduğunu belirtti; ayarlanabilir/daha yumuşak bir palet
+  istiyor. Netleştirme (ekran görüntüsü) bekleniyor.
+- Kullanıcı, "her sekmede üstte beyaz temada siyah kalan kutucuklar"
+  olduğunu bildirdi (parşömen temada tepede bazı kutuların koyu/siyah
+  kalması). Kapsamlı bir kod taraması (tüm ekranların üst header stat-pill
+  bileşenleri, `ScreenHeaderBadge`, `RuneTitle`, `main.dart`'taki
+  `MaterialApp` tema/parlaklık senkronu) yapıldı; hiçbirinde sabit-koyu,
+  tema tokenı kullanmayan bir kod bulunamadı — kök neden hâlâ
+  netleşmedi. Ekran görüntüsü paylaşılırsa hedefli düzeltme yapılabilir.
+- **"Seri Kaybı Uyarısı" akıllı/koşullu sistemi — kullanıcı kararıyla
+  VAZGEÇİLDİ:** kullanıcı açıkça bu işi eklemeye gerek olmadığını belirtti
+  ("seri kaybı saniye işini eklememize gerek yok"). Bildirim sabit 21:30
+  saatli hatırlatma olarak kalmaya devam ediyor, WorkManager tabanlı
+  koşullu kontrol artık planlanmıyor.
 - Bildirimlerin reboot sonrası otomatik yeniden kurulması için
   BOOT_COMPLETED receiver'ı eklenmedi (manifest izni hazır) — şu an için
   uygulamanın bir kez açılması yeterli.
-- Kart renk paletiyle ilgili kullanıcının asıl kastettiği ekran/kart hâlâ
-  netleşmedi (bkz. Faz H notu) — ekran görüntüsü paylaşılırsa hedefli
-  düzeltme yapılabilir.
+- Kart renk paletiyle ilgili Faz H'deki eski not artık geçersiz —
+  kullanıcı asıl şikayetin "üstte beyaz temada siyah kalan kutucuklar"
+  olduğunu netleştirdi (yukarıdaki maddeye bakınız), pastel kart rengi
+  değil.
 
 ## Geliştirme süreci notu
 - Kod C:\src\ignis altında, Windows makinede; değişiklikler bir cihaz köprüsü

@@ -20,12 +20,21 @@ dependencies:
   shared_preferences: ^2.5.5
   syncfusion_flutter_pdf: ^34.2.5
   http: ^1.6.0
+  # P0-D: audioplayers/audio_service kod tabanında kullanılmıyor (kelime
+  # seslendirme flutter_tts üzerinden çalışıyor, bkz. tts_service.dart) ama
+  # BİLEREK burada tutuluyor — izolasyon testiyle doğrulandı ki bu ikisi
+  # kaldırıldığında `:app:compileDebugKotlin` derleme hatası oluşuyor
+  # (muhtemelen native/Kotlin plugin registrant tarafında bir cache/kayıt
+  # tutarsızlığı; Gradle/BTAPI gerçek tanı satırını göstermediği için kesin
+  # kök neden doğrulanamadı). Riski göze almamak için paketler geri kondu.
   flutter_tts: ^4.2.5
   audioplayers: ^6.8.1
   audio_service: ^0.18.19
   google_fonts: ^8.2.1
   phosphoricons_flutter: ^1.0.0
   flutter_animate: ^4.5.2
+  # rive: henüz kullanılmıyor ama kullanılacak — bilerek tutuldu (bkz.
+  # assets/rive/ klasörü ve gelecekteki animasyon planı).
   rive: ^0.13.1
 
   # Ejderha Rotası V2 — Faz 2: Entitlement/Paywall (RevenueCat)

@@ -55,13 +55,52 @@ void main() async {
     // her açılışta bunu önce kurmalı ki PaywallTrigger'lar doğru premium
     // durumuyla render edilsin.
     await EntitlementRepository.instance.init();
-    // Zaten oturum açık bir hesap varsa (uygulama yeniden açıldıysa)
-    // RevenueCat kimliğini tekrar o hesaba bağla.
-    await AuthService.instance.restoreAccountLinkIfNeeded();
     // UI/UX Düzeltme Listesi — T-6: tema tercihi runApp'ten ÖNCE yüklenmeli
     // ki ilk kare doğru temayla çizilsin (açılışta karanlık→aydınlık
     // sıçraması olmasın).
     await ThemeController.instance.init();
+  } catch (e) {
+    debugPrint('Servis başlatma hatası: $e');
+  }
+
+  // Edge-to-edge: Android'in alt 3-tuş/gesture navigasyon şeridi artık
+  // ayrı, kopuk bir gri/beyaz bant gibi durmasın diye sistem çubuklarının
+  // ARKASINA çiziyoruz (Android 15/SDK 35 hedefleyen uygulamalarda zaten
+  // zorunlu olan davranış). Gerçek kontroller/içerik hâlâ MediaQuery
+  // insets'iyle (bkz. PlatformTokens.scrollBottomPadding, SafeArea) güvenli
+  // bölgede tutuluyor — burada sadece ARKA PLAN sistem çubuklarının altından
+  // geçiyor.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+  // NOT: Sistem çubuğu ikon parlaklığı/rengi artık burada SABİT
+  // ayarlanmıyor — tema (Zindan/Parşömen) her değiştiğinde MyApp.build()
+  // içinde yeniden uygulanıyor (bkz. aşağıdaki AnimatedBuilder), açılış
+  // dahil ilk kare de oradan doğru temayla çizilir.
+
+  runApp(const MyApp());
+
+  // P0-D — Açılış performansı optimizasyonu: aşağıdaki iki iş İLK KARENİN
+  // içeriğini/doğruluğunu HİÇBİR şekilde etkilemiyordu (hesap bağlantısını
+  // geri yükleme sadece Profil'deki hesap rozetini ilgilendiriyor; bildirim
+  // kurulumu/izin isteği hiçbir ekranın görünümünü değiştirmiyor) ama yine de
+  // runApp()'tan ÖNCE, sırayla await ediliyorlardı — bu da özellikle
+  // "Seri Kaybı Uyarısı" için Android 13+ izin diyaloğunun kullanıcı DAHA
+  // İLK KAREYİ bile görmeden açılmasına sebep oluyordu (kötü UX) ve genel
+  // açılış süresini uzatıyordu. Artık runApp()'tan SONRA, ilk kare zaten
+  // ekrandayken arka planda çalışıyorlar — davranışları/sonuçları birebir
+  // aynı, sadece kullanıcıyı bekletmiyorlar.
+  unawaited(_runDeferredStartupTasks());
+}
+
+/// Bkz. yukarıdaki not — ilk karenin doğruluğu için gerekli OLMAYAN, ama
+/// uygulamanın geri kalanında (Ayarlar/Profil, zamanlanmış bildirimler)
+/// gerekli olan başlangıç işleri. Kendi try/catch'i var ki burada oluşacak
+/// bir hata (ör. bildirim izni reddi) ana başlatma akışını etkilemesin.
+Future<void> _runDeferredStartupTasks() async {
+  try {
+    // Zaten oturum açık bir hesap varsa (uygulama yeniden açıldıysa)
+    // RevenueCat kimliğini tekrar o hesaba bağla.
+    await AuthService.instance.restoreAccountLinkIfNeeded();
     // Ayarlar → Bildirimler: bildirim eklentisini kur ve kullanıcının daha
     // önce kaydettiği tercihlere göre (varsa) zamanlanmış hatırlatmaları
     // yeniden kur. Bu, reboot sonrası Android'in temizlediği alarmları da
@@ -84,24 +123,8 @@ void main() async {
       streakLossAlertEnabled: streakLossAlertEnabled,
     );
   } catch (e) {
-    debugPrint('Servis başlatma hatası: $e');
+    debugPrint('Ertelenmiş başlatma işi hatası: $e');
   }
-
-  // Edge-to-edge: Android'in alt 3-tuş/gesture navigasyon şeridi artık
-  // ayrı, kopuk bir gri/beyaz bant gibi durmasın diye sistem çubuklarının
-  // ARKASINA çiziyoruz (Android 15/SDK 35 hedefleyen uygulamalarda zaten
-  // zorunlu olan davranış). Gerçek kontroller/içerik hâlâ MediaQuery
-  // insets'iyle (bkz. PlatformTokens.scrollBottomPadding, SafeArea) güvenli
-  // bölgede tutuluyor — burada sadece ARKA PLAN sistem çubuklarının altından
-  // geçiyor.
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-
-  // NOT: Sistem çubuğu ikon parlaklığı/rengi artık burada SABİT
-  // ayarlanmıyor — tema (Zindan/Parşömen) her değiştiğinde MyApp.build()
-  // içinde yeniden uygulanıyor (bkz. aşağıdaki AnimatedBuilder), açılış
-  // dahil ilk kare de oradan doğru temayla çizilir.
-
-  runApp(const MyApp());
 }
 
 class MyApp extends StatefulWidget {
@@ -508,6 +531,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: 20,
                   height: 20,
                   fit: BoxFit.cover,
+                  // P0-D: kaynak dosya 2MB'ın üzerinde (yüksek çözünürlüklü);
+                  // cacheWidth/cacheHeight vermeden Flutter tam çözünürlükte
+                  // decode edip sonra 20x20'ye küçültüyordu — her açılan
+                  // ekranda gereksiz onlarca MB'lık bellek/CPU maliyeti.
+                  cacheWidth: (20 * MediaQuery.of(context).devicePixelRatio).round(),
+                  cacheHeight: (20 * MediaQuery.of(context).devicePixelRatio).round(),
                   errorBuilder: (context, error, stackTrace) => const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 16),
                 ),
               ),
@@ -674,6 +703,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 'assets/images/lobi_logo1.png',
                                 fit: BoxFit.contain,
                                 alignment: Alignment.centerLeft,
+                                // P0-D: görsel 72pt yükseklikte gösteriliyor —
+                                // cacheHeight vermek, kaynak dosya çok daha
+                                // yüksek çözünürlükte olsa bile decode'u
+                                // gösterilen boyuta indiriyor (genişlik oranı
+                                // otomatik korunuyor).
+                                cacheHeight: (72 * MediaQuery.of(context).devicePixelRatio).round(),
                                 errorBuilder: (context, error, stackTrace) => Text(
                                   'Ignis',
                                   style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 15, fontWeight: FontWeight.bold)
@@ -889,7 +924,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Positioned(
                           right: -5,
                           bottom: -5,
-                          child: Image.asset('assets/images/ignis_avatar.png', width: 145, height: 165, fit: BoxFit.contain),
+                          child: Image.asset(
+                            'assets/images/ignis_avatar.png',
+                            width: 145,
+                            height: 165,
+                            fit: BoxFit.contain,
+                            // P0-D: kaynak 1.1MB'lık yüksek çözünürlüklü PNG —
+                            // gösterilen 145x165 boyutuna göre cache verildi.
+                            cacheWidth: (145 * MediaQuery.of(context).devicePixelRatio).round(),
+                            cacheHeight: (165 * MediaQuery.of(context).devicePixelRatio).round(),
+                          ),
                         ),
                         // Mühür/rün rozeti hissi: içi altın gradyanlı küçük
                         // bir mühür ikonu + aynı metin — sade bir pill yerine
@@ -957,6 +1001,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 'assets/images/ignis_avatar_badge.png',
                                 width: 34,
                                 height: 34,
+                                cacheWidth: (34 * MediaQuery.of(context).devicePixelRatio).round(),
+                                cacheHeight: (34 * MediaQuery.of(context).devicePixelRatio).round(),
                                 fit: BoxFit.cover,
                               ),
                             ),

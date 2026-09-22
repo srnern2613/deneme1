@@ -21,9 +21,13 @@
          için tercihler her uygulama açılışında yeniden kuruluyor). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
-    <!-- Arka Plan ve Medya Oynatma İzinleri -->
+    <!-- Arka Plan İzinleri -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <!-- P0-D: audio_service paketi kod tabanında kullanılmıyor ama build
+         kararlılığı nedeniyle pubspec.yaml'da tutuluyor (bkz. oradaki not) —
+         bu izin ve aşağıdaki servis/receiver kaydı da o paketle birlikte
+         geri kondu, tutarsız/eksik bir manifest durumuna düşmemek için. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
 
     <!-- AŞAMA 1: Android Auto Backup — kullanıcı hesabı/bulut altyapısı
@@ -62,20 +66,26 @@
             </intent-filter>
         </activity>
 
-        <!-- Kilit Ekranı ve Bildirim Çubuğu Medya Servisi -->
-        <service android:name="com.ryanheise.audioservice.AudioService"
+        <!-- P0-D: audio_service paketinin standart Android kurulum kaydı.
+             Paket kod tabanında kullanılmıyor (tts_service.dart flutter_tts
+             kullanıyor) ama build kararlılığı için pubspec.yaml'da tutuluyor
+             (bkz. oradaki not) — bu servis/receiver kaydı, paketle tutarlı
+             kalması için audio_service'in kendi kurulum talimatlarına göre
+             yeniden eklendi. -->
+        <service
+            android:name="com.ryanheise.audioservice.AudioService"
             android:foregroundServiceType="mediaPlayback"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.media.browse.MediaBrowserService" />
+                <action android:name="android.media.browse.MediaBrowserService"/>
             </intent-filter>
         </service>
 
-        <!-- Kulaklık Tuşları ve Medya Kontrol Alıcısı -->
-        <receiver android:name="androidx.media.session.MediaButtonReceiver"
+        <receiver
+            android:name="androidx.media.session.MediaButtonReceiver"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MEDIA_BUTTON" />
+                <action android:name="android.intent.action.MEDIA_BUTTON"/>
             </intent-filter>
         </receiver>
 
