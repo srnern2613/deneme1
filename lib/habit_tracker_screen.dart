@@ -7,6 +7,8 @@
 //   3. Haftalık Ateş Zinciri & Mağaza Senkronizasyonu Korundu.
 // ============================================================================
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -81,6 +83,81 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
+  // P0 (#25): Alışkanlık takipçisi eskiden tamamen bellek-içiydi —
+  // checkbox'lar ve özel eklenen alışkanlıklar HİÇBİR ZAMAN
+  // SharedPreferences'a yazılmıyordu, ekran her yeniden açıldığında
+  // (uygulama kapanıp açıldığında ya da bu ekrandan çıkıp geri
+  // girildiğinde) sıfırlanıyorlardı. Aşağıdaki iki anahtar bu kalıcılığı
+  // sağlıyor:
+  //  - _prefsCustomHabitsKey: kullanıcının eklediği özel alışkanlıkların
+  //    (id, başlık, kategori, tür, hedef) JSON listesi — ikon her zaman
+  //    'type'tan yeniden hesaplanıyor (_showAddHabitDialog'daki ile AYNI
+  //    eşleme), o yüzden ikon ayrıca serileştirilmiyor.
+  //  - Her alışkanlığın 'streak' (seri) sayısı 'habit_streak_<id>' anahtarı
+  //    ile, 'manual' türdeki tamamlanma durumu da GÜNE ÖZEL
+  //    'habit_manual_done_<id>_<gün>' anahtarıyla kalıcı hale getiriliyor
+  //    (gün değişince otomatik olarak sıfırlanmış gibi davranır — ayrı bir
+  //    "günü sıfırla" mantığı gerekmez).
+  static const _prefsCustomHabitsKey = 'habit_tracker_custom_habits_v1';
+
+  IconData _iconForType(String? type) {
+    switch (type) {
+      case 'page_goal':
+        return PhosphorIcons.bookBookmarkBold;
+      case 'minute_goal':
+        return PhosphorIcons.timerBold;
+      default:
+        return PhosphorIcons.starBold;
+    }
+  }
+
+  String _categoryForType(String? type) {
+    switch (type) {
+      case 'page_goal':
+        return 'Okuma';
+      case 'minute_goal':
+        return 'Zaman';
+      default:
+        return 'Genel';
+    }
+  }
+
+  /// Özel eklenmiş alışkanlıkları (dahili 3 varsayılan HARİÇ) diske yazar.
+  /// Ayrıca TÜM alışkanlıkların (dahili + özel) seri sayısını ve 'manual'
+  /// türdekilerin bugünkü tamamlanma durumunu kalıcı hale getirir.
+  Future<void> _saveHabitsToStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayKey = _getTodayKey();
+
+      final customHabits = _habits
+          .where((h) => (h['id'] as String?)?.startsWith('custom_') == true)
+          .map((h) => {
+                'id': h['id'],
+                'title': h['title'],
+                'category': h['category'],
+                'type': h['type'],
+                'targetValue': h['targetValue'],
+              })
+          .toList();
+      await prefs.setString(_prefsCustomHabitsKey, jsonEncode(customHabits));
+
+      for (final habit in _habits) {
+        final id = habit['id'] as String?;
+        if (id == null) continue;
+        await prefs.setInt('habit_streak_$id', (habit['streak'] as int?) ?? 0);
+        // Dahili 3 varsayılan alışkanlığın hedefi (ör. günlük sayfa hedefi)
+        // JSON listesine yazılmıyor (sadece özel alışkanlıklar orada) —
+        // bu yüzden hedef değişikliği TÜM alışkanlıklar için ayrıca,
+        // kendi anahtarıyla kalıcı hale getiriliyor.
+        await prefs.setInt('habit_target_$id', (habit['targetValue'] as int?) ?? 1);
+        if (habit['type'] == 'manual') {
+          await prefs.setBool('habit_manual_done_${id}_$todayKey', habit['isCompleted'] == true);
+        }
+      }
+    } catch (_) {}
+  }
+
   /// Asenkron Yarış Durumu (Race Condition) Korumalı Veri Yükleme
   Future<void> _loadAndVerifyHabits() async {
     try {
@@ -93,6 +170,48 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
 
       // Asenkron işlem sonrası widget ağacının hayatta olup olmadığını denetle
       if (!mounted) return;
+
+      // P0 (#25): kaydedilmiş özel alışkanlıkları geri yükle — sadece bir
+      // kez, zaten bellekte varsa (ör. az önce eklendiyse) TEKRAR ekleme.
+      final savedCustomRaw = prefs.getString(_prefsCustomHabitsKey);
+      if (savedCustomRaw != null && savedCustomRaw.isNotEmpty) {
+        try {
+          final List<dynamic> savedCustom = jsonDecode(savedCustomRaw);
+          for (final raw in savedCustom) {
+            final map = raw as Map<String, dynamic>;
+            final id = map['id'] as String?;
+            if (id == null) continue;
+            final alreadyLoaded = _habits.any((h) => h['id'] == id);
+            if (alreadyLoaded) continue;
+            final type = map['type'] as String?;
+            _habits.add({
+              'id': id,
+              'title': map['title'] ?? '',
+              'category': (map['category'] as String?) ?? _categoryForType(type),
+              'icon': _iconForType(type),
+              'isCompleted': false,
+              'streak': 0,
+              'type': type ?? 'manual',
+              'targetValue': (map['targetValue'] as int?) ?? 1,
+            });
+          }
+        } catch (_) {
+          // Bozuk/eski format kaydı — yeni alışkanlıklar eklenmeye devam eder,
+          // eski bozuk veriyle uygulamayı kilitlemeyiz.
+        }
+      }
+
+      // Her alışkanlığın kalıcı seri sayısını ve (manual türler için)
+      // bugünkü tamamlanma durumunu geri yükle.
+      for (final habit in _habits) {
+        final id = habit['id'] as String?;
+        if (id == null) continue;
+        habit['streak'] = prefs.getInt('habit_streak_$id') ?? (habit['streak'] as int? ?? 0);
+        habit['targetValue'] = prefs.getInt('habit_target_$id') ?? (habit['targetValue'] as int? ?? 1);
+        if (habit['type'] == 'manual') {
+          habit['isCompleted'] = prefs.getBool('habit_manual_done_${id}_$todayKey') ?? false;
+        }
+      }
 
       final readingGoal = _habits.firstWhere(
         (h) => h['type'] == 'page_goal',
@@ -145,6 +264,8 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
         habit['streak'] = ((habit['streak'] as int) - 1).clamp(0, 9999);
       }
     });
+    // P0 (#25): önceden hiç diske yazılmıyordu — ekran kapanınca kaybolurdu.
+    _saveHabitsToStorage();
   }
 
   void _showEditTargetDialog(Map<String, dynamic> habit) {
@@ -200,6 +321,8 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                   setState(() {
                     habit['targetValue'] = parsed;
                   });
+                  // P0 (#25): güncellenen hedef de kalıcı hale getirilmeli.
+                  _saveHabitsToStorage();
                   _loadAndVerifyHabits();
                   Navigator.pop(context);
                 }
@@ -362,6 +485,9 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                           'targetValue': target,
                         });
                       });
+                      // P0 (#25): yeni özel alışkanlık önceden SADECE
+                      // bellekte tutuluyordu, uygulama kapanınca kaybolurdu.
+                      await _saveHabitsToStorage();
                       await _loadAndVerifyHabits();
                       if (context.mounted) Navigator.pop(context);
                     } else {
@@ -542,6 +668,10 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                       setState(() {
                         _habits.removeAt(index);
                       });
+                      // P0 (#25): silme de kalıcı hale getirilmeli, aksi
+                      // halde silinen özel alışkanlık bir sonraki açılışta
+                      // geri gelirdi.
+                      _saveHabitsToStorage();
                       IgnisAlert.show(
                         context,
                         message: '"${removedHabit['title']}" silindi.',
@@ -552,6 +682,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                             final insertAt = removedIndex.clamp(0, _habits.length);
                             _habits.insert(insertAt, removedHabit);
                           });
+                          _saveHabitsToStorage();
                         },
                       );
                     },

@@ -11,13 +11,19 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'database_helper.dart';
 import 'tts_service.dart';
 import 'xp_shop_service.dart';
+import 'core/coach/ignis_moments_engine.dart';
 import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
 import 'core/branding/app_branding.dart'; // Faz F2: boss savaşına Ignis duygu pozları
 
 class WordBossBattleScreen extends StatefulWidget {
   final Map<String, dynamic> bossCard;
+  // P0 (#18): diğer egzersiz ekranlarıyla (quiz/match/spelling/mixed_dungeon)
+  // aynı mimari — şu an çağıran taraf (flashcards_screen.dart) bunu
+  // vermiyor (varsayılan 1), ama alan artık burada, ileride bir "günün
+  // 2X'i" yuvası boss savaşına da eklenmek istenirse hazır.
+  final int xpMultiplier;
 
-  const WordBossBattleScreen({super.key, required this.bossCard});
+  const WordBossBattleScreen({super.key, required this.bossCard, this.xpMultiplier = 1});
 
   @override
   State<WordBossBattleScreen> createState() => _WordBossBattleScreenState();
@@ -233,26 +239,43 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
   }
 
   Future<void> _handleBossVictory() async {
-    await DatabaseHelper.instance.recordMultiModalResult(
-      cardId: _cardId,
-      isCorrect: true,
-      mode: 'boss',
-    );
+    // P0 (#18): bu DB çağrısı korumasızdı — bir hata (kilitli DB, disk
+    // hatası) round-ilerleme akışını yakalanmamış bir exception'la
+    // çökertebilirdi. Diğer egzersiz ekranlarındaki fire-and-forget
+    // deseniyle tutarlı, sessizce yutuluyor (kullanıcı zaferi zaten gördü).
+    try {
+      await DatabaseHelper.instance.recordMultiModalResult(
+        cardId: _cardId,
+        isCorrect: true,
+        mode: 'boss',
+      );
+    } catch (_) {}
 
-    await XpShopService.instance.addXp(20).catchError((_) => 0);
+    final earnedXp = 20 * widget.xpMultiplier;
+    await XpShopService.instance.addXp(earnedXp).catchError((_) => 0);
+
+    // P0 (#18): diğer egzersiz modlarında olduğu gibi, seans sonu Ignis
+    // Anı'nı da al — boss savaşı bu paylaşılan sistemin tamamen dışındaydı.
+    IgnisMoment? ignisMoment;
+    try {
+      ignisMoment = await IgnisMomentsEngine.instance.getSessionEndMoment();
+    } catch (_) {}
 
     if (!mounted) return;
-    _showVictoryDialog();
+    _showVictoryDialog(earnedXp: earnedXp, ignisMoment: ignisMoment);
   }
 
   Future<void> _handleRoundFailure() async {
-    await DatabaseHelper.instance.recordBossFailureCooldown(_cardId);
+    // P0 (#18): korumasız DB çağrısı düzeltildi (bkz. _handleBossVictory notu).
+    try {
+      await DatabaseHelper.instance.recordBossFailureCooldown(_cardId);
+    } catch (_) {}
 
     if (!mounted) return;
     _showDefeatDialog();
   }
 
-  void _showVictoryDialog() {
+  void _showVictoryDialog({required int earnedXp, IgnisMoment? ignisMoment}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -298,12 +321,37 @@ class _WordBossBattleScreenState extends State<WordBossBattleScreen> {
                 children: [
                   _buildRewardRow('🧠 Mastery Progress', '+1 Ustalık Katkısı', _theme.cognitiveIndigo),
                   const SizedBox(height: 8),
-                  _buildRewardRow('⚡ Tecrübe Puanı', '+20 XP', _theme.primaryAmber),
+                  _buildRewardRow('⚡ Tecrübe Puanı', '+$earnedXp XP', _theme.primaryAmber),
                   const SizedBox(height: 8),
                   _buildRewardRow('⏳ Sonraki Tekrar', '3 gün sonra', _theme.textSecondary),
                 ],
               ),
             ),
+            if (ignisMoment != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _theme.surfaceLight,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _theme.borderSubtle),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ignisMoment.title,
+                      style: GoogleFonts.outfit(color: _theme.textPrimary, fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      ignisMoment.message,
+                      style: GoogleFonts.inter(color: _theme.textSecondary, fontSize: 12, height: 1.35),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
         actions: [

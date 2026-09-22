@@ -118,10 +118,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         {'name': 'Alevkanat', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'avatar': '🦊', 'isUser': false},
         {'name': 'Gölgeavcı', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'avatar': '🎯', 'isUser': false},
         {'name': 'Gece.', 'xp': (userCurrentXp - 130).clamp(0, 999999), 'avatar': '🌸', 'isUser': false},
-        {'name': 'Deniz Acar', 'xp': (userCurrentXp - 180).clamp(0, 999999), 'avatar': '🚀', 'isUser': false},
-        {'name': 'Selin Öztürk', 'xp': (userCurrentXp - 230).clamp(0, 999999), 'avatar': '⭐', 'isUser': false},
-        {'name': 'Emre Aydın', 'xp': (userCurrentXp - 280).clamp(0, 999999), 'avatar': '🎮', 'isUser': false},
-        {'name': 'Kaan Vural', 'xp': (userCurrentXp - 330).clamp(0, 999999), 'avatar': '🔥', 'isUser': false},
+        // P0 (#21): kalan gerçekçi görünen isimler de (yukarıdaki notla aynı
+        // gerekçe) Ignis evrenine uygun, fantastik isimlerle değiştirildi —
+        // Alevkanat/Gölgeavcı ile aynı desen.
+        {'name': 'Demirpençe', 'xp': (userCurrentXp - 180).clamp(0, 999999), 'avatar': '🚀', 'isUser': false},
+        {'name': 'Yıldıztüy', 'xp': (userCurrentXp - 230).clamp(0, 999999), 'avatar': '⭐', 'isUser': false},
+        {'name': 'Kayadamar', 'xp': (userCurrentXp - 280).clamp(0, 999999), 'avatar': '🎮', 'isUser': false},
+        {'name': 'Rüzgarkanat', 'xp': (userCurrentXp - 330).clamp(0, 999999), 'avatar': '🔥', 'isUser': false},
       ];
 
       _sortLeague(simulatedLeague);

@@ -154,10 +154,11 @@ class ProfileScreenState extends State<ProfileScreen> {
         {'name': 'Alevkanat', 'xp': (userCurrentXp - 55).clamp(0, 999999), 'isUser': false},
         {'name': 'Gölgeavcı', 'xp': (userCurrentXp - 90).clamp(0, 999999), 'isUser': false},
         {'name': 'Gece.', 'xp': (userCurrentXp - 130).clamp(0, 999999), 'isUser': false},
-        {'name': 'Deniz Acar', 'xp': (userCurrentXp - 180).clamp(0, 999999), 'isUser': false},
-        {'name': 'Selin Öztürk', 'xp': (userCurrentXp - 230).clamp(0, 999999), 'isUser': false},
-        {'name': 'Emre Aydın', 'xp': (userCurrentXp - 280).clamp(0, 999999), 'isUser': false},
-        {'name': 'Kaan Vural', 'xp': (userCurrentXp - 330).clamp(0, 999999), 'isUser': false},
+        // P0 (#21): leaderboard_screen.dart ile aynı düzeltme, senkron.
+        {'name': 'Demirpençe', 'xp': (userCurrentXp - 180).clamp(0, 999999), 'isUser': false},
+        {'name': 'Yıldıztüy', 'xp': (userCurrentXp - 230).clamp(0, 999999), 'isUser': false},
+        {'name': 'Kayadamar', 'xp': (userCurrentXp - 280).clamp(0, 999999), 'isUser': false},
+        {'name': 'Rüzgarkanat', 'xp': (userCurrentXp - 330).clamp(0, 999999), 'isUser': false},
       ];
       simulatedLeague.sort((a, b) => (b['xp'] as int).compareTo(a['xp'] as int));
       final leagueUserIndex = simulatedLeague.indexWhere((e) => e['isUser'] == true);
@@ -176,6 +177,8 @@ class ProfileScreenState extends State<ProfileScreen> {
       final now = DateTime.now();
       final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
       final int dailyPages = prefs.getInt('daily_pages_$todayKey') ?? 0;
+      // "Şu anda kalkanım var mı" (UI/paywall banner için) — 'hasFreezeShield'
+      // varsayılan olarak true (hediye kalkan) ya da Premium'da hep true.
       final bool hasShield = streakResult['hasFreezeShield'] ?? false;
 
       // Faz F3: rozet motoru daha önce HİÇ çağrılmıyordu — "3/22 rozet
@@ -183,13 +186,19 @@ class ProfileScreenState extends State<ProfileScreen> {
       // geçmişteki bir sürümden kalmaydı, yeni rozetler hiç açılmıyordu.
       // Ana Sayfa'daki seri kaybı/günlük hedef anlarıyla aynı desende:
       // Profil her açıldığında güncel istatistiklerle kontrol ediyoruz.
+      //
+      // P0 (#23): 'shield_master' rozeti buradaki 'hasShield' (varsayılan
+      // hediye kalkan) DEĞİL, kalkanın GERÇEKTEN bir seriyi kurtardığı
+      // 'everSavedByShield' kalıcı bayrağını kullanmalı — aksi halde her
+      // yeni kullanıcı hiçbir şey yapmadan bu rozeti açıyordu.
+      final bool hasEverSavedByShield = streakResult['everSavedByShield'] ?? false;
       final newlyUnlocked = await AchievementService.instance.checkAndUnlockAchievements(
         totalPagesRead: totalPagesRead,
         totalFlashcards: cards.length,
         totalReadMinutes: totalReadMinutes,
         wordsExamined: totalWordsExamined,
         dailyPages: dailyPages,
-        hasShield: hasShield,
+        hasShield: hasEverSavedByShield,
       );
 
       final unlocked = <String>{};

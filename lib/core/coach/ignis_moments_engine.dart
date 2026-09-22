@@ -15,6 +15,7 @@ import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../achievement_service.dart';
 import '../../database_helper.dart';
 import '../../streak_freeze_service.dart';
 
@@ -152,6 +153,35 @@ class IgnisMomentsEngine {
     await prefs.setInt(_prefsImportantMomentCountKey, currentCount + 1);
   }
 
+  /// P0 (#22): profile_screen.dart'ın rozet kontrolünde kullandığı AYNI
+  /// SharedPreferences anahtarları ve AYNI parametre eşlemesiyle, ama
+  /// kendi başına (Profil ekranı hiç açılmasa da) çalışır. [streakResult]
+  /// çağıran tarafından (getSessionEndMoment) verilir — burada TEKRAR
+  /// StreakFreezeService.checkAndUpdateStreak() çağrılmaz.
+  Future<List<UnlockedBadgeInfo>> _checkAchievementsFromStorage(
+    Map<String, dynamic> streakResult,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final totalReadMinutes = prefs.getInt('stats_total_read_minutes') ?? 0;
+    final totalWordsExamined = prefs.getInt('stats_total_words_examined') ?? 0;
+    final totalPagesRead = prefs.getInt('stats_total_pages_read') ?? 0;
+    final dailyPages = prefs.getInt('daily_pages_${_todayKey()}') ?? 0;
+    // P0 (#23): 'hasFreezeShield' varsayılan olarak true (hediye kalkan) —
+    // 'shield_master' rozeti bunun yerine kalkanın GERÇEKTEN bir seriyi
+    // kurtardığı 'everSavedByShield' bayrağına bakmalı.
+    final hasShield = streakResult['everSavedByShield'] ?? false;
+    final totalFlashcards = (await DatabaseHelper.instance.getFlashcards()).length;
+
+    return AchievementService.instance.checkAndUnlockAchievements(
+      totalPagesRead: totalPagesRead,
+      totalFlashcards: totalFlashcards,
+      totalReadMinutes: totalReadMinutes,
+      wordsExamined: totalWordsExamined,
+      dailyPages: dailyPages,
+      hasShield: hasShield,
+    );
+  }
+
   /// Seans sonunda (SRS/quiz/spelling/match bitişinde) çağrılır — asla
   /// egzersiz ortasında. Her zaman bir şey döner (o gün hiç pratik yoksa
   /// null): bugün henüz "önemli an" gösterilmediyse seri kilometre taşı ya
@@ -165,13 +195,36 @@ class IgnisMomentsEngine {
 
     if (newWords == 0 && reviews == 0) return null;
 
+    // Seri bilgisi bu metod içinde SADECE BİR KEZ hesaplanır (state
+    // mutasyonu yapıyor — iki kez çağırmak yanlış sonuç üretir, bkz.
+    // getStreakLossMoment'taki aynı uyarı) — hem rozet kontrolü hem de
+    // aşağıdaki seri kilometre taşı mantığı bu TEK sonucu paylaşır.
+    final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
+    final streakDays = streakResult['streakDays'] as int? ?? 0;
+
+    // P0 (#22): rozet motoru (achievement_service.dart) daha önce SADECE
+    // Profil ekranı açıldığında kontrol ediliyordu — kullanıcı Profil'e
+    // hiç uğramazsa yeni rozet asla açılmıyordu. Bu paylaşılan seans-sonu
+    // metoduna eklendi, çünkü zaten ~10 egzersiz ekranının HEPSİ bunu
+    // çağırıyor — buraya eklemek her ekranı tek tek değiştirmekten daha
+    // güvenli. Bir rozet açılırsa, günlük "önemli an" kotasını harcamadan
+    // ve normal seri/hız içgörüsünün ÖNÜNE geçerek gösterilir.
+    final newlyUnlocked = await _checkAchievementsFromStorage(streakResult);
+    if (newlyUnlocked.isNotEmpty) {
+      final badge = newlyUnlocked.first;
+      return IgnisMoment(
+        type: IgnisMomentType.dailyGoalCompleted,
+        pose: 'celebrating',
+        title: '${badge.emoji} ${badge.title}',
+        message: badge.celebrationText,
+      );
+    }
+
     final dueTomorrow = await db.getDueTomorrowCount();
     final shownCount = await _importantMomentCountToday();
 
     if (shownCount < _maxImportantMomentsPerDay) {
       // Öncelik 1: seri kilometre taşı (7/30/100 gün) — en güçlü an.
-      final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
-      final streakDays = streakResult['streakDays'] as int? ?? 0;
       if (_streakMilestones.contains(streakDays)) {
         await _markImportantMomentShown();
         return IgnisMoment(

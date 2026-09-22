@@ -465,9 +465,15 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
       HapticFeedback.mediumImpact();
       _score++;
       _streak++;
-      final earnedXp = 8 * widget.xpMultiplier;
-      _totalEarnedXp += earnedXp;
-      await XpShopService.instance.addXp(earnedXp);
+      // P0 (#16): örnek/pratik kelimelerde (cardId <= 0) XP verilmiyor —
+      // diğer egzersiz modlarıyla aynı koruma. Skor/seri hâlâ artıyor,
+      // sadece XP ödülü gerçek kartlarla sınırlı.
+      final cardId = _questions[_currentIndex]['id'] as int? ?? 0;
+      if (cardId > 0) {
+        final earnedXp = 8 * widget.xpMultiplier;
+        _totalEarnedXp += earnedXp;
+        await XpShopService.instance.addXp(earnedXp);
+      }
       if (!mounted) return;
       final cheer = CoachMessages.getFlashcardCheer(_streak);
       if (cheer != null) _triggerCheer(cheer);

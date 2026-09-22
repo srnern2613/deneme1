@@ -26,6 +26,13 @@ class StreakFreezeService {
     int streakDays = prefs.getInt('current_streak_days') ?? 1;
     bool hasFreezeShield = prefs.getBool('has_freeze_shield') ?? true; // Varsayılan 1 kalkan hediye
     bool shieldUsedToday = false;
+    // P0 (#23): 'shield_master' rozeti eskiden doğrudan hasFreezeShield'e
+    // bakıyordu — ama bu değer YENİ kullanıcıda bile varsayılan olarak true
+    // (hediye kalkan) ve Premium'da her zaman true, yani rozet hiçbir şey
+    // YAPILMADAN ilk kontrolde açılıyordu. Artık kalkanın GERÇEKTEN bir
+    // seriyi kurtardığı an (aşağıda shieldUsedToday=true olan yer) kalıcı
+    // olarak işaretleniyor; rozet SADECE o kalıcı bayrağa bakıyor.
+    bool everSavedByShieldBefore = prefs.getBool('shield_ever_saved_streak') ?? false;
     // Faz F: Duolingo tarzı "seri kırıldı" pop-up'ının tetikleyicisi —
     // sadece kalkan da yokken seri gerçekten 1'e sıfırlandığında true olur.
     bool streakLost = false;
@@ -52,7 +59,14 @@ class StreakFreezeService {
           hasFreezeShield = false;
           shieldUsedToday = true;
           await prefs.setBool('has_freeze_shield', false);
-        } else {
+        }
+
+        if (shieldUsedToday && !everSavedByShieldBefore) {
+          everSavedByShieldBefore = true;
+          await prefs.setBool('shield_ever_saved_streak', true);
+        }
+
+        if (!isPremium && !hasFreezeShield && !shieldUsedToday) {
           // Kalkan yok, seri maalesef sıfırlanır :(
           streakDays = 1;
           streakLost = true;
@@ -69,6 +83,10 @@ class StreakFreezeService {
       'hasFreezeShield': hasFreezeShield || isPremium,
       'shieldUsedToday': shieldUsedToday,
       'streakLost': streakLost,
+      // P0 (#23): 'shield_master' rozeti için — kalkanın SAHİP OLUNMASI
+      // değil, GERÇEKTEN bir seriyi kurtarmış olması (kalıcı, bir kez
+      // true olduktan sonra hep true kalır).
+      'everSavedByShield': everSavedByShieldBefore,
     };
   }
 

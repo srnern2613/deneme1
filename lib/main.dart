@@ -1144,22 +1144,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               ],
                             ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
-                                ).then((_) => refreshDashboardStats());
-                              },
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
-                                children: [
-                                  Text('$_currentStreak', style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 22, fontWeight: FontWeight.bold)),
-                                  const SizedBox(width: 4),
-                                  Text('gün >', style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 12)),
-                                ],
-                              ),
-                            ),
+                            Text('$_currentStreak gün', style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 22, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         const SizedBox(height: 18),
@@ -1183,6 +1168,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             );
                           }),
+                        ),
+                        const SizedBox(height: 16),
+                        // P0 (kullanıcı isteği): Alışkanlık Takibi ekranına
+                        // giden AÇIK, keşfedilebilir bir buton yoktu — tek yol
+                        // "X gün >" yazısına rastgele dokunmaktı (hem burada
+                        // hem profil ekranında "Başarı Serisi" kartının
+                        // içinde gizliydi). Kullanıcı zaten her gün bu seri
+                        // kartına bakıyor, o yüzden en doğal yer TAM BURASI —
+                        // ama artık gerçek bir buton: tam genişlikte, ripple'lı,
+                        // net etiketli, ok ikonlu.
+                        Material(
+                          color: theme.surfaceLight,
+                          borderRadius: BorderRadius.circular(14),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
+                              ).then((_) => refreshDashboardStats());
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                              child: Row(
+                                children: [
+                                  Icon(PhosphorIcons.flameBold, color: theme.primaryAmber, size: 16),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Tüm Alışkanlıkları Gör',
+                                      style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w700, fontSize: 13),
+                                    ),
+                                  ),
+                                  Icon(PhosphorIcons.caretRightBold, color: theme.textMuted, size: 14),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),

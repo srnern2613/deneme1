@@ -51,7 +51,17 @@ class NotificationService {
       }
 
       const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const initSettings = InitializationSettings(android: androidSettings);
+      // P0 (#15): iOS başlatma ayarları eksikti — DarwinInitializationSettings
+      // verilmeden bu eklenti iOS'ta bildirim göstermek için gereken şekilde
+      // kurulmuyor. İzinler burada DEĞİL, requestPermission() içinde açıkça
+      // istendiği için (Android'deki akışla tutarlı, kullanıcıyı iki kez
+      // izin diyaloğuyla karşılaşmasın diye) request*Permission burada false.
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
+      const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
       await _plugin.initialize(initSettings);
 
       const channel = AndroidNotificationChannel(
@@ -77,8 +87,23 @@ class NotificationService {
   Future<bool> requestPermission() async {
     try {
       final androidImpl = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-      final granted = await androidImpl?.requestNotificationsPermission();
-      return granted ?? true;
+      if (androidImpl != null) {
+        final granted = await androidImpl.requestNotificationsPermission();
+        return granted ?? true;
+      }
+      // P0 (#15): iOS'ta izin isteği eksikti — DarwinInitializationSettings
+      // eklenince artık burada da açıkça isteniyor (Android akışıyla aynı
+      // desende, tek bir yerden).
+      // DÜZELTME: platform UYGULAMA sınıfının adı 'Darwin' ÖNEKLİ DEĞİL —
+      // sadece BAŞLATMA AYARLARI (DarwinInitializationSettings) paylaşımlı;
+      // izin isteme sınıfı iOS için hâlâ 'IOSFlutterLocalNotificationsPlugin'
+      // (macOS için ayrı olarak 'MacOSFlutterLocalNotificationsPlugin').
+      final iosImpl = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+      if (iosImpl != null) {
+        final granted = await iosImpl.requestPermissions(alert: true, badge: true, sound: true);
+        return granted ?? true;
+      }
+      return true;
     } catch (e) {
       debugPrint('NotificationService.requestPermission hatası: $e');
       return false;

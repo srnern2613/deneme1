@@ -357,7 +357,13 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       );
     }
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExit();
+      },
+      child: Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
         backgroundColor: theme.background,
@@ -396,7 +402,7 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.close_rounded, color: theme.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _confirmExit,
         ),
       ),
       body: SafeArea(
@@ -516,6 +522,36 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
           ],
         ),
       ),
+      ),
     );
+  }
+
+  // A-6 (#20): sistem geri tuşu/kenar kaydırma artık kapatma butonuyla AYNI
+  // onay akışından geçiyor — flashcards_exercise_screen.dart'taki desenle
+  // tutarlı.
+  Future<void> _confirmExit() async {
+    if (_activeItems.isEmpty && _pool.isEmpty) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Egzersizden çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Kalan eşleştirmeleri tamamlamadan çıkıyorsun. Bu ana kadarki cevapların zaten kaydedildi.',
+          style: TextStyle(color: Color(0xFF94A3B8)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Devam Et')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Çık')),
+        ],
+      ),
+    );
+    if (shouldExit == true && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 }

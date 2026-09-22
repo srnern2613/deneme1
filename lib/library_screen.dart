@@ -27,6 +27,7 @@ import 'core/design_system/primitives.dart'; // ScreenHeaderBadge & RuneTitle
 import 'core/entitlement/paywall_trigger.dart';
 import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler artık temadan
 import 'core/design_system/ignis_alert.dart';
+import 'achievement_service.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -264,6 +265,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
         final todayKey = _getTodayKey();
         final todayPages = prefs.getInt('daily_pages_$todayKey') ?? 0;
         await prefs.setInt('daily_pages_$todayKey', todayPages + addedPages);
+
+        // P0 (#23): 'night_owl'/'early_bird' rozetleri şimdiye kadar
+        // SADECE Profil ekranı açıldığında kontrol ediliyordu — yani
+        // "gece okudun mu" değil "Profil'i ne zaman açtın" ölçülüyordu.
+        // Okuma seansı burada, gerçek bitiş saatinde ("şu an") bitiyor —
+        // rozet kontrolünü de tam bu anda yapmak, saat şartını gerçek
+        // okuma zamanına bağlıyor.
+        final cards = await DatabaseHelper.instance.getFlashcards();
+        final streakResult = await StreakFreezeService.instance.checkAndUpdateStreak();
+        final newlyUnlocked = await AchievementService.instance.checkAndUnlockAchievements(
+          totalPagesRead: _totalPagesRead,
+          totalFlashcards: cards.length,
+          totalReadMinutes: _totalReadMinutes,
+          wordsExamined: _totalWordsExamined,
+          dailyPages: todayPages + addedPages,
+          hasShield: streakResult['everSavedByShield'] ?? false,
+        );
+        if (newlyUnlocked.isNotEmpty && mounted) {
+          final badge = newlyUnlocked.first;
+          IgnisAlert.show(
+            context,
+            message: '${badge.emoji} ${badge.title} rozetinin kilidi açıldı!',
+            type: IgnisAlertType.success,
+          );
+        }
       }
     }
 

@@ -250,11 +250,15 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
       _score++;
       _streak++;
 
-      final baseXp = _timeRemaining > 6.0 ? 10 : 8;
-      final earnedXp = baseXp * widget.xpMultiplier;
+      // P0 (#16): örnek/pratik kelimelerde (cardId <= 0) XP verilmiyor —
+      // diğer egzersiz modlarıyla aynı koruma.
+      if (cardId > 0) {
+        final baseXp = _timeRemaining > 6.0 ? 10 : 8;
+        final earnedXp = baseXp * widget.xpMultiplier;
 
-      _totalEarnedXp += earnedXp;
-      await XpShopService.instance.addXp(earnedXp);
+        _totalEarnedXp += earnedXp;
+        await XpShopService.instance.addXp(earnedXp);
+      }
 
       if (!mounted) return;
 
@@ -352,7 +356,13 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
     final correctWord = (_questions[_currentIndex]['word'] ?? '').toString().trim();
     final currentMeaning = (_questions[_currentIndex]['meaning'] ?? '').toString().trim();
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExit();
+      },
+      child: Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
         backgroundColor: theme.background,
@@ -391,7 +401,7 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.close_rounded, color: theme.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _confirmExit,
         ),
       ),
       body: SafeArea(
@@ -549,6 +559,36 @@ class _ReverseQuizScreenState extends State<ReverseQuizScreen> {
           ],
         ),
       ),
+      ),
     );
+  }
+
+  // A-6 (#20): sistem geri tuşu/kenar kaydırma artık kapatma butonuyla AYNI
+  // onay akışından geçiyor — flashcards_exercise_screen.dart'taki desenle
+  // tutarlı.
+  Future<void> _confirmExit() async {
+    if (_questions.isEmpty) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Egzersizden çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Kalan soruları tamamlamadan çıkıyorsun. Bu ana kadarki cevapların zaten kaydedildi.',
+          style: TextStyle(color: Color(0xFF94A3B8)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Devam Et')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Çık')),
+        ],
+      ),
+    );
+    if (shouldExit == true && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 }

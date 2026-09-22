@@ -244,9 +244,13 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
       _streak++;
       if (_streak > _bestStreak) _bestStreak = _streak;
 
-      final earnedXp = 4 * widget.xpMultiplier;
-      _totalEarnedXp += earnedXp;
-      unawaited(XpShopService.instance.addXp(earnedXp));
+      // P0 (#16): örnek/pratik kelimelerde (cardId <= 0) XP verilmiyor —
+      // diğer egzersiz modlarıyla aynı koruma.
+      if (cardId > 0) {
+        final earnedXp = 4 * widget.xpMultiplier;
+        _totalEarnedXp += earnedXp;
+        unawaited(XpShopService.instance.addXp(earnedXp));
+      }
 
       final cheer = CoachMessages.getFlashcardCheer(_streak);
       if (cheer != null) {
@@ -270,10 +274,14 @@ class _SpeedRoundScreenState extends State<SpeedRoundScreen> {
     setState(() => _isRoundOver = true);
     HapticFeedback.heavyImpact();
 
+    // P0 (#19): total her zaman _score'a eşitleniyordu (ya da 0 puanda 1) —
+    // bu, _wrongCount ne olursa olsun yüzdeyi HER ZAMAN %100 gösteriyordu.
+    // Gerçek toplam = doğru + yanlış cevap sayısı.
+    final totalAnswered = _score + _wrongCount;
     final feedback = CoachMessages.getFeedback(
       exerciseType: 'speed_round',
       score: _score,
-      total: _score > 0 ? _score : 1,
+      total: totalAnswered > 0 ? totalAnswered : 1,
     );
 
     final ignisMoment = await IgnisMomentsEngine.instance.getSessionEndMoment();

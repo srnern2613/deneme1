@@ -372,6 +372,37 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
     }
   }
 
+  Widget _buildEmptyCardsState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inbox_rounded, color: _theme.textMuted, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Bu modda hiç kart yok',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Önce koleksiyonuna kelime ekle, sonra buradan tekrar et.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _theme.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Geri Dön'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _theme = Theme.of(context).extension<DraconicTheme>()!;
@@ -425,9 +456,16 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            _remainingCards.isEmpty
-                ? Center(child: CircularProgressIndicator(color: _theme.infoTeal))
-                : _buildExerciseView(),
+            // P0 (#17): _remainingCards boşluğu İKİ farklı durumu aynı anda
+            // temsil ediyordu — "henüz yüklenmedi" (geçici, spinner doğru) ve
+            // "widget.cards baştan boş geldi" (kalıcı, spinner SONSUZA KADAR
+            // dönüyordu). _initialTotal (initState'te bir kez set edilir) ile
+            // ayırt ediyoruz: 0 ise gerçek/kalıcı boş durum.
+            _initialTotal == 0
+                ? _buildEmptyCardsState()
+                : _remainingCards.isEmpty
+                    ? Center(child: CircularProgressIndicator(color: _theme.infoTeal))
+                    : _buildExerciseView(),
 
             if (_cheerMessage != null)
               CheerToast(
