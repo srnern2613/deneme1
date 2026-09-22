@@ -28,6 +28,8 @@ import 'core/entitlement/entitlement_repository.dart';
 import 'core/design_system/platform_tokens.dart';
 import 'core/theme/theme_controller.dart'; // T-6: Görünüm anahtarı
 import 'ignis_moment_dialog.dart'; // Faz F: Dev/Test tetikleyicileri
+import 'celebration_dialog.dart'; // Ignis Anı (seans sonu) dev/test önizlemesi
+import 'core/coach/ignis_moments_engine.dart'; // Ignis Anı (seans sonu) dev/test önizlemesi
 import 'core/auth/auth_service.dart'; // Hesap Sistemi
 import 'auth_screen.dart'; // Hesap Sistemi
 import 'core/notifications/notification_service.dart'; // Ayarlar → Bildirimler
@@ -223,6 +225,7 @@ class ProfileScreenState extends State<ProfileScreen> {
             title: '${badge.emoji} ${badge.title}',
             message: badge.celebrationText,
             primaryLabel: 'Harika! 🎉',
+            badgeEmoji: badge.emoji,
           );
         });
       }
@@ -653,6 +656,12 @@ class ProfileScreenState extends State<ProfileScreen> {
             final theme = Theme.of(context).extension<DraconicTheme>()!;
             return StatefulBuilder(
               builder: (context, setModalState) {
+                // Tek bir sürükleme hareketinin birden fazla frame'inde
+                // primaryDelta > 6 tekrar tekrar sağlanıp Navigator.maybePop()
+                // birden fazla kez çağrılmasın diye (teorik olarak kapanma
+                // animasyonu sürerken ekstra pop() çağrısı, sheet'in ALTINDAKİ
+                // bir sayfayı de yanlışlıkla kapatabilirdi) — tek seferlik kilit.
+                bool sheetDragDismissed = false;
                 return DecoratedBox(
               decoration: BoxDecoration(
                 color: theme.surfaceLight,
@@ -671,54 +680,76 @@ class ProfileScreenState extends State<ProfileScreen> {
               // yüksekliğini (klavye/çentik payı düşülmüş) üst sınır olarak
               // veriyor, `SingleChildScrollView` de o sınırı aşan içeriği
               // taşırma yerine kaydırılabilir yapıyor.
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(sheetContext).size.height * 0.9,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // BUG DÜZELTMESİ: üstten tutup aşağı kaydırarak kapatma
-                  // güvenilir çalışmıyordu — sheet SingleChildScrollView
-                  // içerdiği için Flutter'ın yerleşik enableDrag sürükleme
-                  // algılayıcısı bu iç kaydırılabilir ile çakışıyor ve
-                  // kazanamıyordu; kullanıcının parmağı da ekranın en üst
-                  // kenarına (durum çubuğu/bildirim çubuğu bölgesine) doğru
-                  // sürüklenince işletim sistemi kendi kenar hareketini
-                  // (bildirim/kontrol merkezi) devreye sokuyordu. Arena
-                  // Ayarları sheet'inde aynı sorun için kullanılan desenle
-                  // aynı: sadece tutamaç çubuğuna, geniş bir dokunma
-                  // alanıyla, ayrı bir GestureDetector ekleyip küçük bir
-                  // aşağı hareketle hemen kapatıyoruz — kullanıcının parmağı
-                  // yukarı doğru kaymadan, sheet daha ilk hareketle kapanıyor.
+                  // BUG DÜZELTMESİ (2. tur): tutamaç + "Ayarlar" başlığı artık
+                  // SingleChildScrollView'ın TAMAMEN DIŞINDA — kaydırılabilir
+                  // listeyle aynı jest arenasını hiç paylaşmıyor. Önceki
+                  // sürümde ikisi aynı Column'un (dolayısıyla aynı
+                  // SingleChildScrollView'ın) içindeydi; sürükleme ile
+                  // kaydırma arasında jest arenası rekabeti oluşabiliyordu —
+                  // bu da "üstten tutup kapatamıyorum" şikayetinin asıl
+                  // sebebiydi. Artık yapısal olarak imkansız: tutamaç hiç
+                  // kaydırılabilir bir atanın içinde değil. Ayrıca görünür üst
+                  // boşluk 32px'ten 64px'e çıkarıldı — sheet'in tepesi durum
+                  // çubuğundan/çentikten daha belirgin biçimde ayrılıyor.
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onVerticalDragUpdate: (details) {
+                      if (sheetDragDismissed) return;
                       if ((details.primaryDelta ?? 0) > 6) {
+                        sheetDragDismissed = true;
                         Navigator.of(sheetContext).maybePop();
                       }
                     },
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Center(
-                        child: Container(
-                          width: 40, height: 4,
-                          decoration: BoxDecoration(color: theme.borderSubtle, borderRadius: BorderRadius.circular(2)),
-                        ),
+                      padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 44,
+                              height: 5,
+                              decoration: BoxDecoration(color: theme.borderSubtle, borderRadius: BorderRadius.circular(3)),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              const Icon(PhosphorIcons.gearSixBold, color: Color(0xFF38BDF8), size: 22),
+                              const SizedBox(width: 10),
+                              Text('Ayarlar', style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 18, fontWeight: FontWeight.w900)),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(PhosphorIcons.gearSixBold, color: Color(0xFF38BDF8), size: 22),
-                      const SizedBox(width: 10),
-                      Text('Ayarlar', style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 18, fontWeight: FontWeight.w900)),
-                    ],
-                  ),
                   const SizedBox(height: 20),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      // Toplam güvenli yükseklikten (üst güvenli alan +
+                      // görünür üst boşluk + alt kenar boşluğu) yukarıdaki
+                      // sabit tutamaç/başlık bloğunun yaklaşık payını (110)
+                      // düşüyoruz — geri kalan liste bu sınırı aşarsa kendi
+                      // içinde kayar, aşmazsa içeriğe göre küçülür. Tamamı
+                      // MediaQuery'nin GERÇEK değerlerinden hesaplandığı için
+                      // hangi çözünürlük/cihaz olursa olsun doğru sonuç verir.
+                      maxHeight: MediaQuery.of(sheetContext).size.height
+                          - MediaQuery.of(sheetContext).padding.top
+                          - 64
+                          - MediaQuery.of(sheetContext).padding.bottom
+                          - 28
+                          - 110,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                   Text('GÖRÜNÜM', style: GoogleFonts.outfit(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                   const SizedBox(height: 10),
                   Container(
@@ -895,9 +926,40 @@ class ProfileScreenState extends State<ProfileScreen> {
                         IgnisMomentDialog.show(
                           context,
                           pose: 'celebrating',
-                          title: '🔥 Sinaps Ustası',
+                          title: '🧠 Sinaps Ustası',
                           message: 'Hafızanı test ettin ve kazandın! Bu rozet, öğrendiklerinin kalıcı hâle geldiğinin kanıtı.',
                           primaryLabel: 'Harika! 🎉',
+                          badgeEmoji: '🧠',
+                        );
+                      },
+                    ),
+                    // Ignis Anı (seans sonu bilgilendirme) — gerçek motoru
+                    // (IgnisMomentsEngine.getSessionEndMoment) çağırır, tıpkı
+                    // her pratik ekranının seans sonunda yaptığı gibi; bu
+                    // yüzden bugün henüz pratik yapılmadıysa motor null
+                    // döner ve aşağıdaki yedek metin gösterilir.
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.sparkleBold,
+                      iconColor: const Color(0xFF38BDF8),
+                      title: 'Ignis Anı Pop-up\'ını Göster',
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        final moment = await IgnisMomentsEngine.instance.getSessionEndMoment();
+                        if (!context.mounted) return;
+                        CelebrationDialog.show(
+                          context,
+                          emoji: '✨',
+                          title: 'Ignis Anı Önizlemesi',
+                          subtitle: 'Bu, seans sonunda gördüğün bilgilendirme kartının aynısı.',
+                          earnedXp: 0,
+                          earnedGems: 0,
+                          ignisMomentTitle: moment?.title ?? 'Bugün Henüz Pratik Yok',
+                          ignisMomentMessage: moment?.message ??
+                              'Sistem çalışıyor, ama bugün henüz bir pratik seansı kaydı olmadığı için gerçek veri gösteremiyorum. Bir seans tamamladığında burada gerçek ilerlemen görünecek.',
+                          ignisMomentPose: moment?.pose ?? 'teacher',
+                          actionLabel: 'Kapat',
+                          onAction: () {},
                         );
                       },
                     ),
@@ -1046,6 +1108,8 @@ class ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
+                ],
+                ),
                 ),
                 );
               },

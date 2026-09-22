@@ -26,6 +26,12 @@ class IgnisMomentDialog extends StatelessWidget {
   final VoidCallback? onPrimary;
   final String? secondaryLabel;
   final VoidCallback? onSecondary;
+  // Rozet Kazanma pop-up'ı: doluysa, Ignis karakter görselinin yerine
+  // kazanılan rozetin kendi simgesi (emoji) gösterilir — kullanıcı geri
+  // bildirimi: "rozet kazanma pop-upındaki ignis resmi yerine kazanılan
+  // rozetin simgesini ekle". null bırakılırsa eski davranış (Ignis pozu)
+  // aynen korunur.
+  final String? badgeEmoji;
 
   const IgnisMomentDialog({
     super.key,
@@ -37,6 +43,7 @@ class IgnisMomentDialog extends StatelessWidget {
     this.onPrimary,
     this.secondaryLabel,
     this.onSecondary,
+    this.badgeEmoji,
   });
 
   static Future<void> show(
@@ -49,6 +56,7 @@ class IgnisMomentDialog extends StatelessWidget {
     VoidCallback? onPrimary,
     String? secondaryLabel,
     VoidCallback? onSecondary,
+    String? badgeEmoji,
   }) {
     HapticFeedback.mediumImpact();
     return showGeneralDialog(
@@ -66,6 +74,7 @@ class IgnisMomentDialog extends StatelessWidget {
         onPrimary: onPrimary,
         secondaryLabel: secondaryLabel,
         onSecondary: onSecondary,
+        badgeEmoji: badgeEmoji,
       ),
       transitionBuilder: (ctx, anim, secondaryAnim, child) {
         return FadeTransition(
@@ -105,21 +114,37 @@ class IgnisMomentDialog extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Image.asset(
-                      AppBranding.poseAsset(pose),
+                  if (badgeEmoji != null && badgeEmoji!.isNotEmpty)
+                    Container(
                       width: 96,
                       height: 96,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: color.withValues(alpha: 0.6), width: 2),
+                        boxShadow: [
+                          BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 20, spreadRadius: 1),
+                        ],
+                      ),
+                      child: Text(badgeEmoji!, style: const TextStyle(fontSize: 44)),
+                    )
+                  else
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.asset(
+                        AppBranding.poseAsset(pose),
                         width: 96,
                         height: 96,
-                        decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-                        child: Icon(Icons.auto_awesome, color: color, size: 40),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 96,
+                          height: 96,
+                          decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+                          child: Icon(Icons.auto_awesome, color: color, size: 40),
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 18),
                   Text(
                     title,
