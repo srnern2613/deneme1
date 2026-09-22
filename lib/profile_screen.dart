@@ -521,7 +521,7 @@ class ProfileScreenState extends State<ProfileScreen> {
           // katman, hiçbir veri/servis çağrısını etkilemez.
           Positioned.fill(
             child: Image.asset(
-              'assets/images/profil.webp',
+              'assets/images/section_illustrations/profil.webp',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
             ),
@@ -635,18 +635,30 @@ class ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF111827),
+      // BUG DÜZELTMESİ: bu sheet artık sabit koyu değil — aktif temaya
+      // (Zindan/Parşömen) göre değişiyor, çünkü tam olarak bu tema
+      // anahtarını İÇİNDE barındırıyor (bkz. aşağıdaki `theme` değişkeni).
+      // Material arka planı artık burada SABİT değil, AnimatedBuilder'ın
+      // içindeki Container'a taşındı — böylece kullanıcı sheet AÇIKKEN
+      // Zindan/Parşömen arasında geçiş yaparsa arka plan da anında tepki
+      // verir (sadece metin/simge renkleri değil).
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (sheetContext) {
         return AnimatedBuilder(
           animation: ThemeController.instance,
           builder: (context, _) {
             final isDark = ThemeController.instance.isDark;
             final reducedMotion = ThemeController.instance.reducedMotion;
+            final theme = Theme.of(context).extension<DraconicTheme>()!;
             return StatefulBuilder(
               builder: (context, setModalState) {
-                return Padding(
+                return DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.surfaceLight,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Padding(
               padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(sheetContext).padding.bottom + 28),
               // BUG DÜZELTMESİ: bu sheet'e zamanla (Erişilebilirlik/
               // Bildirimler/Veri Yönetimi/Hakkında) yeni bölümler eklendikçe
@@ -668,30 +680,55 @@ class ProfileScreenState extends State<ProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 40, height: 4,
-                      decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(2)),
+                  // BUG DÜZELTMESİ: üstten tutup aşağı kaydırarak kapatma
+                  // güvenilir çalışmıyordu — sheet SingleChildScrollView
+                  // içerdiği için Flutter'ın yerleşik enableDrag sürükleme
+                  // algılayıcısı bu iç kaydırılabilir ile çakışıyor ve
+                  // kazanamıyordu; kullanıcının parmağı da ekranın en üst
+                  // kenarına (durum çubuğu/bildirim çubuğu bölgesine) doğru
+                  // sürüklenince işletim sistemi kendi kenar hareketini
+                  // (bildirim/kontrol merkezi) devreye sokuyordu. Arena
+                  // Ayarları sheet'inde aynı sorun için kullanılan desenle
+                  // aynı: sadece tutamaç çubuğuna, geniş bir dokunma
+                  // alanıyla, ayrı bir GestureDetector ekleyip küçük bir
+                  // aşağı hareketle hemen kapatıyoruz — kullanıcının parmağı
+                  // yukarı doğru kaymadan, sheet daha ilk hareketle kapanıyor.
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragUpdate: (details) {
+                      if ((details.primaryDelta ?? 0) > 6) {
+                        Navigator.of(sheetContext).maybePop();
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Center(
+                        child: Container(
+                          width: 40, height: 4,
+                          decoration: BoxDecoration(color: theme.borderSubtle, borderRadius: BorderRadius.circular(2)),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       const Icon(PhosphorIcons.gearSixBold, color: Color(0xFF38BDF8), size: 22),
                       const SizedBox(width: 10),
-                      Text('Ayarlar', style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+                      Text('Ayarlar', style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 18, fontWeight: FontWeight.w900)),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Text('GÖRÜNÜM', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  Text('GÖRÜNÜM', style: GoogleFonts.outfit(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(14)),
+                    decoration: BoxDecoration(color: theme.surfaceDark, borderRadius: BorderRadius.circular(14)),
                     child: Row(
                       children: [
                         Expanded(
                           child: _buildSheetAppearanceOption(
+                            theme: theme,
                             label: 'Zindan',
                             selected: isDark,
                             onTap: () {
@@ -702,6 +739,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                         ),
                         Expanded(
                           child: _buildSheetAppearanceOption(
+                            theme: theme,
                             label: 'Parşömen',
                             selected: !isDark,
                             onTap: () {
@@ -714,9 +752,10 @@ class ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 22),
-                  Text('HESAP VE VERİ', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  Text('HESAP VE VERİ', style: GoogleFonts.outfit(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                   const SizedBox(height: 10),
                   _buildSheetRow(
+                    theme: theme,
                     icon: AuthService.instance.isSignedIn ? PhosphorIcons.signOutBold : PhosphorIcons.userBold,
                     iconColor: const Color(0xFF34D399),
                     title: AuthService.instance.isSignedIn
@@ -738,6 +777,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   _buildSheetRow(
+                    theme: theme,
                     icon: PhosphorIcons.arrowClockwiseBold,
                     iconColor: const Color(0xFF818CF8),
                     title: 'Satın Alımları Geri Yükle',
@@ -755,14 +795,15 @@ class ProfileScreenState extends State<ProfileScreen> {
                   // (bkz. flashcards_screen.dart'taki aynı kDebugMode kararı).
                   if (kDebugMode) ...[
                     const SizedBox(height: 22),
-                    Text('DEV/TEST ARAÇLARI', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                    Text('DEV/TEST ARAÇLARI', style: GoogleFonts.outfit(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                     const SizedBox(height: 4),
                     Text(
                       'Sadece önizleme — gerçek seri/istatistik verisi değişmez.',
-                      style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 10.5),
+                      style: GoogleFonts.inter(color: theme.textMuted, fontSize: 10.5),
                     ),
                     const SizedBox(height: 10),
                     _buildSheetRow(
+                      theme: theme,
                       icon: PhosphorIcons.bugBold,
                       iconColor: const Color(0xFFEF4444),
                       title: 'Seri Kaybı Pop-up\'ını Göster',
@@ -778,6 +819,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                     _buildSheetRow(
+                      theme: theme,
                       icon: PhosphorIcons.fireBold,
                       iconColor: const Color(0xFFF59E0B),
                       title: 'Kutlama Pop-up\'ını Göster',
@@ -796,6 +838,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                     // (loving/angry/worried) ve rozet kutlamasını gerçek bir
                     // hedefe/savaşa/rozete ulaşmadan test edebilmek için.
                     _buildSheetRow(
+                      theme: theme,
                       icon: PhosphorIcons.targetBold,
                       iconColor: const Color(0xFFF472B6),
                       title: 'Günlük Hedef Pop-up\'ını Göster',
@@ -811,6 +854,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                     _buildSheetRow(
+                      theme: theme,
                       icon: PhosphorIcons.skullBold,
                       iconColor: const Color(0xFFEF4444),
                       title: 'Boss Yenilgi Pop-up\'ını Göster',
@@ -826,6 +870,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                     _buildSheetRow(
+                      theme: theme,
                       icon: PhosphorIcons.warningBold,
                       iconColor: const Color(0xFF94A3B8),
                       title: 'Savaştan Çıkış Uyarısını Göster',
@@ -841,6 +886,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                     _buildSheetRow(
+                      theme: theme,
                       icon: PhosphorIcons.trophyBold,
                       iconColor: const Color(0xFFFBBF24),
                       title: 'Rozet Kazanma Pop-up\'ını Göster',
@@ -857,9 +903,10 @@ class ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                   const SizedBox(height: 22),
-                  Text('ERİŞİLEBİLİRLİK', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  Text('ERİŞİLEBİLİRLİK', style: GoogleFonts.outfit(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                   const SizedBox(height: 10),
                   _buildSheetSwitchRow(
+                    theme: theme,
                     icon: PhosphorIcons.waveSineBold,
                     iconColor: const Color(0xFF38BDF8),
                     title: 'Azaltılmış Hareket/Animasyon',
@@ -868,9 +915,10 @@ class ProfileScreenState extends State<ProfileScreen> {
                     onChanged: (v) => ThemeController.instance.setReducedMotion(v),
                   ),
                   const SizedBox(height: 22),
-                  Text('BİLDİRİMLER', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  Text('BİLDİRİMLER', style: GoogleFonts.outfit(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                   const SizedBox(height: 10),
                   _buildSheetSwitchRow(
+                    theme: theme,
                     icon: PhosphorIcons.bellRingingBold,
                     iconColor: const Color(0xFFF59E0B),
                     title: 'Günlük Hatırlatma',
@@ -894,6 +942,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                   ),
                   if (dailyReminderEnabled)
                     _buildSheetRow(
+                      theme: theme,
                       icon: PhosphorIcons.clockBold,
                       iconColor: const Color(0xFFF59E0B),
                       title: 'Hatırlatma Saati',
@@ -917,6 +966,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                   _buildSheetSwitchRow(
+                    theme: theme,
                     icon: PhosphorIcons.fireBold,
                     iconColor: const Color(0xFFEF4444),
                     title: 'Seri Kaybı Uyarısı',
@@ -940,9 +990,10 @@ class ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   const SizedBox(height: 22),
-                  Text('VERİ YÖNETİMİ', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  Text('VERİ YÖNETİMİ', style: GoogleFonts.outfit(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                   const SizedBox(height: 10),
                   _buildSheetRow(
+                    theme: theme,
                     icon: PhosphorIcons.trashBold,
                     iconColor: const Color(0xFFEF4444),
                     title: 'İlerlemeyi Sıfırla',
@@ -952,15 +1003,17 @@ class ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   const SizedBox(height: 22),
-                  Text('HAKKINDA', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  Text('HAKKINDA', style: GoogleFonts.outfit(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                   const SizedBox(height: 10),
                   _buildSheetRow(
+                    theme: theme,
                     icon: PhosphorIcons.infoBold,
                     iconColor: const Color(0xFF64748B),
                     title: 'Sürüm',
                     trailingValue: '1.0.0',
                   ),
                   _buildSheetRow(
+                    theme: theme,
                     icon: PhosphorIcons.chatCircleTextBold,
                     iconColor: const Color(0xFF34D399),
                     title: 'Geri Bildirim Gönder',
@@ -974,6 +1027,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                   Opacity(
                     opacity: 0.45,
                     child: _buildSheetRow(
+                      theme: theme,
                       icon: PhosphorIcons.fileTextBold,
                       iconColor: const Color(0xFF64748B),
                       title: 'Gizlilik Politikası (yakında)',
@@ -982,6 +1036,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                   Opacity(
                     opacity: 0.45,
                     child: _buildSheetRow(
+                      theme: theme,
                       icon: PhosphorIcons.fileTextBold,
                       iconColor: const Color(0xFF64748B),
                       title: 'Kullanım Şartları (yakında)',
@@ -991,6 +1046,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
+                ),
                 );
               },
             );
@@ -1074,7 +1130,13 @@ class ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // BUG DÜZELTMESİ: bu 3 yardımcı widget yalnızca Profil > Ayarlar
+  // sheet'inde kullanılıyor ve artık `theme` (DraconicTheme) alıyor —
+  // eskiden sabit koyu renklere (Colors.white, 0xFF64748B vb.) bağlıydı,
+  // bu da Parşömen temasındayken bile sheet'in koyu görünmesine sebep
+  // oluyordu.
   Widget _buildSheetSwitchRow({
+    required DraconicTheme theme,
     required IconData icon,
     required Color iconColor,
     required String title,
@@ -1097,9 +1159,9 @@ class ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                Text(title, style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
                 if (subtitle != null)
-                  Text(subtitle, style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 11)),
+                  Text(subtitle, style: GoogleFonts.inter(color: theme.textMuted, fontSize: 11)),
               ],
             ),
           ),
@@ -1109,7 +1171,7 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSheetAppearanceOption({required String label, required bool selected, required VoidCallback onTap}) {
+  Widget _buildSheetAppearanceOption({required DraconicTheme theme, required String label, required bool selected, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(11),
@@ -1123,13 +1185,13 @@ class ProfileScreenState extends State<ProfileScreen> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: selected ? const Color(0xFF070B14) : const Color(0xFF94A3B8)),
+          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: selected ? const Color(0xFF070B14) : theme.textSecondary),
         ),
       ),
     );
   }
 
-  Widget _buildSheetRow({required IconData icon, required Color iconColor, required String title, String? trailingValue, VoidCallback? onTap}) {
+  Widget _buildSheetRow({required DraconicTheme theme, required IconData icon, required Color iconColor, required String title, String? trailingValue, VoidCallback? onTap}) {
     final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -1142,13 +1204,13 @@ class ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Text(title, style: GoogleFonts.inter(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w600)),
+            child: Text(title, style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 14.5, fontWeight: FontWeight.w600)),
           ),
           if (trailingValue != null)
-            Text(trailingValue, style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.w700)),
+            Text(trailingValue, style: GoogleFonts.outfit(color: theme.textSecondary, fontSize: 13.5, fontWeight: FontWeight.w700)),
           if (onTap != null) ...[
             const SizedBox(width: 6),
-            const Icon(PhosphorIcons.caretRightBold, color: Color(0xFF64748B), size: 14),
+            Icon(PhosphorIcons.caretRightBold, color: theme.textMuted, size: 14),
           ],
         ],
       ),

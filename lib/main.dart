@@ -527,7 +527,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               ClipOval(
                 child: Image.asset(
-                  'assets/images/ignis_avatar_badge.png',
+                  'assets/images/mascot/ignis_avatar_badge.png',
                   width: 20,
                   height: 20,
                   fit: BoxFit.cover,
@@ -638,7 +638,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Positioned.fill(
                   child: Image.asset(
-                    'assets/images/ana_sayfa.webp',
+                    'assets/images/section_illustrations/ana_sayfa.webp',
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
                   ),
@@ -700,7 +700,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               scale: 1.35,
                               alignment: Alignment.centerLeft,
                               child: Image.asset(
-                                'assets/images/lobi_logo1.png',
+                                'assets/images/backgrounds/lobi_logo1.png',
                                 fit: BoxFit.contain,
                                 alignment: Alignment.centerLeft,
                                 // P0-D: görsel 72pt yükseklikte gösteriliyor —
@@ -925,7 +925,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           right: -5,
                           bottom: -5,
                           child: Image.asset(
-                            'assets/images/ignis_avatar.png',
+                            'assets/images/mascot/ignis_avatar.png',
                             width: 145,
                             height: 165,
                             fit: BoxFit.contain,
@@ -998,7 +998,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             decoration: BoxDecoration(color: const Color(0xFFA855F7).withValues(alpha: 0.15), shape: BoxShape.circle),
                             child: ClipOval(
                               child: Image.asset(
-                                'assets/images/ignis_avatar_badge.png',
+                                'assets/images/mascot/ignis_avatar_badge.png',
                                 width: 34,
                                 height: 34,
                                 cacheWidth: (34 * MediaQuery.of(context).devicePixelRatio).round(),

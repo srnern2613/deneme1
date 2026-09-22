@@ -71,7 +71,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/app_icon.png"
+  image_path: "assets/images/logo/app_icon.png"
   # Android 8+ (Oreo) adaptive ikon: bunlar verilmezse Android, kare görseli
   # "legacy" ikon sayıp KENDİSİ otomatik olarak beyaz zeminli bir daireye
   # küçültüp oturtuyor (ekrandaki "beyaz zeminde küçülmüş kare" görünümünün
@@ -79,7 +79,7 @@ flutter_launcher_icons:
   # tanımlayınca Android kendi otomatik küçültme/beyazlatma davranışını
   # uygulamıyor.
   adaptive_icon_background: "#0f172a"
-  adaptive_icon_foreground: "assets/images/app_icon.png"
+  adaptive_icon_foreground: "assets/images/logo/app_icon.png"
 
 flutter_native_splash:
   # NOT (kutu/dikdörtgen görünme sorunu düzeltmesi): Bu #0f172a düz renk,
@@ -89,7 +89,7 @@ flutter_native_splash:
   # oluşturuyordu. Artık görselin gerçek kenar tonuyla piksel seviyesinde
   # eşleşecek şekilde ayarlandı.
   color: "#06070f"
-  image: assets/images/ignis_splash.png
+  image: assets/images/logo/ignis_splash.png
   android_12:
     # ÖNEMLİ SINIRLAMA: Android 12+ kendi native splash API'sini dayatıyor —
     # bu API'de tam ekran özel görsel YOK, sadece ortada sabit boyutlu
@@ -98,7 +98,7 @@ flutter_native_splash:
     # sığdırılmaya çalışılınca kenarlardan/yazıdan kırpılıyordu — gördüğün
     # o yuvarlak kırpılmış görüntünün sebebi bu. Bunun için afiş yerine,
     # zaten dairesel çerçeveye uygun tasarlanmış app_icon.png kullanılıyor.
-    image: assets/images/app_icon.png
+    image: assets/images/logo/app_icon.png
     # NOT: app_icon.png'nin gerçek kenar tonu (~#030c1e, neredeyse siyah)
     # eski #0f172a'dan belirgin biçimde koyu/farklıydı — Android 12+
     # cihazlarda (artık cihazların çoğu) ortada görünen "kutu" şikayetinin
@@ -110,6 +110,16 @@ flutter_native_splash:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
+    # NOT: assets/images/ klasörü artık kategoriye göre alt klasörlere
+    # ayrıldı (logo/, mascot/, mascot_emotions/, backgrounds/,
+    # section_illustrations/). Flutter, bir klasör girdisi için SADECE o
+    # klasörün doğrudan içindeki dosyaları paketler — alt klasörleri OTOMATİK
+    # dahil etmez, bu yüzden her alt klasör burada ayrı ayrı listelenmeli
+    # (yoksa build sırasında dosyalar sessizce pakete girmez).
+    - assets/images/logo/
+    - assets/images/mascot/
+    - assets/images/mascot_emotions/
+    - assets/images/backgrounds/
+    - assets/images/section_illustrations/
     - assets/books/
     - assets/rive/

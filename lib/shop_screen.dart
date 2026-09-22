@@ -459,7 +459,7 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/dukkan.webp',
+              'assets/images/section_illustrations/dukkan.webp',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
             ),

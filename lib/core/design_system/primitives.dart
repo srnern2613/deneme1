@@ -424,7 +424,7 @@ class IgnisCharacterPortrait extends StatelessWidget {
       width: size,
       height: size,
       child: Image.asset(
-        'assets/images/ignis_avatar.png',
+        'assets/images/mascot/ignis_avatar.png',
         fit: BoxFit.contain,
         // P0-D: kaynak 1.1MB'lık yüksek çözünürlüklü PNG — gösterilen
         // boyuta (size) göre cache verilerek gereksiz tam-çözünürlük

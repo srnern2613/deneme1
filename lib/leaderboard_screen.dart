@@ -203,7 +203,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/basarimlar.webp',
+              'assets/images/section_illustrations/basarimlar.webp',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
             ),

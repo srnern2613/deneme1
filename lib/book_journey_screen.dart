@@ -251,7 +251,7 @@ class _BookJourneyScreenState extends State<BookJourneyScreen> {
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/yolculuk_harita.webp',
+              'assets/images/section_illustrations/yolculuk_harita.webp',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
             ),

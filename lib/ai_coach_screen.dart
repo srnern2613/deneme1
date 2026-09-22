@@ -201,11 +201,11 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
 
   // EJDERHA ROTASI V2 — Görsel Entegrasyonu: tüm ekranda tek bir yerden
   // yönetilen Ignis avatarı. Eski 🐉 emoji placeholder'ının yerini,
-  // assets/images/ignis_avatar_badge.png (yuvarlak rünik arkaplanlı) alıyor.
+  // assets/images/mascot/ignis_avatar_badge.png (yuvarlak rünik arkaplanlı) alıyor.
   Widget _buildIgnisAvatar({double size = 28}) {
     return ClipOval(
       child: Image.asset(
-        'assets/images/ignis_avatar_badge.png',
+        'assets/images/mascot/ignis_avatar_badge.png',
         width: size,
         height: size,
         fit: BoxFit.cover,

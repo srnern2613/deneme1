@@ -603,7 +603,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> with WidgetsBinding
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/calis_kartlar.webp',
+              'assets/images/section_illustrations/calis_kartlar.webp',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
             ),

@@ -21,24 +21,26 @@ class AppBranding {
   /// kurulabilsin diye.
   static const String characterName = 'Ignis';
 
-  /// Poz görsellerinin bulunduğu klasör ön eki (assets/images/ altında).
-  /// Örn: '${AppBranding.poseAssetPrefix}celebrating.webp'
-  static const String poseAssetPrefix = 'assets/images/ignis_poses/';
+  /// Poz görsellerinin bulunduğu klasör ön eki. NOT: bu sabit fiilen
+  /// KULLANILMIYOR — _poseFallback haritasındaki her satır kendi tam yolunu
+  /// taşıyor (aşağıda mascot_emotions/ klasörüne güncellendi). Bu alan
+  /// sadece dokümantasyon amaçlı bırakıldı.
+  static const String poseAssetPrefix = 'assets/images/mascot_emotions/';
 
-  /// Faz F: gerçek duygu-ifade görselleri eklendi (assets/images/*.webp) —
-  /// artık tüm pozlar rozet görseline değil, kendi duygusuna uygun gerçek
+  /// Faz F: gerçek duygu-ifade görselleri eklendi (assets/images/mascot_emotions/*.webp)
+  /// — artık tüm pozlar rozet görseline değil, kendi duygusuna uygun gerçek
   /// bir yüz ifadesine düşüyor. Yeni bir poz eklemek istersen sadece bu
   /// haritaya bir satır eklemek yeterli, çağıran kod değişmez.
   static const Map<String, String> _poseFallback = {
-    'celebrating': 'assets/images/excited.webp',
-    'loving': 'assets/images/loving.webp',
-    'teacher': 'assets/images/thinking.webp',
-    'worried': 'assets/images/suspicious.webp',
-    'sad': 'assets/images/sad.webp',
-    'angry': 'assets/images/angry.webp',
-    'greeting': 'assets/images/happy.webp',
-    'thinking': 'assets/images/thinking.webp',
-    'happy': 'assets/images/happy.webp',
+    'celebrating': 'assets/images/mascot_emotions/excited.webp',
+    'loving': 'assets/images/mascot_emotions/loving.webp',
+    'teacher': 'assets/images/mascot_emotions/thinking.webp',
+    'worried': 'assets/images/mascot_emotions/suspicious.webp',
+    'sad': 'assets/images/mascot_emotions/sad.webp',
+    'angry': 'assets/images/mascot_emotions/angry.webp',
+    'greeting': 'assets/images/mascot_emotions/happy.webp',
+    'thinking': 'assets/images/mascot_emotions/thinking.webp',
+    'happy': 'assets/images/mascot_emotions/happy.webp',
   };
 
   /// Bir poz anahtarı için görsel yolunu döner (tanımsız bir anahtar gelirse

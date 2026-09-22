@@ -276,7 +276,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/sozluk.webp',
+              'assets/images/section_illustrations/sozluk.webp',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
             ),

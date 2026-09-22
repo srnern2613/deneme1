@@ -516,7 +516,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/kitaplik.webp',
+              'assets/images/section_illustrations/kitaplik.webp',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
             ),
