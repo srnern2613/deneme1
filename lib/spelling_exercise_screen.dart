@@ -595,35 +595,7 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
               ),
             ),
 
-            if (_cheerToast != null)
-              Positioned(
-                top: 10,
-                left: 20,
-                right: 20,
-                child: AnimatedSlide(
-                  duration: const Duration(milliseconds: 250),
-                  offset: _cheerToast != null ? Offset.zero : const Offset(0, -1.5),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: theme.successEmerald,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.successEmerald.withValues(alpha: 0.35),
-                          blurRadius: 14,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      _cheerToast!,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ),
-                ),
-              ),
+            if (_cheerToast != null) CheerToast(message: _cheerToast),
           ],
         ),
       ),

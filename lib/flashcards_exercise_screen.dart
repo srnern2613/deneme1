@@ -17,6 +17,7 @@ import 'core/fsrs/fsrs_repository.dart';
 import 'core/fsrs/fsrs_models.dart';
 import 'core/coach/ignis_moments_engine.dart';
 import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
+import 'core/design_system/primitives.dart'; // P0-D: paylaşılan CheerToast
 
 class FlashcardsExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -429,41 +430,11 @@ class _FlashcardsExerciseScreenState extends State<FlashcardsExerciseScreen> {
                 : _buildExerciseView(),
 
             if (_cheerMessage != null)
-              Positioned(
-                top: 10,
-                left: 20,
-                right: 20,
-                child: AnimatedSlide(
-                  duration: const Duration(milliseconds: 250),
-                  offset: _cheerMessage != null ? Offset.zero : const Offset(0, -1.5),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _cheerMessage!.contains('✨') || _cheerMessage!.contains('🏆')
-                          ? _theme.primaryAmber
-                          : _theme.successEmerald,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (_cheerMessage!.contains('✨') || _cheerMessage!.contains('🏆')
-                              ? _theme.primaryAmber
-                              : _theme.successEmerald).withValues(alpha: 0.35),
-                          blurRadius: 14,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      _cheerMessage!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ),
+              CheerToast(
+                message: _cheerMessage,
+                accentColor: (_cheerMessage!.contains('✨') || _cheerMessage!.contains('🏆'))
+                    ? _theme.primaryAmber
+                    : null,
               ),
           ],
         ),

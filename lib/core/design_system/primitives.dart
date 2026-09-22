@@ -561,3 +561,64 @@ class BookCover extends StatelessWidget {
     );
   }
 }
+
+// 6. P0-D: Pratik ekranlarındaki (quiz/eşleştirme/SRS/imla/boşluk
+// doldurma/dinleme/ters test/hız turu) "teşvik" (cheer) bildirim kapsülü —
+// tek, paylaşılan tanım. Önceden her egzersiz dosyasında ayrı ayrı,
+// birebir kopyalanmış, düz `successEmerald` dolgulu + ikonsuz + varsayılan
+// (Outfit DEĞİL) fontlu bir kapsül olarak duruyordu; bu hem 8 yerde bakım
+// yükü yaratıyordu hem de fontu uygulamanın geri kalanından (her yerde
+// GoogleFonts.outfit) farklı olduğu için "yabancı" duruyordu.
+//
+// DÜZELTME NOTU: İLK sürüm bunu yarı saydam nötr (surfaceDark) bir zemine
+// çevirmişti — ama karanlık temada surfaceDark, uygulamanın zaten neredeyse
+// siyah background'una çok yakın bir ton olduğundan kapsül pratikte
+// GÖRÜNMEZ hale geliyordu (kullanıcı bildirimi: "3 doğru bildim ama
+// çıkmadı"). Bu yüzden canlı aksan rengi (successEmerald/dangerRed/
+// primaryAmber) dolgu GERİ getirildi — görünürlük önceliklidir — sadece
+// köşe/kenarlık/gölge/font uygulamanın diline (GlassPanel/IgnisAlert'teki
+// gibi ince, yarı saydam bir üst kenarlık + daha yumuşak gölge) yaklaştırıldı.
+class CheerToast extends StatelessWidget {
+  final String? message;
+  final Color? accentColor;
+
+  const CheerToast({super.key, required this.message, this.accentColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    final accent = accentColor ?? theme.successEmerald;
+    final bool visible = message != null;
+
+    return Positioned(
+      top: 10,
+      left: 20,
+      right: 20,
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        offset: visible ? Offset.zero : const Offset(0, -1.5),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.28), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.45),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Text(
+            message ?? '',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5),
+          ),
+        ),
+      ),
+    );
+  }
+}
