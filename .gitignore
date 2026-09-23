@@ -55,3 +55,15 @@ app.*.map.json
 key.properties
 *.jks
 *.keystore
+
+# Firebase / servis yapılandırma dosyaları — herkese açık depoya GİTMEMELİ.
+# (Eylül 2026: google-services.json GitHub'a sızdı, anahtar yenilendi.)
+# Bu dosyalar her geliştirici makinesinde Firebase konsolundan indirilir.
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+
+# Yerel sır/ortam dosyaları
+.env
+.env.*
+*.secret
