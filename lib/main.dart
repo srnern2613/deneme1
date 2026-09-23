@@ -17,6 +17,7 @@ import 'core/notifications/notification_service.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/storage/book_storage_service.dart';
+import 'database_helper.dart';
 import 'book_model.dart';
 import 'default_books.dart';
 import 'library_screen.dart';
@@ -33,6 +34,7 @@ import 'ignis_moment_dialog.dart'; // Faz F: Duolingo tarzı seri-kaybı pop-up'
 import 'core/design_system/platform_tokens.dart';
 import 'core/design_system/primitives.dart'; // BookCover (P1-3)
 import 'core/theme/draconic_theme.dart'; // T-1: Lobi yapısal renkleri temadan
+import 'core/branding/app_branding.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -351,6 +353,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _showStickyCta = false;
 
+  // Hero öneri karuseli: kullanıcıya göre dinamik kartlar. Aşağıdaki iki
+  // sayaç kartlardan hangilerinin gösterileceğine karar veriyor.
+  final PageController _heroPageController = PageController();
+  int _heroPage = 0;
+  int _bossCount = 0;
+  int _dueReviewCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -368,6 +377,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _heroPageController.dispose();
     super.dispose();
   }
 
@@ -412,6 +422,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await XpShopService.instance.getTotalXp();
       final dailyStatus = await IgnisMomentsEngine.instance.getDailyStatusSnapshot();
 
+      // Hero öneri karuseli için — biri başarısız olsa bile Lobi'nin geri
+      // kalanı yüklenmeye devam etsin diye ayrı ayrı korunuyor.
+      int bossCount = 0;
+      int dueReviewCount = 0;
+      try {
+        bossCount = await DatabaseHelper.instance.getActiveBossCount();
+      } catch (_) {}
+      try {
+        dueReviewCount = await DatabaseHelper.instance.getDueTodayCount();
+      } catch (_) {}
+
       // AŞAMA 1: kitap sayfa metni artık book_content.db'de (Android Auto
       // Backup kotası dışında); BookStorageService bunu şeffaf birleştirir.
       List<Book> parsedBooks = await BookStorageService.loadBooks();
@@ -430,6 +451,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _userBooks = parsedBooks;
         _activeBook = parsedBooks.isNotEmpty ? parsedBooks.first : null;
         _dailyStatus = dailyStatus;
+        _bossCount = bossCount;
+        _dueReviewCount = dueReviewCount;
         _isLoading = false;
       });
 
@@ -469,6 +492,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _getTodayKey() {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  void _openHabitTracker() {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const HabitTrackerScreen()),
+    ).then((_) => refreshDashboardStats());
   }
 
   Future<void> _openReaderDirectly(Book book) async {
@@ -599,6 +629,354 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // HERO ÖNERİ KARUSELİ
+  // ---------------------------------------------------------------------------
+
+  /// Kullanıcının o anki durumuna göre öncelik sıralı öneri kartları üretir.
+  /// İlk kart her zaman "Günün Görevi"dir; toplam en fazla 4 kart.
+  List<_HeroSuggestion> _buildHeroSuggestions(DraconicTheme theme, double goalProgress) {
+    final list = <_HeroSuggestion>[];
+    final goalDone = _dailyTargetCards > 0 && _todayLearnedCards >= _dailyTargetCards;
+    final hasActivityToday = _dailyStatus?.hasActivityToday ?? false;
+
+    // 1) Günün Görevi — her zaman ilk sırada.
+    list.add(_HeroSuggestion(
+      eyebrow: goalDone ? 'HEDEF TAMAM' : 'GÜNÜN GÖREVİ',
+      icon: goalDone ? PhosphorIcons.sealCheckBold : PhosphorIcons.scrollBold,
+      accent: goalDone ? theme.successEmerald : theme.primaryAmber,
+      title: _activeBook != null ? _activeBook!.title : 'Kelime Egzersizi',
+      subtitle: _todayLearnedCards == 0
+          ? 'Bugün henüz kelime öğrenmedin • Hedef: $_dailyTargetCards'
+          : 'Günlük Hedef • $_todayLearnedCards/$_dailyTargetCards Kelime',
+      ctaLabel: _activeBook != null ? 'Okumaya Devam' : 'Derse Başla',
+      ctaIcon: PhosphorIcons.playFill,
+      pose: goalDone ? 'celebrating' : (_activeBook != null ? 'reading' : 'happy'),
+      progress: goalProgress,
+      onTap: _onStartLessonTap,
+    ));
+
+    // 2) Seri tehlikede — bugün hiç pratik yoksa ve korunacak bir seri varsa.
+    if (!hasActivityToday && _currentStreak >= 2) {
+      list.add(_HeroSuggestion(
+        eyebrow: 'SERİNİ KORU',
+        icon: PhosphorIcons.fireBold,
+        accent: theme.dangerRed,
+        title: '$_currentStreak günlük serin tehlikede',
+        subtitle: 'Bugün henüz pratik yapmadın. 2 dakikalık hızlı bir tur yeter.',
+        ctaLabel: 'Hızlı Tur',
+        ctaIcon: PhosphorIcons.lightningBold,
+        pose: 'sleepy',
+        onTap: widget.onNavigateToFlashcards,
+      ));
+    }
+
+    // 3) Boss kelimeler — sık yanıldığın, bekleme süresi dolmuş kelimeler.
+    if (_bossCount > 0) {
+      list.add(_HeroSuggestion(
+        eyebrow: 'BOSS UYARISI',
+        icon: PhosphorIcons.swordBold,
+        accent: theme.dangerRed,
+        title: _bossCount == 1 ? 'İnatçı bir kelime meydan okuyor' : '$_bossCount inatçı kelime meydan okuyor',
+        subtitle: 'Sık yanıldığın kelimeleri Arena\'da alt et, XP kap.',
+        ctaLabel: 'Arenaya Git',
+        ctaIcon: PhosphorIcons.swordBold,
+        pose: 'warrior',
+        onTap: widget.onNavigateToFlashcards,
+      ));
+    }
+
+    // 4) Tekrar bekleyen kelimeler.
+    if (_dueReviewCount > 0) {
+      list.add(_HeroSuggestion(
+        eyebrow: 'TEKRAR ZAMANI',
+        icon: PhosphorIcons.arrowClockwiseBold,
+        accent: theme.infoTeal,
+        title: '$_dueReviewCount kelime tekrar bekliyor',
+        subtitle: 'Bugün vakti gelen kelimeler — unutmadan pekiştir.',
+        ctaLabel: 'Tekrar Et',
+        ctaIcon: PhosphorIcons.cardsBold,
+        pose: 'teacher',
+        onTap: widget.onNavigateToFlashcards,
+      ));
+    }
+
+    // 5) Bitmeye yakın bir kitap (aktif kitap zaten 1. kartta).
+    final nearFinish = _userBooks.where((b) {
+      if (identical(b, _activeBook)) return false;
+      final total = b.totalPages;
+      if (total <= 1) return false;
+      final ratio = b.currentPage / total;
+      return ratio >= 0.6 && ratio < 1.0;
+    }).toList();
+    if (nearFinish.isNotEmpty) {
+      final book = nearFinish.first;
+      final remaining = (book.totalPages - book.currentPage - 1).clamp(1, 99999);
+      list.add(_HeroSuggestion(
+        eyebrow: 'SONA YAKLAŞTIN',
+        icon: PhosphorIcons.trophyBold,
+        accent: theme.successEmerald,
+        title: book.title,
+        subtitle: 'Bitirmene sadece $remaining sayfa kaldı!',
+        ctaLabel: 'Kitabı Bitir',
+        ctaIcon: PhosphorIcons.bookOpenBold,
+        pose: 'proud',
+        onTap: () => _openReaderDirectly(book),
+      ));
+    }
+
+    // 6) Hiç açılmamış yeni bir kitap.
+    final fresh = _userBooks.where((b) => !identical(b, _activeBook) && b.currentPage == 0 && b.lastReadDate == null).toList();
+    if (fresh.isNotEmpty) {
+      final book = fresh.first;
+      list.add(_HeroSuggestion(
+        eyebrow: 'YENİ MACERA',
+        icon: PhosphorIcons.compassBold,
+        accent: theme.cognitiveIndigo,
+        title: book.title,
+        subtitle: 'Henüz açmadığın bir kitap seni bekliyor.',
+        ctaLabel: 'Keşfet',
+        ctaIcon: PhosphorIcons.bookOpenBold,
+        pose: 'explorer',
+        onTap: () => _openReaderDirectly(book),
+      ));
+    }
+
+    // Durum kartları en fazla 4; Alışkanlıklar kartı ise HER ZAMAN en sonda
+    // — kullanıcı alışkanlık takibini buradan da keşfedebilsin.
+    final result = list.take(4).toList();
+    result.add(_HeroSuggestion(
+      eyebrow: 'ALIŞKANLIKLAR',
+      icon: PhosphorIcons.targetBold,
+      accent: theme.primaryAmber,
+      title: 'Günlük hedeflerini işaretle',
+      subtitle: 'Okuma hedefini ve kendi alışkanlıklarını takip et, zinciri kırma.',
+      ctaLabel: 'Alışkanlıklarım',
+      ctaIcon: PhosphorIcons.caretRightBold,
+      pose: 'greeting',
+      onTap: _openHabitTracker,
+    ));
+    return result;
+  }
+
+  Widget _buildHeroCarousel(DraconicTheme theme, double goalProgress) {
+    final suggestions = _buildHeroSuggestions(theme, goalProgress);
+    // Kart sayısı yenilemede azalırsa geçersiz sayfada kalmayalım.
+    final activePage = _heroPage.clamp(0, suggestions.length - 1);
+    final activeAccent = suggestions[activePage].accent;
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 206,
+          child: PageView.builder(
+            controller: _heroPageController,
+            physics: const BouncingScrollPhysics(),
+            itemCount: suggestions.length,
+            onPageChanged: (i) {
+              HapticFeedback.selectionClick();
+              setState(() => _heroPage = i);
+            },
+            itemBuilder: (context, index) => Padding(
+              // Kartlar arasında kaydırırken nefes alan küçük bir boşluk.
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              // Kart sabit yükseklikte — çok büyük sistem yazı boyutunda
+              // taşmasın diye yazı ölçeği kart içinde sınırlandırılıyor.
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 1.1,
+                child: _buildHeroCard(theme, suggestions[index]),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Sayfa göstergesi: aktif nokta uzayan, kartın vurgu rengini alan bir hap.
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(suggestions.length, (i) {
+            final isActive = i == activePage;
+            return GestureDetector(
+              onTap: () => _heroPageController.animateToPage(
+                i,
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+              ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: isActive ? 20 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isActive ? activeAccent : theme.borderSubtle,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroCard(DraconicTheme theme, _HeroSuggestion s) {
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    const double mascotSize = 132;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          s.onTap();
+        },
+        borderRadius: BorderRadius.circular(24),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [theme.surfaceLight.withValues(alpha: 0.92), theme.surfaceDark.withValues(alpha: 0.96)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: s.accent.withValues(alpha: 0.35), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                // Açık (Parşömen) temada renkli gölge kremin üstünde kirli bir
+                // leke gibi duruyordu — orada nötr, çok hafif bir gölge.
+                color: theme.isDark ? s.accent.withValues(alpha: 0.10) : Colors.black.withValues(alpha: 0.05),
+                blurRadius: 20,
+                spreadRadius: 1,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            // Maskot kartın alt kenarından "yükseliyor" — alt kenara yaslı ve
+            // yuvarlak köşeden kırpılıyor; yazıların üstüne binmiyor.
+            borderRadius: BorderRadius.circular(23),
+            child: Stack(
+              children: [
+                // Maskotun arkasında vurgu renginde yumuşak bir ışık halesi —
+                // karakteri karta "oturtuyor", yapıştırılmış gibi durmuyor.
+                Positioned(
+                  right: -40,
+                  bottom: -50,
+                  child: Container(
+                    width: 210,
+                    height: 210,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        // Koyu temada karakteri öne çıkaran hale, açık temada
+                        // yoğun kalınca krem zeminde çamurlu bir leke
+                        // oluşturuyordu — orada belirgin şekilde hafifletildi.
+                        colors: [s.accent.withValues(alpha: theme.isDark ? 0.28 : 0.12), s.accent.withValues(alpha: 0.0)],
+                      ),
+                    ),
+                  ),
+                ),
+                // Maskot: büst pozu, alt kenara yaslı, metne doğru bakacak
+                // şekilde yatay çevrilmiş.
+                Positioned(
+                  right: -6,
+                  bottom: 0,
+                  child: Transform.flip(
+                    flipX: true,
+                    child: Image.asset(
+                      AppBranding.poseAsset(s.pose),
+                      width: mascotSize,
+                      height: mascotSize,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.bottomCenter,
+                      cacheWidth: (mascotSize * dpr).round(),
+                      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+                // İçerik: sağda maskota yer bırakan sabit bir boşlukla.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, mascotSize - 14, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(s.icon, size: 13, color: s.accent),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              s.eyebrow,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.outfit(color: s.accent, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.4),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        s.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 19, fontWeight: FontWeight.bold, height: 1.15),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        s.subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11.5, height: 1.3),
+                      ),
+                      const Spacer(),
+                      if (s.progress != null) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: s.progress,
+                            minHeight: 6,
+                            backgroundColor: theme.borderSubtle,
+                            valueColor: AlwaysStoppedAnimation<Color>(s.accent),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [s.accent.withValues(alpha: 0.8), s.accent]),
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(color: s.accent.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4)),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(s.ctaIcon, size: 13, color: theme.background),
+                            const SizedBox(width: 7),
+                            Flexible(
+                              child: Text(
+                                s.ctaLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(color: theme.background, fontWeight: FontWeight.w900, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDailyStatusStat({required IconData icon, required Color color, required String value, required String label}) {
     final theme = Theme.of(context).extension<DraconicTheme>()!;
     return Column(
@@ -689,30 +1067,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Sol Taraf: Dikey Logo (Transform.scale ile etrafındaki şeffaf boşluklar kırpılarak büyütüldü)
+                      // Sol Taraf: Logo — arka planı (gömülü dama deseni)
+                      // temizlenmiş, kenarlarına sıkı kırpılmış şeffaf PNG.
+                      // Eski görselin etrafındaki boşluğu gizlemek için
+                      // kullanılan Transform.scale hilesine artık gerek yok.
                       Expanded(
-                        flex: 34,
+                        flex: 44,
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: SizedBox(
-                            height: 72,
-                            child: Transform.scale(
-                              scale: 1.35,
+                            height: 54,
+                            child: Image.asset(
+                              'assets/images/logo/ignis_wordmark.png',
+                              fit: BoxFit.contain,
                               alignment: Alignment.centerLeft,
-                              child: Image.asset(
-                                'assets/images/backgrounds/lobi_logo1.png',
-                                fit: BoxFit.contain,
-                                alignment: Alignment.centerLeft,
-                                // P0-D: görsel 72pt yükseklikte gösteriliyor —
-                                // cacheHeight vermek, kaynak dosya çok daha
-                                // yüksek çözünürlükte olsa bile decode'u
-                                // gösterilen boyuta indiriyor (genişlik oranı
-                                // otomatik korunuyor).
-                                cacheHeight: (72 * MediaQuery.of(context).devicePixelRatio).round(),
-                                errorBuilder: (context, error, stackTrace) => Text(
-                                  'Ignis',
-                                  style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 15, fontWeight: FontWeight.bold)
-                                ),
+                              filterQuality: FilterQuality.medium,
+                              // P0-D: decode gösterilen boyuta indiriliyor.
+                              cacheHeight: (54 * MediaQuery.of(context).devicePixelRatio).round(),
+                              errorBuilder: (context, error, stackTrace) => Text(
+                                'Ignis',
+                                style: GoogleFonts.lora(color: theme.primaryAmber, fontSize: 22, fontWeight: FontWeight.bold)
                               ),
                             ),
                           ),
@@ -724,7 +1098,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // bu artık uygulama genelinde kullanılacak referans
                       // sayaç/rozet tasarımı.
                       Expanded(
-                        flex: 66,
+                        flex: 56,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
@@ -758,22 +1132,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             // kaldırıldı. XpShopService.gemsNotifier ve ilişkili metodlar
                             // (addGems/spendGems) veri modelinde @Deprecated olarak
                             // bırakıldı — okuma yolları kapatılıyor, alan silinmiyor.
-                            // Streak Sayaç
+                            // Streak Sayaç — dokununca Alışkanlıklar sayfası açılır
+                            // (seri = alışkanlık zinciri; en görünür giriş noktası).
                             Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: theme.surfaceDark.withValues(alpha: 0.75),
-                                  borderRadius: BorderRadius.circular(13),
-                                  border: Border.all(color: theme.borderSubtle),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(PhosphorIcons.fireBold, color: theme.primaryAmber, size: 15),
-                                    const SizedBox(width: 4),
-                                    Flexible(child: Text(_formatNumber(_currentStreak), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13))),
-                                  ],
+                              child: Tooltip(
+                                message: 'Alışkanlıklarım',
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: _openHabitTracker,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: theme.surfaceDark.withValues(alpha: 0.75),
+                                      borderRadius: BorderRadius.circular(13),
+                                      border: Border.all(color: theme.primaryAmber.withValues(alpha: 0.45)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(PhosphorIcons.fireBold, color: theme.primaryAmber, size: 15),
+                                        const SizedBox(width: 4),
+                                        Flexible(child: Text(_formatNumber(_currentStreak), overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13))),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -803,170 +1185,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // --- 2. HERO DERS KARTI (YÜKSEK KONTRASTLI İLERLEME BARI) ---[cite: 3, 4]
-                  Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(minHeight: 190),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [theme.surfaceLight.withValues(alpha: 0.9), theme.surfaceDark.withValues(alpha: 0.95)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: theme.primaryAmber.withValues(alpha: 0.3), width: 1.2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.primaryAmber.withValues(alpha: 0.08),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // Görev panosu hissi için sol üst köşede çok soluk bir
-                        // pusula/rün süsü — tamamen kararlı, hiçbir dokunma
-                        // alanını veya veri akışını etkilemiyor.
-                        Positioned(
-                          top: 14,
-                          left: 14,
-                          child: Icon(PhosphorIcons.compassBold, size: 20, color: theme.primaryAmber.withValues(alpha: 0.15)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(PhosphorIcons.scrollBold, size: 13, color: theme.primaryAmber.withValues(alpha: 0.8)),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'GÜNÜN GÖREVİ',
-                                    style: GoogleFonts.outfit(color: theme.primaryAmber.withValues(alpha: 0.85), fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1.4),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              SizedBox(
-                                width: MediaQuery.of(context).size.width * 0.55,
-                                child: Text(
-                                  _activeBook != null ? _activeBook!.title : 'Kelime Egzersizi', 
-                                  maxLines: 1, 
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 24, fontWeight: FontWeight.bold)
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              // P1-7: "0/5 Kelime" çıplak sıfırı, ilk oturumda davet mesajına dönüşür.
-                              // Gerçek cihaz testinde bu satırın sağ tarafı sağ-alt köşedeki
-                              // Ignis görselinin (bkz. aşağıdaki Positioned) ARKASINDA kalıp
-                              // kırpılıyordu — satır genişliği hiç sınırlanmamıştı. Başlıkla
-                              // aynı %55 genişlik sınırı + tek satır/ellipsis burada da veriliyor.
-                              SizedBox(
-                                width: MediaQuery.of(context).size.width * 0.55,
-                                child: Text(
-                                  _todayLearnedCards == 0
-                                      ? 'Bugün henüz kelime öğrenmedin • Hedef: $_dailyTargetCards'
-                                      : 'Günlük Hedef • $_todayLearnedCards/$_dailyTargetCards Kelime',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12),
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: LinearProgressIndicator(
-                                        value: goalProgress,
-                                        minHeight: 8,
-                                        backgroundColor: theme.borderSubtle, // Boş kısım için açık kontrast zemin[cite: 4]
-                                        valueColor: AlwaysStoppedAnimation<Color>(theme.primaryAmber), // Dolu kısım doygun altın[cite: 4]
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 100),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              InkWell(
-                                onTap: _onStartLessonTap,
-                                borderRadius: BorderRadius.circular(24),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(colors: [theme.primaryAmber.withValues(alpha: 0.75), theme.primaryAmber]),
-                                    borderRadius: BorderRadius.circular(24),
-                                    boxShadow: [
-                                      BoxShadow(color: theme.primaryAmber.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4)),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(PhosphorIcons.playFill, size: 14, color: theme.background),
-                                      const SizedBox(width: 8),
-                                      Text('Derse Başla', style: GoogleFonts.outfit(color: theme.background, fontWeight: FontWeight.w900, fontSize: 13.5)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          right: -5,
-                          bottom: -5,
-                          child: Image.asset(
-                            'assets/images/mascot/ignis_avatar.png',
-                            width: 145,
-                            height: 165,
-                            fit: BoxFit.contain,
-                            // P0-D: kaynak 1.1MB'lık yüksek çözünürlüklü PNG —
-                            // gösterilen 145x165 boyutuna göre cache verildi.
-                            cacheWidth: (145 * MediaQuery.of(context).devicePixelRatio).round(),
-                            cacheHeight: (165 * MediaQuery.of(context).devicePixelRatio).round(),
-                          ),
-                        ),
-                        // Mühür/rün rozeti hissi: içi altın gradyanlı küçük
-                        // bir mühür ikonu + aynı metin — sade bir pill yerine
-                        // "görev panosuna basılmış onay mührü" gibi duruyor.
-                        Positioned(
-                          top: 15,
-                          right: 105,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: theme.surfaceLight,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: theme.primaryAmber.withValues(alpha: 0.45)),
-                              boxShadow: [
-                                BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 2)),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(PhosphorIcons.sealCheckBold, size: 11, color: theme.primaryAmber),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Sen yaparsın!',
-                                  style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // --- 2. HERO: KAYDIRILABİLİR, KİŞİYE ÖZEL ÖNERİ KARUSELİ ---
+                  // Eskiden tek, sabit bir "Günün Görevi" kartıydı. Artık
+                  // kullanıcının o anki durumuna göre (seri riski, boss
+                  // kelimeler, tekrar bekleyenler, bitmeye yakın/yeni kitap)
+                  // öncelik sırasıyla 2-4 kart üretiliyor; ilk kart her zaman
+                  // Günün Görevi. Sağa/sola kaydırılabilir, altta sayfa noktaları.
+                  _buildHeroCarousel(theme, goalProgress),
                   const SizedBox(height: 16),
 
                   // EJDERHA ROTASI V2 — FAZ 7: AI Koç (Ignis) giriş bandı.
@@ -1013,7 +1238,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('AI Koç Ignis\'e sor', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.w800, fontSize: 13.5)),
-                                Text('Kelime, telaffuz ve strateji önerileri', style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11)),
+                                Text('İlerlemen, öğrenme sistemi ve Premium hakkında sor', maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11)),
                               ],
                             ),
                           ),
@@ -1305,4 +1530,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+}
+/// Ana Sayfa hero karuselindeki tek bir öneri kartının verisi.
+class _HeroSuggestion {
+  final String eyebrow;
+  final IconData icon;
+  final Color accent;
+  final String title;
+  final String subtitle;
+  final String ctaLabel;
+  final IconData ctaIcon;
+  // AppBranding.poseAsset() anahtarı
+  final String pose;
+  // Sadece "Günün Görevi" kartında gösterilen günlük hedef ilerlemesi.
+  final double? progress;
+  final VoidCallback onTap;
+
+  const _HeroSuggestion({
+    required this.eyebrow,
+    required this.icon,
+    required this.accent,
+    required this.title,
+    required this.subtitle,
+    required this.ctaLabel,
+    required this.ctaIcon,
+    required this.pose,
+    required this.onTap,
+    this.progress,
+  });
 }

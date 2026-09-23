@@ -31,6 +31,7 @@ import 'core/design_system/primitives.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/coach/ignis_moments_engine.dart';
 import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
+import 'core/branding/app_branding.dart';
 
 // AŞAMA 3 — Karma Mod'a yeni pratik tipleri eklendi. `cloze` (Cümlede
 // Boşluk Doldurma) her karta uygulanabilir değil — sadece geçerli
@@ -550,6 +551,14 @@ class _MixedDungeonSessionScreenState extends State<MixedDungeonSessionScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
+        // Kaşını kaldırmış Ignis: "gerçekten gidiyor musun?" 🤨
+        icon: Image.asset(
+          AppBranding.poseAsset('suspicious'),
+          width: 88,
+          height: 88,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Zindandan çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text(

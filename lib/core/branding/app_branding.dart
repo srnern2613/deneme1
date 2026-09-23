@@ -32,17 +32,29 @@ class AppBranding {
   /// bir yüz ifadesine düşüyor. Yeni bir poz eklemek istersen sadece bu
   /// haritaya bir satır eklemek yeterli, çağıran kod değişmez.
   static const Map<String, String> _poseFallback = {
-    'celebrating': 'assets/images/mascot_emotions/excited.webp',
+    // Temel duygular
+    'happy': 'assets/images/mascot_emotions/happy.webp',
+    'excited': 'assets/images/mascot_emotions/excited.webp',
     'loving': 'assets/images/mascot_emotions/loving.webp',
-    'teacher': 'assets/images/mascot_emotions/thinking.webp',
-    'worried': 'assets/images/mascot_emotions/suspicious.webp',
+    'thinking': 'assets/images/mascot_emotions/thinking.webp',
+    'suspicious': 'assets/images/mascot_emotions/suspicious.webp',
     'sad': 'assets/images/mascot_emotions/sad.webp',
     'angry': 'assets/images/mascot_emotions/angry.webp',
-    'greeting': 'assets/images/mascot_emotions/happy.webp',
-    'thinking': 'assets/images/mascot_emotions/thinking.webp',
-    'happy': 'assets/images/mascot_emotions/happy.webp',
+    // Eylül 2026: eskiden başka pozlara düşen anahtarlar artık kendi
+    // çizimlerine sahip.
+    'celebrating': 'assets/images/mascot_emotions/celebrating.webp',
+    'teacher': 'assets/images/mascot_emotions/teacher.webp',
+    'greeting': 'assets/images/mascot_emotions/greeting_ignis_bust.webp',
+    'worried': 'assets/images/mascot_emotions/worried_ignis_bust.webp',
+    // Yeni durum pozları (Ana Sayfa öneri kartları vb.)
+    'reading': 'assets/images/mascot_emotions/reading_ignis_bust.webp',
+    'warrior': 'assets/images/mascot_emotions/warrior_ignis_bust.webp',
+    'sleepy': 'assets/images/mascot_emotions/sleepy_ignis.webp',
+    'proud': 'assets/images/mascot_emotions/proud_ignis_bust.webp',
+    'explorer': 'assets/images/mascot_emotions/explorer_ignis_bust.webp',
+    'confused': 'assets/images/mascot_emotions/confused_ignis_bust.webp',
+    'listening': 'assets/images/mascot_emotions/listening_ignis_bust.webp',
   };
-
   /// Bir poz anahtarı için görsel yolunu döner (tanımsız bir anahtar gelirse
   /// kutlama pozuna düşer — hiçbir zaman boş/kırık görsel göstermez).
   static String poseAsset(String poseKey) {

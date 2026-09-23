@@ -1,10 +1,15 @@
 // ============================================================================
 // DOSYA ADI: lib/ai_coach_screen.dart
-// AÇIKLAMA: Ejderha Rotası V2 — Faz 7. AI Koç (Ignis) sohbet ekranı.
-// Mesajlar core/ai_coach/ai_coach_repository.dart üzerinden ince bir
-// Supabase Edge Function proxy'sine gönderilir — uygulama hiçbir LLM API
-// anahtarı taşımaz. Ücretsiz kullanıcılar günlük sınırlı, Premium
-// kullanıcılar sınırsız mesaj hakkına sahiptir.
+// AÇIKLAMA: AI Koç (Ignis) ekranı — HAZIR SORU modu.
+//
+// Serbest yazma şimdilik KAPALI: kullanıcı, kategorilere ayrılmış hazır
+// sorulardan birini seçer ve cevap yerel olarak (ağ/kota/hata riski
+// olmadan) gelir. Soru-cevap içeriği tek yerden yönetilir:
+// core/ai_coach/coach_question_catalog.dart.
+//
+// Serbest sohbet ileride açılacaksa: AiCoachRepository (Supabase Edge
+// Function istemcisi) ve LocalFaqResponder dosyaları olduğu gibi duruyor;
+// bu ekrana tekrar bir giriş çubuğu eklemek yeterli.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -12,21 +17,22 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
-import 'core/ai_coach/ai_coach_repository.dart';
 import 'core/ai_coach/ai_coach_models.dart';
-import 'core/ai_coach/local_faq_responder.dart';
+import 'core/ai_coach/coach_question_catalog.dart';
+import 'core/branding/app_branding.dart';
 import 'core/entitlement/entitlement_repository.dart';
 import 'core/theme/draconic_theme.dart';
 
-// Sık sorulan sorular — dokunulunca yerel katmandan (kota harcamadan)
-// anında cevap gelir. Sadece sohbet henüz başlamamışken (ilk karşılama
-// mesajından sonra) gösterilir, ekranı kalabalıklaştırmaz.
-const List<String> _quickReplyQuestions = [
-  'Bugün kaç kelime öğrendim?',
-  'Serimi nasıl korurum?',
-  'Rozetler nasıl açılır?',
-  'Premium ne katıyor?',
-];
+/// Sohbet listesindeki tek bir satır. [offerPremium] true olan asistan
+/// mesajlarının altında "Evet, göster / Şimdilik değil" seçenekleri çıkar;
+/// kullanıcı birini seçince [ctaHandled] true olur ve seçenekler kaybolur.
+class _CoachEntry {
+  final AiCoachMessage message;
+  final bool offerPremium;
+  bool ctaHandled;
+
+  _CoachEntry(this.message, {this.offerPremium = false}) : ctaHandled = false;
+}
 
 class AiCoachScreen extends StatefulWidget {
   const AiCoachScreen({super.key});
@@ -36,34 +42,27 @@ class AiCoachScreen extends StatefulWidget {
 }
 
 class _AiCoachScreenState extends State<AiCoachScreen> {
-  final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<AiCoachMessage> _messages = [];
+  final List<_CoachEntry> _entries = [];
 
-  bool _isSending = false;
-  int _remainingFree = -1; // -1 = henüz yüklenmedi / sınırsız
+  bool _isAnswering = false;
+  int _selectedCategory = 0;
 
   @override
   void initState() {
     super.initState();
-    _messages.add(AiCoachMessage(
+    _entries.add(_CoachEntry(AiCoachMessage(
       role: AiCoachRole.assistant,
-      content: 'Selam maceracı! Ben Ignis. Kelime, telaffuz ya da çalışma stratejisi hakkında ne sormak istersin?',
-    ));
-    _refreshQuota();
+      content: 'Selam maceracı, ben Ignis! 🔥\n\n'
+          'Uygulama, öğrenme sistemi ya da kendi ilerlemen hakkında merak ettiklerini aşağıdaki '
+          'sorulardan seçebilirsin. Hangisiyle başlayalım?',
+    )));
   }
 
   @override
   void dispose() {
-    _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  Future<void> _refreshQuota() async {
-    final remaining = await AiCoachRepository.instance.getRemainingFreeMessages();
-    if (!mounted) return;
-    setState(() => _remainingFree = remaining);
   }
 
   void _scrollToBottom() {
@@ -71,79 +70,74 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
       if (!_scrollController.hasClients) return;
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 250),
+        duration: const Duration(milliseconds: 280),
         curve: Curves.easeOut,
       );
     });
   }
 
-  Future<void> _sendMessage([String? presetText]) async {
-    final text = (presetText ?? _inputController.text).trim();
-    if (text.isEmpty || _isSending) return;
+  void _addAssistant(String text, {bool offerPremium = false}) {
+    _entries.add(_CoachEntry(
+      AiCoachMessage(role: AiCoachRole.assistant, content: text),
+      offerPremium: offerPremium,
+    ));
+  }
 
+  Future<void> _ask(CoachQuestion question) async {
+    if (_isAnswering) return;
     HapticFeedback.selectionClick();
-    _inputController.clear();
     setState(() {
-      _messages.add(AiCoachMessage(role: AiCoachRole.user, content: text));
-      _isSending = true;
+      _entries.add(_CoachEntry(AiCoachMessage(role: AiCoachRole.user, content: question.text)));
+      _isAnswering = true;
     });
     _scrollToBottom();
 
-    // Önce YEREL katmana bak — eşleşirse gerçek AI'a hiç gidilmez, kota
-    // harcanmaz. Küçük bir "yazıyor" gecikmesi eklenir ki cevap anında
-    // belirmesin (doğal/canlı hissettirir); ağ hatası riski de yok.
-    final localReply = await LocalFaqResponder.instance.tryAnswer(text);
-    if (localReply != null) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (!mounted) return;
+    CoachAnswer answer;
+    try {
+      // Kısa bir "düşünüyor" anı — cevap anında belirmesin, doğal hissettirsin.
+      final results = await Future.wait<Object>([
+        question.answer(),
+        Future<Object>.delayed(const Duration(milliseconds: 650), () => true),
+      ]);
+      answer = results.first as CoachAnswer;
+    } catch (_) {
+      answer = const CoachAnswer('Bu bilgiyi şu an getiremedim. Birazdan tekrar sorar mısın?');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _addAssistant(answer.text, offerPremium: answer.offerPremium);
+      _isAnswering = false;
+    });
+    _scrollToBottom();
+  }
+
+  Future<void> _onPremiumCta(_CoachEntry entry, bool wantsUpgrade) async {
+    if (entry.ctaHandled) return;
+    HapticFeedback.lightImpact();
+    setState(() => entry.ctaHandled = true);
+
+    if (!wantsUpgrade) {
       setState(() {
-        _messages.add(AiCoachMessage(role: AiCoachRole.assistant, content: localReply));
-        _isSending = false;
+        _addAssistant('Tamamdır! Fikrini değiştirirsen bu soruyu tekrar sorman ya da kilitli bir modun '
+            'üstüne dokunman yeterli. Şimdilik ücretsiz modlarla avımıza devam 🔥');
       });
       _scrollToBottom();
       return;
     }
 
-    try {
-      final reply = await AiCoachRepository.instance.sendMessage(
-        message: text,
-        history: _messages,
-      );
-      if (!mounted) return;
-      setState(() {
-        _messages.add(AiCoachMessage(role: AiCoachRole.assistant, content: reply));
-        _isSending = false;
-      });
-      _scrollToBottom();
-      _refreshQuota();
-    } on AiCoachQuotaExceededException {
-      if (!mounted) return;
-      setState(() => _isSending = false);
-      final unlocked = await EntitlementRepository.instance.presentPaywall();
+    final unlocked = await EntitlementRepository.instance.presentPaywall();
+    if (!mounted) return;
+    setState(() {
       if (unlocked) {
-        _refreshQuota();
+        _addAssistant('Aramıza hoş geldin, Premium maceracı! 👑 Ters Test, Sadece Dinleme ve Hız Turu '
+            'artık Arena\'da seni bekliyor. Serin de artık sınırsız kalkanla korunuyor.');
+      } else {
+        _addAssistant('Sorun değil! Premium\'a istediğin zaman buradan ya da kilitli bir modun üstüne '
+            'dokunarak ulaşabilirsin.');
       }
-    } on AiCoachNotConfiguredException {
-      if (!mounted) return;
-      setState(() {
-        _messages.add(AiCoachMessage(
-          role: AiCoachRole.assistant,
-          content: 'AI Koç henüz yapılandırılmadı — geliştirici tarafında Supabase Edge Function kurulumu tamamlanmalı (ai_coach_config.dart).',
-        ));
-        _isSending = false;
-      });
-      _scrollToBottom();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _messages.add(AiCoachMessage(
-          role: AiCoachRole.assistant,
-          content: 'Şu an sana ulaşamıyorum, birazdan tekrar dener misin?',
-        ));
-        _isSending = false;
-      });
-      _scrollToBottom();
-    }
+    });
+    _scrollToBottom();
   }
 
   @override
@@ -164,12 +158,6 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
             Text('AI Koç Ignis', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: theme.textPrimary, fontSize: 16)),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Center(child: _buildQuotaBadge()),
-          ),
-        ],
       ),
       body: SafeArea(
         child: Column(
@@ -178,88 +166,156 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                itemCount: _messages.length + (_isSending ? 1 : 0),
+                itemCount: _entries.length + (_isAnswering ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == _messages.length) {
-                    return _buildTypingBubble();
-                  }
-                  return _buildMessageBubble(_messages[index]);
+                  if (index == _entries.length) return _buildThinkingBubble(theme);
+                  return _buildEntry(theme, _entries[index]);
                 },
               ),
             ),
-            if (_messages.length <= 1 && !_isSending) _buildQuickReplyChips(),
-            _buildInputBar(),
+            _buildQuestionPanel(theme),
           ],
         ),
       ),
     );
   }
 
-  // Sohbet başlamadan önce görünen, dokununca yerel katmandan anında
-  // (kota harcamadan) cevap getiren hazır soru çipleri.
-  Widget _buildQuickReplyChips() {
-    final theme = Theme.of(context).extension<DraconicTheme>()!;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: _quickReplyQuestions.map((q) {
-          return InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => _sendMessage(q),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: theme.surfaceLight,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: theme.borderSubtle),
-              ),
-              child: Text(
-                q,
-                style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
+  // --------------------------------------------------------------------------
+  // Soru paneli (eski yazı çubuğunun yerinde)
+  // --------------------------------------------------------------------------
 
-  Widget _buildQuotaBadge() {
-    final theme = Theme.of(context).extension<DraconicTheme>()!;
-    if (_remainingFree < 0) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFDE68A).withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.4)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(PhosphorIcons.sparkleBold, color: Color(0xFFFDE68A), size: 12),
-            const SizedBox(width: 4),
-            Text('Sınırsız', style: GoogleFonts.outfit(color: const Color(0xFFFDE68A), fontWeight: FontWeight.w800, fontSize: 11)),
-          ],
-        ),
-      );
-    }
+  Widget _buildQuestionPanel(DraconicTheme theme) {
+    final categories = CoachQuestionCatalog.categories;
+    final category = categories[_selectedCategory];
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: theme.surfaceLight,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.borderSubtle),
+        color: theme.surfaceDark.withValues(alpha: 0.96),
+        border: Border(top: BorderSide(color: theme.borderSubtle)),
       ),
-      child: Text('$_remainingFree hak kaldı', style: GoogleFonts.outfit(color: theme.textSecondary, fontWeight: FontWeight.w700, fontSize: 11)),
+      padding: const EdgeInsets.only(top: 12, bottom: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 36,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: categories.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
+              itemBuilder: (context, i) => _buildCategoryChip(theme, categories[i], i == _selectedCategory, () {
+                if (i == _selectedCategory) return;
+                HapticFeedback.selectionClick();
+                setState(() => _selectedCategory = i);
+              }),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.26),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: category.questions.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
+              itemBuilder: (context, i) => _buildQuestionTile(theme, category.questions[i]),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(PhosphorIcons.sparkleBold, size: 11, color: theme.textMuted),
+              const SizedBox(width: 5),
+              Text(
+                'Serbest sohbet yakında açılıyor',
+                style: GoogleFonts.inter(color: theme.textMuted, fontSize: 10.5, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  // EJDERHA ROTASI V2 — Görsel Entegrasyonu: tüm ekranda tek bir yerden
-  // yönetilen Ignis avatarı. Eski 🐉 emoji placeholder'ının yerini,
-  // assets/images/mascot/ignis_avatar_badge.png (yuvarlak rünik arkaplanlı) alıyor.
+  Widget _buildCategoryChip(DraconicTheme theme, CoachCategory category, bool selected, VoidCallback onTap) {
+    return Material(
+      color: selected ? theme.primaryAmber.withValues(alpha: 0.16) : theme.surfaceLight,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: selected ? theme.primaryAmber.withValues(alpha: 0.6) : theme.borderSubtle),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(category.icon, size: 13, color: selected ? theme.primaryAmber : theme.textSecondary),
+              const SizedBox(width: 6),
+              Text(
+                category.label,
+                style: GoogleFonts.outfit(
+                  color: selected ? theme.primaryAmber : theme.textSecondary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestionTile(DraconicTheme theme, CoachQuestion question) {
+    final enabled = !_isAnswering;
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: Material(
+        color: theme.surfaceLight,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: enabled ? () => _ask(question) : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: theme.borderSubtle),
+            ),
+            child: Row(
+              children: [
+                Icon(question.icon, size: 16, color: theme.primaryAmber),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    question.text,
+                    style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(PhosphorIcons.caretRightBold, size: 13, color: theme.textMuted),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // Sohbet balonları
+  // --------------------------------------------------------------------------
+
+  // Tüm ekranda tek bir yerden yönetilen, yuvarlak rünik arkaplanlı avatar.
   Widget _buildIgnisAvatar({double size = 28}) {
     return ClipOval(
       child: Image.asset(
@@ -267,32 +323,31 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        // P0-D: kaynak dosya 2MB'ın üzerinde (yüksek çözünürlüklü);
-        // cacheWidth/cacheHeight vermeden gereksiz tam-çözünürlük decode'u
-        // yapılıyordu — gösterilen boyuta (size) göre cache verildi.
+        // Kaynak dosya yüksek çözünürlüklü — decode gösterilen boyuta göre.
         cacheWidth: (size * MediaQuery.of(context).devicePixelRatio).round(),
         cacheHeight: (size * MediaQuery.of(context).devicePixelRatio).round(),
       ),
     );
   }
 
-  Widget _buildMessageBubble(AiCoachMessage message) {
-    final theme = Theme.of(context).extension<DraconicTheme>()!;
+  Widget _buildEntry(DraconicTheme theme, _CoachEntry entry) {
+    final message = entry.message;
     final bool isUser = message.role == AiCoachRole.user;
+
     final bubble = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.68),
+      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.74),
       decoration: BoxDecoration(
-        color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.18) : theme.surfaceDark.withValues(alpha: 0.9),
+        color: isUser ? theme.primaryAmber.withValues(alpha: 0.16) : theme.surfaceDark.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16).copyWith(
           bottomRight: isUser ? const Radius.circular(4) : null,
           bottomLeft: !isUser ? const Radius.circular(4) : null,
         ),
-        border: Border.all(color: isUser ? const Color(0xFFF59E0B).withValues(alpha: 0.35) : theme.borderSubtle),
+        border: Border.all(color: isUser ? theme.primaryAmber.withValues(alpha: 0.35) : theme.borderSubtle),
       ),
       child: Text(
         message.content,
-        style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 13.5, height: 1.4),
+        style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 13.5, height: 1.45),
       ),
     );
 
@@ -303,31 +358,72 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
       );
     }
 
-    // Asistan mesajlarının solunda küçük bir Ignis avatarı — konuşmanın
-    // kimden geldiğini emoji yerine görsel olarak belli eder.
+    final showCta = entry.offerPremium && !entry.ctaHandled;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildIgnisAvatar(size: 24),
-          const SizedBox(width: 8),
-          Flexible(child: bubble),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _buildIgnisAvatar(size: 24),
+              const SizedBox(width: 8),
+              Flexible(child: bubble),
+            ],
+          ),
+          if (showCta)
+            Padding(
+              padding: const EdgeInsets.only(left: 32, top: 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.primaryAmber,
+                      foregroundColor: theme.background,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () => _onPremiumCta(entry, true),
+                    icon: const Icon(PhosphorIcons.crownBold, size: 15),
+                    label: Text('Evet, göster', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13)),
+                  ),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.textSecondary,
+                      side: BorderSide(color: theme.borderSubtle),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () => _onPremiumCta(entry, false),
+                    child: Text('Şimdilik değil', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13)),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildTypingBubble() {
-    final theme = Theme.of(context).extension<DraconicTheme>()!;
+  // Cevap hazırlanırken: düşünen Ignis pozu + küçük yükleniyor göstergesi.
+  Widget _buildThinkingBubble(DraconicTheme theme) {
+    final dpr = MediaQuery.of(context).devicePixelRatio;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          _buildIgnisAvatar(size: 24),
+          Image.asset(
+            AppBranding.poseAsset('thinking'),
+            width: 40,
+            height: 40,
+            fit: BoxFit.contain,
+            cacheWidth: (40 * dpr).round(),
+            errorBuilder: (context, error, stackTrace) => _buildIgnisAvatar(size: 24),
+          ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -336,50 +432,18 @@ class _AiCoachScreenState extends State<AiCoachScreen> {
               borderRadius: BorderRadius.circular(16).copyWith(bottomLeft: const Radius.circular(4)),
               border: Border.all(color: theme.borderSubtle),
             ),
-            child: const SizedBox(
-              width: 20,
-              height: 12,
-              child: Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)))),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: theme.primaryAmber),
+                ),
+                const SizedBox(width: 8),
+                Text('Ignis düşünüyor…', style: GoogleFonts.inter(color: theme.textMuted, fontSize: 12)),
+              ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInputBar() {
-    final theme = Theme.of(context).extension<DraconicTheme>()!;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: BoxDecoration(
-        color: theme.background,
-        border: Border(top: BorderSide(color: theme.borderSubtle)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _inputController,
-              style: GoogleFonts.inter(color: theme.textPrimary, fontSize: 13.5),
-              maxLines: 4,
-              minLines: 1,
-              textCapitalization: TextCapitalization.sentences,
-              onSubmitted: (_) => _sendMessage(),
-              decoration: InputDecoration(
-                hintText: 'Ignis\'e bir şey sor...',
-                hintStyle: GoogleFonts.inter(color: theme.textMuted, fontSize: 13),
-                filled: true,
-                fillColor: theme.surfaceLight,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton.filled(
-            style: IconButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), padding: const EdgeInsets.all(12)),
-            onPressed: _isSending ? null : _sendMessage,
-            icon: Icon(Icons.send_rounded, color: theme.background, size: 18),
           ),
         ],
       ),

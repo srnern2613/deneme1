@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'core/theme/draconic_theme.dart';
+import 'core/branding/app_branding.dart';
 import 'database_helper.dart';
 import 'core/design_system/ignis_alert.dart'; // Tema-uyumlu bilgilendirme pop-up'ı (SnackBar yerine)
 
@@ -447,16 +448,29 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    PhosphorIcons.tray,
-                                    size: 44,
-                                    color: theme.borderSubtle,
+                                  // Şaşkın Ignis — "aradığın burada yok" anı. Klavye
+                                  // açıkken (alan daralınca) taşmasın diye gizlenir.
+                                  if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
+                                  Image.asset(
+                                    AppBranding.poseAsset('confused'),
+                                    width: 110,
+                                    height: 110,
+                                    fit: BoxFit.contain,
+                                    cacheWidth: (110 * MediaQuery.of(context).devicePixelRatio).round(),
+                                    errorBuilder: (context, error, stackTrace) => Icon(
+                                      PhosphorIcons.tray,
+                                      size: 44,
+                                      color: theme.borderSubtle,
+                                    ),
                                   ),
                                   const SizedBox(height: 12),
+                                  ],
                                   Text(
-                                    _activeBookFilter != null
-                                        ? 'Bu kitapta seçilen filtreye uygun kelime bulunamadı.'
-                                        : 'Bu filtrede kayıtlı kelime bulunmuyor.',
+                                    _searchController.text.trim().isNotEmpty
+                                        ? '"${_searchController.text.trim()}" için sonuç bulunamadı. Kitap okurken dokunduğun kelimeler burada görünür.'
+                                        : _activeBookFilter != null
+                                            ? 'Bu kitapta seçilen filtreye uygun kelime bulunamadı.'
+                                            : 'Bu filtrede kayıtlı kelime bulunmuyor.',
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 13.5),
                                   ),

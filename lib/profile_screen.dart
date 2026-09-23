@@ -52,6 +52,12 @@ class ProfileScreenState extends State<ProfileScreen> {
   int _streakDays = 1;
   bool _hasFreezeShield = false;
 
+  // Gelişim paneli için ek veriler.
+  int _totalPagesRead = 0;
+  int _dueTodayCount = 0;
+  // Son 7 günün (eskiden bugüne) günlük çalışma sayısı: yeni kelime + tekrar.
+  List<int> _weekActivity = List<int>.filled(7, 0);
+
   // Profildeki "Ignis Önerisi" kartı — seans-sonu popup kotasını tüketmeyen
   // salt-okunur önizleme (bkz. IgnisMomentsEngine.getProfileInsightPreview).
   IgnisMoment? _ignisInsight;
@@ -90,7 +96,7 @@ class ProfileScreenState extends State<ProfileScreen> {
     {'id': 'apprentice_reader', 'title': 'Çırak Okur', 'emoji': '⏱️', 'hint': 'Kronometre ile ilk okuma seansını tamamla.', 'color': const Color(0xFF6366F1)},
     {'id': 'night_owl', 'title': 'Gece Baykuşu', 'emoji': '🦉', 'hint': 'Gece yarısı ile sabaha karşı (00:00-04:00) okuma yap.', 'color': const Color(0xFFA855F7)},
     {'id': 'early_bird', 'title': 'Sabah Memuru', 'emoji': '☕', 'hint': 'Sabah erkenden (05:00-08:00) okuma seansı yap.', 'color': const Color(0xFFF59E0B)},
-    {'id': 'shield_master', 'title': 'Seri Kalkanı', 'emoji': '🛡️', 'hint': 'Mağazadan veya etkinliklerden bir seri kalkanı kuşan.', 'color': const Color(0xFF38BDF8)},
+    {'id': 'shield_master', 'title': 'Seri Kalkanı', 'emoji': '🛡️', 'hint': 'Bir gün ara verdiğinde seri kalkanın serini kurtarsın.', 'color': const Color(0xFF38BDF8)},
     {'id': 'weekend_warrior', 'title': 'Hafta Sonu Savaşçısı', 'emoji': '📅', 'hint': 'Hafta sonu bir günde 20 sayfadan fazla oku.', 'color': const Color(0xFFEF4444)},
     {'id': 'time_bender', 'title': 'Zaman Bükücü', 'emoji': '⏳', 'hint': 'Uygulamada 45 dakikalık okuma süresini devir.', 'color': const Color(0xFFC084FC)},
     {'id': 'page_monster', 'title': 'Sayfa Canavarı', 'emoji': '📖', 'hint': 'Toplam 100 sayfa kitap oku.', 'color': const Color(0xFF10B981)},
@@ -214,6 +220,26 @@ class ProfileScreenState extends State<ProfileScreen> {
         precomputedStreakResult: streakResult,
       );
 
+      // Gelişim paneli: bugün vakti gelen tekrarlar + son 7 günlük aktivite.
+      // Biri başarısız olsa bile profilin geri kalanı yüklenmeye devam etsin.
+      int dueTodayCount = 0;
+      try {
+        dueTodayCount = await DatabaseHelper.instance.getDueTodayCount();
+      } catch (_) {}
+      final List<int> weekActivity = List<int>.filled(7, 0);
+      try {
+        final range = await DatabaseHelper.instance.getDailyStatsRange(7);
+        for (int i = 0; i < 7; i++) {
+          final d = now.subtract(Duration(days: 6 - i));
+          final key = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+          for (final row in range) {
+            if (row['stat_date'] == key) {
+              weekActivity[i] = ((row['new_words_count'] as int?) ?? 0) + ((row['review_count'] as int?) ?? 0);
+            }
+          }
+        }
+      } catch (_) {}
+
       if (!mounted) return;
       setState(() {
         _totalReadMinutes = totalReadMinutes;
@@ -229,6 +255,9 @@ class ProfileScreenState extends State<ProfileScreen> {
         _leagueXpGap = leagueXpGap;
         _leagueRivalName = leagueRivalName;
         _ignisInsight = ignisInsight;
+        _totalPagesRead = totalPagesRead;
+        _dueTodayCount = dueTodayCount;
+        _weekActivity = weekActivity;
       });
 
       // Yeni açılan rozet(ler) varsa — build tamamlandıktan sonra, Ignis
@@ -589,7 +618,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                   // eski sekme seçici (Isı Haritası/Başarılar) ve ısı
                   // haritası kaldırıldı; istatistikler iOS Ayarlar tarzı
                   // temiz bir liste olarak sunuluyor, başarılar hep görünür.
-                  _buildSettingsStyleStatsList(),
+                  _buildGrowthPanel(),
                   const SizedBox(height: 22),
                   // Faz B2: eski 22 rozetlik tam ızgara + Yaklaşan Rozetler
                   // yığını yerine kompakt özet satırı — tamamı Başarı
@@ -1981,56 +2010,270 @@ class ProfileScreenState extends State<ProfileScreen> {
   // Faz B3: dikey iOS Ayarlar tarzı liste yerine 2x2 kart ızgarası —
   // "liste elemanları alt alta duruyor, bilişsel yük azaltılmalı" geri
   // bildirimine göre. Dokunma alanı ve navigasyon hedefleri değişmedi.
-  Widget _buildSettingsStyleStatsList() {
+  // GELİŞİM PANELİ — eski 4'lü "Okuma Süresi / Kelime Havuzu / Koleksiyon
+  // Arşivi / Başarı Serisi" ızgarasının yerine. Tamamı tema token'larıyla
+  // (her iki temada da uyumlu), gerçek veriye bağlı ve her kart ilgili
+  // ekrana götürüyor. Haftalık aktivite kartı ve Seri kartı Alışkanlıklar
+  // sayfasının Profil'deki giriş noktası.
+  Widget _buildGrowthPanel() {
     final theme = Theme.of(context).extension<DraconicTheme>()!;
-    final stats = [
-      (title: 'Okuma Süresi', value: '$_totalReadMinutes dk', icon: PhosphorIcons.timerBold, color: const Color(0xFF38BDF8), onTap: () => _navigateTo(const LibraryScreen())),
-      (title: 'Kelime Havuzu', value: '$_totalFlashcards Kart', icon: PhosphorIcons.cardsBold, color: const Color(0xFFEC4899), onTap: () => _navigateTo(const FlashcardsScreen())),
-      (title: 'Koleksiyon Arşivi', value: '$_totalWordsExamined Kelime', icon: PhosphorIcons.magnifyingGlassBold, color: const Color(0xFF10B981), onTap: () => _navigateTo(const DictionaryScreen())),
-      (title: 'Başarı Serisi', value: '$_streakDays Gün', icon: PhosphorIcons.fireBold, color: const Color(0xFFF59E0B), onTap: () => _navigateTo(const HabitTrackerScreen())),
-    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Text('Gelişimin', style: GoogleFonts.lora(color: theme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            Text('Son 7 gün', style: GoogleFonts.inter(color: theme.textMuted, fontSize: 12, fontWeight: FontWeight.w500)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildWeeklyActivityCard(theme),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildGrowthTile(
+                theme: theme,
+                icon: PhosphorIcons.cardsBold,
+                color: theme.infoTeal,
+                value: '$_totalFlashcards',
+                label: 'Kelime Hazinesi',
+                detail: _dueTodayCount > 0 ? '$_dueTodayCount tekrar bekliyor' : 'Bugün tekrar yok ✓',
+                detailHighlighted: _dueTodayCount > 0,
+                onTap: () => _navigateTo(const FlashcardsScreen()),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildGrowthTile(
+                theme: theme,
+                icon: PhosphorIcons.bookOpenBold,
+                color: theme.successEmerald,
+                value: _formatReadTime(_totalReadMinutes),
+                label: 'Okuma',
+                detail: '$_totalPagesRead sayfa okundu',
+                onTap: () => _navigateTo(const LibraryScreen()),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildGrowthTile(
+                theme: theme,
+                icon: PhosphorIcons.magnifyingGlassBold,
+                color: theme.cognitiveIndigo,
+                value: '$_totalWordsExamined',
+                label: 'Sözlük',
+                detail: 'incelenen kelime',
+                onTap: () => _navigateTo(const DictionaryScreen()),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildGrowthTile(
+                theme: theme,
+                icon: PhosphorIcons.fireBold,
+                color: theme.primaryAmber,
+                value: '$_streakDays gün',
+                label: 'Seri & Alışkanlıklar',
+                detail: _hasFreezeShield ? 'Kalkan aktif 🛡️' : 'Alışkanlıklarını takip et',
+                onTap: () => _navigateTo(const HabitTrackerScreen()),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: stats.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.55,
-      ),
-      itemBuilder: (context, index) {
-        final s = stats[index];
-        return InkWell(
-          onTap: s.onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: theme.surfaceDark.withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: theme.borderSubtle, width: 1),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(color: s.color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                  child: Icon(s.icon, color: s.color, size: 17),
-                ),
-                const SizedBox(height: 8),
-                Text(s.value, style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 16, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 2),
-                Text(s.title, style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600)),
-              ],
-            ),
+  String _formatReadTime(int minutes) {
+    if (minutes < 60) return '$minutes dk';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    return m == 0 ? '$h sa' : '$h sa $m dk';
+  }
+
+  Widget _buildWeeklyActivityCard(DraconicTheme theme) {
+    const dayNames = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+    final now = DateTime.now();
+    final int weekTotal = _weekActivity.fold<int>(0, (sum, v) => sum + v);
+    final int maxValue = _weekActivity.fold<int>(0, (m, v) => v > m ? v : m);
+    final int activeDays = _weekActivity.where((v) => v > 0).length;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _navigateTo(const HabitTrackerScreen()),
+        child: Ink(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: BoxDecoration(
+            color: theme.surfaceDark.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: theme.borderSubtle),
           ),
-        );
-      },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(color: theme.primaryAmber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                    child: Icon(PhosphorIcons.chartBarBold, color: theme.primaryAmber, size: 17),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Haftalık Aktivite', style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 14.5, fontWeight: FontWeight.w800)),
+                        Text(
+                          weekTotal == 0 ? 'Bu hafta henüz pratik yok' : '$weekTotal kelime çalışıldı · $activeDays/7 gün aktif',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: theme.primaryAmber.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Alışkanlıklar', style: GoogleFonts.outfit(color: theme.primaryAmber, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                        const SizedBox(width: 3),
+                        Icon(PhosphorIcons.caretRightBold, color: theme.primaryAmber, size: 11),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 84,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: List.generate(7, (i) {
+                    final value = i < _weekActivity.length ? _weekActivity[i] : 0;
+                    final day = now.subtract(Duration(days: 6 - i));
+                    final isToday = i == 6;
+                    final double barHeight = maxValue == 0 || value == 0 ? 4 : 6 + 44 * (value / maxValue);
+                    return Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Container(
+                            width: 18,
+                            height: barHeight,
+                            decoration: BoxDecoration(
+                              color: value == 0
+                                  ? theme.borderSubtle
+                                  : (isToday ? theme.primaryAmber : theme.primaryAmber.withValues(alpha: 0.45)),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            dayNames[day.weekday - 1],
+                            style: GoogleFonts.inter(
+                              color: isToday ? theme.primaryAmber : theme.textMuted,
+                              fontSize: 10.5,
+                              fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGrowthTile({
+    required DraconicTheme theme,
+    required IconData icon,
+    required Color color,
+    required String value,
+    required String label,
+    required String detail,
+    required VoidCallback onTap,
+    bool detailHighlighted = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: theme.surfaceDark.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: theme.borderSubtle),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                    child: Icon(icon, color: color, size: 17),
+                  ),
+                  const Spacer(),
+                  Icon(PhosphorIcons.caretRightBold, color: theme.textMuted, size: 13),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 19, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                detail,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  color: detailHighlighted ? color : theme.textMuted,
+                  fontSize: 11,
+                  fontWeight: detailHighlighted ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

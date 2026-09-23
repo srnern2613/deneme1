@@ -20,6 +20,7 @@ import 'tts_service.dart';
 import 'core/design_system/primitives.dart';
 import 'core/coach/ignis_moments_engine.dart';
 import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
+import 'core/branding/app_branding.dart';
 
 class MatchItem {
   final String id;
@@ -538,6 +539,14 @@ class _MatchExerciseScreenState extends State<MatchExerciseScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
+        // Kaşını kaldırmış Ignis: "gerçekten gidiyor musun?" 🤨
+        icon: Image.asset(
+          AppBranding.poseAsset('suspicious'),
+          width: 88,
+          height: 88,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Egzersizden çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text(

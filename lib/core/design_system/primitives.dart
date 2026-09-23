@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/draconic_theme.dart';
+import '../branding/app_branding.dart';
+import '../../coach_messages.dart';
 import 'tr_case.dart';
 
 // 1. Performans Duyarlı Cam Panel (GlassPanel)
@@ -469,13 +471,26 @@ class EmptyWordPoolState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Pusulalı "kaşif" Ignis — kullanıcıyı Kitaplık'ta yeni kelime
+            // aramaya davet eden alttaki butonla aynı mesajı veriyor.
             Container(
-              padding: const EdgeInsets.all(20),
+              width: 124,
+              height: 124,
               decoration: BoxDecoration(
                 color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.auto_stories_rounded, size: 44, color: Color(0xFFF59E0B)),
+              alignment: Alignment.bottomCenter,
+              child: Image.asset(
+                AppBranding.poseAsset('explorer'),
+                width: 112,
+                height: 112,
+                fit: BoxFit.contain,
+                alignment: Alignment.bottomCenter,
+                cacheWidth: (112 * MediaQuery.of(context).devicePixelRatio).round(),
+                errorBuilder: (context, error, stackTrace) =>
+                    const Center(child: Icon(Icons.auto_stories_rounded, size: 44, color: Color(0xFFF59E0B))),
+              ),
             ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
                   begin: const Offset(1, 1),
                   end: const Offset(1.05, 1.05),
@@ -582,13 +597,27 @@ class CheerToast extends StatelessWidget {
   final String? message;
   final Color? accentColor;
 
-  const CheerToast({super.key, required this.message, this.accentColor});
+  /// Bildirimin solunda gösterilecek Ignis pozu (AppBranding.poseAsset
+  /// anahtarı). Verilmezse mesajdan çıkarılır: yanlış cevap teşviki →
+  /// şaşkın, süre doldu → endişeli, diğer her şey (doğru cevap serisi,
+  /// ustalaşma) → heyecanlı. Böylece 9 egzersiz ekranı hiç değişmeden
+  /// doğru pozu alıyor.
+  final String? pose;
+
+  const CheerToast({super.key, required this.message, this.accentColor, this.pose});
+
+  static String _poseFor(String message) {
+    if (CoachMessages.isWrongAnswerMessage(message)) return 'confused';
+    if (message.startsWith('⏳')) return 'worried';
+    return 'excited';
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).extension<DraconicTheme>()!;
     final accent = accentColor ?? theme.successEmerald;
     final bool visible = message != null;
+    final String resolvedPose = pose ?? _poseFor(message ?? '');
 
     return Positioned(
       top: 10,
@@ -599,7 +628,7 @@ class CheerToast extends StatelessWidget {
         curve: Curves.easeOut,
         offset: visible ? Offset.zero : const Offset(0, -1.5),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(10, 6, 16, 6),
           decoration: BoxDecoration(
             color: accent,
             borderRadius: BorderRadius.circular(18),
@@ -612,10 +641,24 @@ class CheerToast extends StatelessWidget {
               ),
             ],
           ),
-          child: Text(
-            message ?? '',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5),
+          child: Row(
+            children: [
+              Image.asset(
+                AppBranding.poseAsset(resolvedPose),
+                width: 42,
+                height: 42,
+                fit: BoxFit.contain,
+                cacheWidth: (42 * MediaQuery.of(context).devicePixelRatio).round(),
+                errorBuilder: (context, error, stackTrace) => const SizedBox(width: 42, height: 42),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message ?? '',
+                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5, height: 1.25),
+                ),
+              ),
+            ],
           ),
         ),
       ),

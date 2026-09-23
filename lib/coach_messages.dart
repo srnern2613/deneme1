@@ -192,15 +192,20 @@ class CoachMessages {
     return null;
   }
 
-  static String getWrongAnswerEncouragement() {
-    final list = [
+  // CheerToast bu listeye bakarak mesajın bir yanlış-cevap teşviki olduğunu
+  // anlar ve şaşkın Ignis pozunu gösterir (bkz. primitives.dart).
+  static const List<String> wrongAnswerMessages = [
       '🌱 Sorun yok! Beyin hatırlamaya çalışırken öğrenir.',
       '💡 Algoritma bunu senin için not aldı.',
       '📚 Bir sonraki tekrarda çok daha kolay olacak.',
       '⚡ Nöronlar yeni bir bağlantı kurdu, yola devam!',
       '🔄 Zihin pratikle güçlenir, ritmi bozma!',
-    ];
-    return list[_rand.nextInt(list.length)];
+  ];
+
+  static bool isWrongAnswerMessage(String message) => wrongAnswerMessages.contains(message);
+
+  static String getWrongAnswerEncouragement() {
+    return wrongAnswerMessages[_rand.nextInt(wrongAnswerMessages.length)];
   }
 
   // --- ANA EKRAN VE OKUYUCU MESAJLARI ---

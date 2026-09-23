@@ -22,6 +22,7 @@ import 'database_helper.dart';
 import 'core/design_system/primitives.dart';
 import 'core/coach/ignis_moments_engine.dart';
 import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
+import 'core/branding/app_branding.dart';
 
 class ListeningExerciseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cards;
@@ -463,14 +464,30 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
                     ),
                     child: Column(
                       children: [
-                        IconButton.filled(
-                          style: IconButton.styleFrom(
-                            backgroundColor: theme.successEmerald,
-                            padding: const EdgeInsets.all(20),
-                          ),
-                          icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 34),
-                          tooltip: 'Tekrar Dinle',
-                          onPressed: _replayAudio,
+                        // Kulaklıklı Ignis dinleme butonunun yanında — kart
+                        // yüksekliği değişmiyor (poz, butonla aynı boyda).
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset(
+                              AppBranding.poseAsset('listening'),
+                              width: 72,
+                              height: 72,
+                              fit: BoxFit.contain,
+                              cacheWidth: (72 * MediaQuery.of(context).devicePixelRatio).round(),
+                              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                            ),
+                            const SizedBox(width: 14),
+                            IconButton.filled(
+                              style: IconButton.styleFrom(
+                                backgroundColor: theme.successEmerald,
+                                padding: const EdgeInsets.all(20),
+                              ),
+                              icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 34),
+                              tooltip: 'Tekrar Dinle',
+                              onPressed: _replayAudio,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 14),
                         Text(
@@ -579,6 +596,14 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
+        // Kaşını kaldırmış Ignis: "gerçekten gidiyor musun?" 🤨
+        icon: Image.asset(
+          AppBranding.poseAsset('suspicious'),
+          width: 88,
+          height: 88,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Egzersizden çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text(

@@ -19,6 +19,7 @@ import 'coach_messages.dart';
 import 'core/design_system/primitives.dart';
 import 'core/coach/ignis_moments_engine.dart';
 import 'core/theme/draconic_theme.dart'; // T-1: yapısal renkler temadan
+import 'core/branding/app_branding.dart';
 
 class LetterBlock {
   final int id;
@@ -484,17 +485,33 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
                     ),
                     child: Column(
                       children: [
-                        IconButton.filled(
-                          style: IconButton.styleFrom(
-                            backgroundColor: theme.infoTeal,
-                            padding: const EdgeInsets.all(14),
-                          ),
-                          icon: Icon(Icons.volume_up_rounded, color: theme.background, size: 28),
-                          tooltip: 'Tekrar Dinle',
-                          onPressed: () {
-                            HapticFeedback.selectionClick();
-                            TtsService.instance.speakWord(currentWordText);
-                          },
+                        // Kulaklıklı Ignis dinleme butonunun yanında — kart
+                        // yüksekliği değişmiyor (poz, butonla aynı boyda).
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset(
+                              AppBranding.poseAsset('listening'),
+                              width: 56,
+                              height: 56,
+                              fit: BoxFit.contain,
+                              cacheWidth: (56 * MediaQuery.of(context).devicePixelRatio).round(),
+                              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                            ),
+                            const SizedBox(width: 12),
+                            IconButton.filled(
+                              style: IconButton.styleFrom(
+                                backgroundColor: theme.infoTeal,
+                                padding: const EdgeInsets.all(14),
+                              ),
+                              icon: Icon(Icons.volume_up_rounded, color: theme.background, size: 28),
+                              tooltip: 'Tekrar Dinle',
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                TtsService.instance.speakWord(currentWordText);
+                              },
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -623,6 +640,14 @@ class _SpellingExerciseScreenState extends State<SpellingExerciseScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
+        // Kaşını kaldırmış Ignis: "gerçekten gidiyor musun?" 🤨
+        icon: Image.asset(
+          AppBranding.poseAsset('suspicious'),
+          width: 88,
+          height: 88,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Egzersizden çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text(

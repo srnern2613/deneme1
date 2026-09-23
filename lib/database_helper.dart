@@ -1092,4 +1092,21 @@ class DatabaseHelper {
     ''', [startOfTomorrow.toIso8601String(), startOfDayAfter.toIso8601String()]);
     return Sqflite.firstIntValue(result) ?? 0;
   }
+
+  /// Bugün tekrar vakti gelmiş (gecikmişler dahil) kart sayısı — Ana Sayfa
+  /// "Tekrar Zamanı" kartı için. FSRS'in hesapladığı fsrs_due_at bugünün
+  /// sonundan önce olan kartları sayar; hiç tekrar görmemiş yeni kartlar
+  /// (fsrs_due_at NULL) ve henüz öğrenmeye alınmamış keşif kartları dahil değil.
+  Future<int> getDueTodayCount() async {
+    final db = await database;
+    final now = DateTime.now();
+    final startOfTomorrow = DateTime(now.year, now.month, now.day + 1);
+    final result = await db.rawQuery('''
+      SELECT COUNT(*) as cnt FROM flashcards
+      WHERE fsrs_due_at IS NOT NULL
+        AND fsrs_due_at < ?
+        AND learning_state != 'DISCOVERED'
+    ''', [startOfTomorrow.toIso8601String()]);
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
 }
