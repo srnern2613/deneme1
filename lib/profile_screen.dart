@@ -35,6 +35,8 @@ import 'auth_screen.dart'; // Hesap Sistemi
 import 'core/notifications/notification_service.dart'; // Ayarlar → Bildirimler
 import 'core/design_system/ignis_alert.dart'; // Tema-uyumlu bilgilendirme pop-up'ı (SnackBar yerine)
 import 'core/branding/app_branding.dart'; // Ignis Önerisi kartındaki poz görseli için
+import 'coach_messages.dart'; // Dev/Test: egzersiz bildirimi önizlemesi
+import 'ai_coach_screen.dart'; // Dev/Test: AI Koç hazır soru ekranı
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onToggleTheme;
@@ -1165,6 +1167,92 @@ class ProfileScreenState extends State<ProfileScreen> {
                         _showIgnisInsightPremiumDetail();
                       },
                     ),
+                    // Eylül 2026 yeni tasarımları — gerçek duruma ulaşmadan
+                    // (yanlış cevap, süre dolması, boş havuz vb.) tek tek
+                    // görüp test edebilmek için.
+                    const SizedBox(height: 14),
+                    Text('YENİ TASARIM ÖNİZLEMELERİ', style: GoogleFonts.outfit(color: theme.textMuted, fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                    const SizedBox(height: 6),
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.sparkleBold,
+                      iconColor: const Color(0xFFF59E0B),
+                      title: 'Ignis Poz Galerisi (18 poz)',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _devPreviewPoseGallery();
+                      },
+                    ),
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.xBold,
+                      iconColor: const Color(0xFF10B981),
+                      title: 'Egzersiz Bildirimi: Yanlış Cevap',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _devPreviewCheerToast(CoachMessages.wrongAnswerMessages.first);
+                      },
+                    ),
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.fireBold,
+                      iconColor: const Color(0xFF10B981),
+                      title: 'Egzersiz Bildirimi: Doğru Serisi',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _devPreviewCheerToast('🎯 Muazzam seri! Odaklanman zirvede.');
+                      },
+                    ),
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.timerBold,
+                      iconColor: const Color(0xFF10B981),
+                      title: 'Egzersiz Bildirimi: Süre Doldu',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _devPreviewCheerToast('⏳ Süre doldu! Odaklan ve devam et.');
+                      },
+                    ),
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.signOutBold,
+                      iconColor: const Color(0xFF94A3B8),
+                      title: 'Egzersizden Çıkış Onayı',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _devPreviewExitDialog();
+                      },
+                    ),
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.compassBold,
+                      iconColor: const Color(0xFFF59E0B),
+                      title: 'Boş Kelime Havuzu Ekranı',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _devPreviewEmptyPool();
+                      },
+                    ),
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.chatCircleTextBold,
+                      iconColor: const Color(0xFFA855F7),
+                      title: 'AI Koç (Hazır Sorular + Premium Teklifi)',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AiCoachScreen()));
+                      },
+                    ),
+                    _buildSheetRow(
+                      theme: theme,
+                      icon: PhosphorIcons.targetBold,
+                      iconColor: const Color(0xFFF59E0B),
+                      title: 'Alışkanlıklar Sayfası',
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _navigateTo(const HabitTrackerScreen());
+                      },
+                    ),
                   ],
                   const SizedBox(height: 22),
                   Text('ERİŞİLEBİLİRLİK', style: GoogleFonts.outfit(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
@@ -1452,6 +1540,144 @@ class ProfileScreenState extends State<ProfileScreen> {
         child: Text(
           label,
           style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: selected ? const Color(0xFF070B14) : theme.textSecondary),
+        ),
+      ),
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // DEV/TEST — yeni tasarım önizlemeleri (sadece debug build'de görünür)
+  // --------------------------------------------------------------------------
+
+  /// Egzersiz ekranlarındaki üst bildirimi (CheerToast) ekranın üstünde
+  /// ~3 saniye gösterir. Poz, mesaja göre otomatik seçilir.
+  void _devPreviewCheerToast(String message) {
+    final overlay = Overlay.of(context);
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (overlayContext) => IgnorePointer(
+        child: Material(
+          type: MaterialType.transparency,
+          child: SafeArea(
+            child: Stack(children: [CheerToast(message: message)]),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(entry);
+    Future.delayed(const Duration(milliseconds: 2800), () {
+      if (entry.mounted) entry.remove();
+    });
+  }
+
+  void _devPreviewExitDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        icon: Image.asset(
+          AppBranding.poseAsset('suspicious'),
+          width: 88,
+          height: 88,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Egzersizden çık?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Kalan soruları tamamlamadan çıkıyorsun. Bu ana kadarki cevapların zaten kaydedildi.',
+          style: TextStyle(color: Color(0xFF94A3B8)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Devam Et')),
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Çık')),
+        ],
+      ),
+    );
+  }
+
+  void _devPreviewEmptyPool() {
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(
+        backgroundColor: theme.background,
+        appBar: AppBar(
+          backgroundColor: theme.background,
+          elevation: 0,
+          iconTheme: IconThemeData(color: theme.textPrimary),
+          title: Text('Önizleme: Boş Havuz', style: GoogleFonts.outfit(color: theme.textPrimary, fontWeight: FontWeight.bold)),
+        ),
+        body: const EmptyWordPoolState(
+          message: 'Bu mod için havuzunda yeterli kelime yok. Kitaplığından yeni kelimeler ekleyebilirsin.',
+        ),
+      ),
+    ));
+  }
+
+  /// Tüm Ignis pozlarını mevcut temanın zemininde gösterir — temizlenmiş
+  /// görsellerin hem koyu hem açık temada düzgün durduğunu kontrol etmek için.
+  void _devPreviewPoseGallery() {
+    const poses = [
+      'happy', 'excited', 'loving', 'thinking', 'suspicious', 'sad',
+      'angry', 'celebrating', 'teacher', 'greeting', 'worried', 'reading',
+      'warrior', 'sleepy', 'proud', 'explorer', 'confused', 'listening',
+    ];
+    final theme = Theme.of(context).extension<DraconicTheme>()!;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: theme.surfaceDark,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(sheetContext).size.height * 0.75,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+                child: Text('Ignis Poz Galerisi', style: GoogleFonts.outfit(color: theme.textPrimary, fontSize: 17, fontWeight: FontWeight.w900)),
+              ),
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.82,
+                  ),
+                  itemCount: poses.length,
+                  itemBuilder: (context, i) => Container(
+                    decoration: BoxDecoration(
+                      color: theme.background,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: theme.borderSubtle),
+                    ),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                            child: Image.asset(
+                              AppBranding.poseAsset(poses[i]),
+                              fit: BoxFit.contain,
+                              alignment: Alignment.bottomCenter,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Icon(PhosphorIcons.warningBold, color: theme.dangerRed),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Text(poses[i], style: GoogleFonts.inter(color: theme.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
